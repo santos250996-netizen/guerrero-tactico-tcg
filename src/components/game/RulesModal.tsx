@@ -118,34 +118,50 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             </ol>
           </section>
 
-          {/* Mazo */}
+          {/* Mazo con arte */}
           <section>
-            <h3 className="mb-1 text-base font-bold text-white">
-              El mazo del Guerrero
+            <h3 className="mb-2 text-base font-bold text-white">
+              El mazo del Guerrero (12 cartas)
             </h3>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {WARRIOR_DECK.map((c) => {
                 const cat = CATEGORY_META[c.category];
                 return (
                   <div
                     key={c.id}
                     className={cn(
-                      "rounded border bg-zinc-900/60 p-2",
+                      "flex flex-col overflow-hidden rounded-lg border bg-zinc-900/60",
                       cat.borderClass
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className={cn("text-xs font-bold", cat.textClass)}>
+                    {/* Art thumbnail */}
+                    <div className="relative h-24 w-full overflow-hidden bg-zinc-950">
+                      <img
+                        src={`/cards/${c.id}.png`}
+                        alt={c.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                      {/* Power + cost badges overlay */}
+                      <div className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-sky-600 text-[9px] font-bold text-white">
+                        {c.cost}
+                      </div>
+                      <div className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-rose-600 text-[9px] font-bold text-white">
+                        {c.power}
+                      </div>
+                    </div>
+                    <div className="p-1.5">
+                      <div className={cn("text-[11px] font-bold", cat.textClass)}>
                         {c.name}
-                      </span>
-                      <span className="text-[10px] text-zinc-500">
-                        ⚡{c.cost} · ⚔{c.power}
-                      </span>
+                      </div>
+                      <div className="text-[9px] uppercase text-zinc-500">
+                        {cat.label} · {c.subtypes.join(" / ")}
+                      </div>
+                      <div className="mt-1 text-[10px] leading-tight text-zinc-300">
+                        {c.text}
+                      </div>
                     </div>
-                    <div className="mt-1 text-[10px] uppercase text-zinc-400">
-                      {cat.label} · {c.subtypes.join(" / ")}
-                    </div>
-                    <div className="mt-1 text-[11px] text-zinc-300">{c.text}</div>
                   </div>
                 );
               })}

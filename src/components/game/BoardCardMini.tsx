@@ -23,18 +23,29 @@ export function BoardCardMini({ card, side }: BoardCardMiniProps) {
       exit={{ opacity: 0, scale: 0.5 }}
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
       className={cn(
-        "flex h-9 w-full items-center justify-between gap-1 rounded border px-1.5 text-[10px]",
+        "flex h-10 w-full items-center gap-1.5 overflow-hidden rounded border px-1 text-[10px]",
         cat.bgClass,
         cat.borderClass
       )}
     >
-      <span className="flex min-w-0 items-center gap-1">
-        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", cat.bgClass.replace("/15", ""))} />
-        <span className="truncate font-semibold text-zinc-100">{card.name}</span>
+      {/* Thumbnail */}
+      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-sm bg-zinc-950">
+        <img
+          src={`/cards/${card.defId}.png`}
+          alt={card.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          draggable={false}
+        />
+      </div>
+      {/* Name */}
+      <span className="min-w-0 flex-1 truncate font-semibold text-zinc-100">
+        {card.name}
       </span>
+      {/* Power */}
       <span
         className={cn(
-          "shrink-0 rounded px-1 text-[10px] font-bold tabular-nums",
+          "shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums",
           isBuffed
             ? "bg-emerald-500/30 text-emerald-200"
             : isDebuffed
