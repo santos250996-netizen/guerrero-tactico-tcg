@@ -166,7 +166,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
               className="flex h-9 items-center justify-center text-[9px] text-zinc-600"
             >
               {canDrop
-                ? `Jugar aquí${cardFitsLane ? " (+4 sinergia)" : ""}`
+                ? `Jugar aquí${cardFitsLane ? " (+2 sinergia)" : ""}`
                 : "Vacío"}
             </div>
           ) : (

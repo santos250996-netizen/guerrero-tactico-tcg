@@ -78,7 +78,7 @@ interface HandMutation {
 /**
  * Compute the final power of a card being played into `lane`, including:
  *   - in-hand bonus (e.g. Grito de Batalla)
- *   - subtype synergy (+4)
+ *   - subtype synergy (+2)
  *   - field bonus (+3 if category matches lane bonus category)
  *   - the card's own conditional effect (effectId)
  *
@@ -90,8 +90,8 @@ export function computeEffect(ctx: EffectContext): EffectResult {
 
   let finalPower = card.power + handBonus;
 
-  // 1. Subtype synergy: +4 if card has the lane as a subtype
-  if (card.subtypes.includes(lane)) finalPower += 4;
+  // 1. Subtype synergy: +2 if card has the lane as a subtype
+  if (card.subtypes.includes(lane)) finalPower += 2;
 
   // 2. Field bonus: +3 if card's category matches lane bonus category
   const fieldBonus = LANE_META[lane];
@@ -179,21 +179,25 @@ export function computeEffect(ctx: EffectContext): EffectResult {
       break;
     }
     case "filotormenta": {
-      // -1 to ALL enemy cards on the board
+      // -1 to enemy cards on the board, capped at the first 6 cards found.
+      let debuffed = 0;
       for (const ln of LANE_IDS) {
         for (const c of board[ln][enemySide]) {
+          if (debuffed >= 6) break;
           mutations.push({ side: enemySide, lane: ln, uid: c.uid, powerDelta: -1 });
+          debuffed++;
         }
+        if (debuffed >= 6) break;
       }
       break;
     }
     case "avatar_titan": {
-      // +1 for each card on the board (both sides, all lanes)
+      // +1 for each card on the board (both sides, all lanes), capped at +10.
       const total = LANE_IDS.reduce(
         (acc, ln) => acc + board[ln].player.length + board[ln].enemy.length,
         0
       );
-      finalPower += total;
+      finalPower += Math.min(10, total);
       break;
     }
     case "none":

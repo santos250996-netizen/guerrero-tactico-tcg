@@ -96,8 +96,8 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <p className="text-zinc-300">
               Cada carta lista uno o más subtipos (armas/proteccion/furia). Si la
               juegas en un carril que coincide con uno de sus subtipos, gana{" "}
-              <strong className="text-emerald-400">+4 de poder</strong> adicional. El
-              bono de campo (+3) y la sinergia (+4) son acumulables.
+              <strong className="text-emerald-400">+2 de poder</strong> adicional. El
+              bono de campo (+3) y la sinergia (+2) son acumulables.
             </p>
           </section>
 

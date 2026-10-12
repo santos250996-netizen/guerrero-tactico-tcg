@@ -110,7 +110,7 @@ export const WARRIOR_DECK: CardDef[] = [
     subtypes: ["armas", "furia"],
     cost: 4,
     power: 12,
-    text: "Resta -1 a todos los rivales en mesa",
+    text: "Resta -1 a rivales en mesa (máx 6)",
     effectId: "filotormenta",
   },
   {
@@ -120,7 +120,7 @@ export const WARRIOR_DECK: CardDef[] = [
     subtypes: ["armas", "proteccion", "furia"],
     cost: 5,
     power: 16,
-    text: "+1 por cada carta en la mesa",
+    text: "+1 por carta en mesa (máx +10)",
     effectId: "avatar_titan",
   },
 ];
