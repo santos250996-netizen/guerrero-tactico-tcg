@@ -223,14 +223,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     // 1. Enemy plays its turn.
     // The enemy uses the SAME energy budget as the player had this turn (maxEnergy),
-    // and draws a fresh hand of 3 random cards from a virtual infinite deck pool.
+    // and draws a fresh hand of 3 random cards from the 12-card deck pool (no duplicates).
     const enemyEnergy = state.maxEnergy;
-    // Generate an enemy hand: pull 3 random cards from warrior deck pool
     const enemyHand: HandCard[] = [];
     const deckPool = [...buildDrawPile()];
     for (let i = 0; i < 3 && deckPool.length > 0; i++) {
       const idx = Math.floor(Math.random() * deckPool.length);
-      const c = deckPool[idx];
+      const c = deckPool.splice(idx, 1)[0]; // remove from pool to avoid duplicates
       enemyHand.push({ ...c, uid: uuidv4(), handBonus: 0 });
     }
 

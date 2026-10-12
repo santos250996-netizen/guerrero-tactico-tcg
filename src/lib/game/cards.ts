@@ -126,11 +126,8 @@ export const WARRIOR_DECK: CardDef[] = [
 ];
 
 export function buildDrawPile(): CardDef[] {
-  // Duplicate deck (2x) and Fisher-Yates shuffle.
-  const pile: CardDef[] = [];
-  for (let i = 0; i < 2; i++) {
-    for (const c of WARRIOR_DECK) pile.push({ ...c });
-  }
+  // 12 unique cards, no duplicates — Fisher-Yates shuffle.
+  const pile: CardDef[] = WARRIOR_DECK.map((c) => ({ ...c }));
   for (let i = pile.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pile[i], pile[j]] = [pile[j], pile[i]];
