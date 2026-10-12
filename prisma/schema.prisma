@@ -1,0 +1,29 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Match {
+  id           String   @id @default(cuid())
+  result       String   // "WIN" | "LOSS" | "DRAW"
+  playerWins   Int      // number of lanes won by player
+  enemyWins    Int      // number of lanes won by enemy
+  draws        Int      // number of tied lanes
+  turnsPlayed  Int      // total turns played
+  scorePlayer  Int      // sum of player power across all lanes
+  scoreEnemy   Int      // sum of enemy power across all lanes
+  laneArmasP   Int      // player power in armas lane
+  laneArmasE   Int      // enemy power in armas lane
+  laneProtP    Int      // player power in proteccion lane
+  laneProtE    Int      // enemy power in proteccion lane
+  laneFuriaP   Int      // player power in furia lane
+  laneFuriaE   Int      // enemy power in furia lane
+  createdAt    DateTime @default(now())
+}
