@@ -32,9 +32,10 @@ export default function Home() {
         onOpenHistory={() => setHistoryOpen(true)}
       />
 
-      <main className="flex flex-1 flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:px-4">
-        {/* Board area */}
-        <div className="flex flex-1 flex-col gap-2 md:grid md:grid-cols-3 md:gap-2">
+      {/* Contenedor centrado con max-width: SIEMPRE 3 columnas, sin apilar en móvil */}
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:px-4">
+        {/* Board area — 3 columnas SIEMPRE (incluso en móvil, estrechas) */}
+        <div className="grid grid-cols-3 gap-2">
           {LANE_IDS.map((lane: LaneId) => (
             <LaneComponent key={lane} laneId={lane} />
           ))}
