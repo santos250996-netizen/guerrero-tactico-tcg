@@ -58,34 +58,66 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             </p>
           </section>
 
-          {/* Carriles */}
+          {/* Carriles y bonos */}
           <section>
             <h3 className="mb-1 flex items-center gap-2 text-base font-bold text-white">
-              <Shield className="h-4 w-4 text-sky-400" /> Carriles y bonos
+              <Shield className="h-4 w-4 text-sky-400" /> Carriles y bonos dinámicos
             </h3>
-            <ul className="space-y-1.5 text-zinc-300">
-              <li className="flex items-start gap-2">
-                <span>⚔️</span>
-                <span>
-                  <strong className="text-amber-300">ARMAS</strong> — bono de campo{" "}
-                  <strong>+3</strong> a cartas de la categoría <em>Ataque</em>.
-                </span>
+            <p className="text-zinc-300">
+              Hay 3 carriles: <strong className="text-amber-300">ARMAS</strong>,{" "}
+              <strong className="text-sky-300">PROTECCIÓN</strong> y{" "}
+              <strong className="text-rose-300">FURIA</strong>. En cada partida,
+              <strong> 2 carriles reciben un bono aleatorio</strong> (distinto entre
+              sí) y el tercero se queda <strong>sin bono</strong>. El bono asignado a
+              cada carril se decide al iniciar la partida y se muestra como una
+              insignia de color en la cabecera del carril:
+            </p>
+            <ul className="mt-2 space-y-1 text-zinc-300">
+              <li>
+                <span className="rounded bg-emerald-700/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-50">
+                  Coste -1
+                </span>{" "}
+                <span className="rounded bg-emerald-700/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-50">
+                  Ataque +3
+                </span>{" "}
+                <span className="rounded bg-emerald-700/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-50">
+                  Ítem +3
+                </span>{" "}
+                <span className="rounded bg-emerald-700/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-50">
+                  Magia +3
+                </span>{" "}
+                <span className="text-emerald-300">→ buffs positivos (verde)</span>
               </li>
-              <li className="flex items-start gap-2">
-                <span>🛡️</span>
-                <span>
-                  <strong className="text-sky-300">PROTECCIÓN</strong> — bono de
-                  campo <strong>+3</strong> a cartas de la categoría <em>Ítem</em>.
-                </span>
+              <li>
+                <span className="rounded bg-rose-800/80 px-1.5 py-0.5 text-[10px] font-bold text-rose-50">
+                  Coste +1
+                </span>{" "}
+                <span className="text-rose-300">→ penalización (rojo)</span>
               </li>
-              <li className="flex items-start gap-2">
-                <span>🔥</span>
-                <span>
-                  <strong className="text-rose-300">FURIA</strong> — bono de campo{" "}
-                  <strong>+3</strong> a cartas de la categoría <em>Magia</em>.
-                </span>
+              <li>
+                <span className="rounded bg-amber-700/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-50">
+                  Solo 1 por lado
+                </span>{" "}
+                <span className="rounded bg-amber-700/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-50">
+                  Solo 3 por lado
+                </span>{" "}
+                <span className="rounded bg-amber-700/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-50">
+                  Solo coste 1
+                </span>{" "}
+                <span className="rounded bg-amber-700/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-50">
+                  Solo coste 3
+                </span>{" "}
+                <span className="rounded bg-amber-700/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-50">
+                  Solo coste 5
+                </span>{" "}
+                <span className="text-amber-300">→ restricciones (ámbar)</span>
               </li>
             </ul>
+            <p className="mt-2 text-zinc-400">
+              Cada partida es distinta: a veces conviene ir fuerte en Armas, a veces
+              Protección no tiene bono y hay que evitarla. La estrategia se decide al
+              ver los bonos asignados.
+            </p>
           </section>
 
           {/* Sinergia de subtipo */}
@@ -96,8 +128,9 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
             <p className="text-zinc-300">
               Cada carta lista uno o más subtipos (armas/proteccion/furia). Si la
               juegas en un carril que coincide con uno de sus subtipos, gana{" "}
-              <strong className="text-emerald-400">+2 de poder</strong> adicional. El
-              bono de campo (+3) y la sinergia (+2) son acumulables.
+              <strong className="text-emerald-400">+2 de poder</strong> adicional.
+              Esta sinergia se suma al bono dinámico del carril (si la categoría
+              de la carta coincide con el bono asignado).
             </p>
           </section>
 

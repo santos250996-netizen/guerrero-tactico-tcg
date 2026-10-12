@@ -1,37 +1,48 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import type { LaneId } from "@/lib/game/types";
+import type { LaneBonus, LaneId } from "@/lib/game/types";
 import { LANE_META } from "@/lib/game/types";
 import { useGameStore } from "@/store/gameStore";
 import { BoardCardMini } from "./BoardCardMini";
+import {
+  getEffectiveCost,
+  getLaneMaxCards,
+  isCardCostAllowed,
+} from "@/lib/game/engine";
 import { cn } from "@/lib/utils";
 
 const LANE_COLOR_CLASSES: Record<
   string,
-  { bg: string; border: string; text: string; ring: string; scoreWin: string }
+  { bg: string; border: string; text: string; ring: string }
 > = {
   amber: {
     bg: "bg-amber-950/40",
     border: "border-amber-700/40",
     text: "text-amber-300",
     ring: "ring-amber-400/60",
-    scoreWin: "text-amber-300",
   },
   sky: {
     bg: "bg-sky-950/40",
     border: "border-sky-700/40",
     text: "text-sky-300",
     ring: "ring-sky-400/60",
-    scoreWin: "text-sky-300",
   },
   rose: {
     bg: "bg-rose-950/40",
     border: "border-rose-700/40",
     text: "text-rose-300",
     ring: "ring-rose-400/60",
-    scoreWin: "text-rose-300",
   },
+};
+
+const BONUS_CHIP_CLASS: Record<
+  LaneBonus["flavor"],
+  { chip: string }
+> = {
+  positive: { chip: "bg-emerald-700/80 border-emerald-400/50 text-emerald-50" },
+  penalty: { chip: "bg-rose-800/80 border-rose-400/50 text-rose-50" },
+  restrictive: { chip: "bg-amber-700/80 border-amber-400/50 text-amber-50" },
 };
 
 interface LaneComponentProps {
@@ -47,6 +58,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
   const hand = useGameStore((s) => s.hand);
   const energy = useGameStore((s) => s.energy);
   const phase = useGameStore((s) => s.phase);
+  const laneBonuses = useGameStore((s) => s.laneBonuses);
   const playSelectedCardIntoLane = useGameStore((s) => s.playSelectedCardIntoLane);
 
   const laneState = board[laneId];
@@ -55,23 +67,36 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
   const playerWinning = playerScore > enemyScore;
   const enemyWinning = enemyScore > playerScore;
 
+  const laneBonus = laneBonuses[laneId];
+  const maxCards = getLaneMaxCards(laneBonus);
+
   const selectedCard = selectedCardUid
     ? hand.find((c) => c.uid === selectedCardUid)
     : null;
+
+  // canDrop now honors lane bonus restrictions
   const canDrop =
     phase === "playing" &&
     selectedCard !== null &&
-    selectedCard.cost <= energy &&
-    laneState.player.length < 4;
+    isCardCostAllowed(selectedCard.cost, laneBonus) &&
+    getEffectiveCost(selectedCard.cost, laneBonus) <= energy &&
+    laneState.player.length < maxCards;
+
   const cardFitsLane =
     selectedCard !== null && selectedCard.subtypes.includes(laneId);
 
   const onLaneClick = () => {
-    // Always attempt the play when there's a selected card; the store will
-    // surface an invalidPlayMsg (e.g. "Sin energía suficiente") if needed.
     if (selectedCard !== null && phase === "playing") {
       playSelectedCardIntoLane(laneId);
     }
+  };
+
+  // Hint message for the drop zone when empty
+  const buildHint = () => {
+    if (!canDrop) return "Vacío";
+    const parts: string[] = [`Jugar aquí`];
+    if (cardFitsLane) parts.push("(+2 sinergia)");
+    return parts.join(" ");
   };
 
   return (
@@ -87,7 +112,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
       role="button"
       aria-label={`Carril ${meta.title}`}
     >
-      {/* Lane header */}
+      {/* Lane header with title + dynamic bonus chip */}
       <div className="flex items-center justify-between rounded bg-black/40 px-1.5 py-1">
         <div className="flex items-center gap-1">
           <span className="text-sm">{meta.emoji}</span>
@@ -100,9 +125,21 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
             {meta.title}
           </span>
         </div>
-        <span className="rounded border border-white/10 bg-black/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-300">
-          {meta.bonusLabel}
-        </span>
+        {laneBonus ? (
+          <span
+            title={laneBonus.description}
+            className={cn(
+              "rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+              BONUS_CHIP_CLASS[laneBonus.flavor].chip
+            )}
+          >
+            {laneBonus.label}
+          </span>
+        ) : (
+          <span className="rounded border border-white/10 bg-black/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-500">
+            Sin bono
+          </span>
+        )}
       </div>
 
       {/* Enemy slots */}
@@ -165,9 +202,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
               key="player-empty"
               className="flex h-9 items-center justify-center text-[9px] text-zinc-600"
             >
-              {canDrop
-                ? `Jugar aquí${cardFitsLane ? " (+2 sinergia)" : ""}`
-                : "Vacío"}
+              {buildHint()}
             </div>
           ) : (
             laneState.player.map((c) => (

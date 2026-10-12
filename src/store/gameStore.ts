@@ -7,6 +7,7 @@ import type {
   GamePhase,
   GameResult,
   HandCard,
+  LaneBonuses,
   LaneId,
 } from "@/lib/game/types";
 import {
@@ -16,9 +17,13 @@ import {
   computeFinalResult,
   type AIPlay,
   type Board,
+  getEffectiveCost,
+  getLaneMaxCards,
+  isCardCostAllowed,
   LANE_IDS,
   planEnemyTurn,
   playCard,
+  rollLaneBonuses,
 } from "@/lib/game/engine";
 import { buildDrawPile } from "@/lib/game/cards";
 import { v4 as uuidv4 } from "uuid";
@@ -33,15 +38,18 @@ interface GameStoreState {
   finalResult: FinalResult | null;
 
   // Cards
-  drawPile: HandCard[]; // remaining deck (HandCard with uid + handBonus=0)
+  drawPile: HandCard[];
   hand: HandCard[];
   board: Board;
 
+  // Per-game lane bonuses (2 lanes have one, 1 has none)
+  laneBonuses: LaneBonuses;
+
   // UI state
   selectedCardUid: string | null;
-  invalidPlayMsg: string | null; // transient message (e.g. "Sin energía")
-  lastEnemyPlays: AIPlay[]; // for AI animation feedback
-  log: LogEntry[]; // action log
+  invalidPlayMsg: string | null;
+  lastEnemyPlays: AIPlay[];
+  log: LogEntry[];
 
   // Actions
   initGame: () => void;
@@ -107,6 +115,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   drawPile: [],
   hand: [],
   board: emptyBoard(),
+  laneBonuses: { armas: null, proteccion: null, furia: null },
   selectedCardUid: null,
   invalidPlayMsg: null,
   lastEnemyPlays: [],
@@ -114,9 +123,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   initGame: () => {
     const pile = buildDrawPile().map((c) => ({ ...c, uid: "", handBonus: 0 }));
-    // assign uids
     const drawPile = pile.map((c) => ({ ...c, uid: uuidv4() }));
     const hand = freshHandFromPile(drawPile, STARTING_HAND_SIZE);
+    const laneBonuses = rollLaneBonuses();
+    const bonusSummary = LANE_IDS.map((ln) => {
+      const b = laneBonuses[ln];
+      return b ? `${ln}: ${b.label}` : `${ln}: sin bono`;
+    }).join(" · ");
     set({
       turn: 1,
       energy: 1,
@@ -127,10 +140,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       drawPile,
       hand,
       board: emptyBoard(),
+      laneBonuses,
       selectedCardUid: null,
       invalidPlayMsg: null,
       lastEnemyPlays: [],
-      log: pushLog([], 1, "system", "¡Comienza la batalla! Tienes 6 turnos.", "info"),
+      log: pushLog(
+        pushLog([], 1, "system", "¡Comienza la batalla! Tienes 6 turnos.", "info"),
+        1,
+        "system",
+        `Bonos de carril: ${bonusSummary}.`,
+        "info"
+      ),
     });
   },
 
@@ -140,14 +160,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   canPlaySelected: (lane) => {
-    const { selectedCardUid, hand, board, energy } = get();
+    const { selectedCardUid, hand, board, energy, laneBonuses } = get();
     if (!selectedCardUid) return false;
     const card = hand.find((c) => c.uid === selectedCardUid);
     if (!card) return false;
-    if (card.cost > energy) return false;
-    if (board[lane].player.length >= 4) return false;
-    // Card's subtypes must include lane OR... actually any card can go in any lane.
-    // The original game allowed any card in any lane (with subtype synergy bonus only).
+    const laneBonus = laneBonuses[lane];
+    if (!isCardCostAllowed(card.cost, laneBonus)) return false;
+    if (getEffectiveCost(card.cost, laneBonus) > energy) return false;
+    if (board[lane].player.length >= getLaneMaxCards(laneBonus)) return false;
     return true;
   },
 
@@ -159,16 +179,26 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const card = state.hand.find((c) => c.uid === state.selectedCardUid);
     if (!card) return;
 
-    if (card.cost > state.energy) {
+    const laneBonus = state.laneBonuses[lane];
+
+    // Pre-flight checks with friendly messages (before playCard throws)
+    if (!isCardCostAllowed(card.cost, laneBonus)) {
       set({
-        invalidPlayMsg: `Sin energía suficiente para "${card.name}" (costa ${card.cost}).`,
+        invalidPlayMsg: `"${card.name}" no se puede jugar en ${lane}: el bono exige coste exacto.`,
       });
       return;
     }
-
-    if (state.board[lane].player.length >= 4) {
+    const effCost = getEffectiveCost(card.cost, laneBonus);
+    if (effCost > state.energy) {
       set({
-        invalidPlayMsg: `El carril ${lane} está lleno (máx. 4 cartas).`,
+        invalidPlayMsg: `Sin energía suficiente para "${card.name}" (necesita ${effCost}${laneBonus?.kind === "cost_neg" || laneBonus?.kind === "cost_pos" ? " ajustado por bono" : ""}, tienes ${state.energy}).`,
+      });
+      return;
+    }
+    const maxCards = getLaneMaxCards(laneBonus);
+    if (state.board[lane].player.length >= maxCards) {
+      set({
+        invalidPlayMsg: `El carril ${lane} está lleno (máx. ${maxCards} por bando).`,
       });
       return;
     }
@@ -180,7 +210,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         state.energy,
         "player",
         lane,
-        card
+        card,
+        laneBonus
       );
       let log = pushLog(
         state.log,
@@ -189,7 +220,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         `Juega "${card.name}" en ${lane} (Poder ${res.playedCard.currentPower}).`,
         "play"
       );
-      // Log mutations
       for (const m of res.mutations) {
         const verb = m.powerDelta > 0 ? "buff" : "debuff";
         const sign = m.powerDelta > 0 ? "+" : "";
@@ -221,26 +251,32 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const state = get();
     if (state.phase !== "playing") return;
 
-    // 1. Enemy plays its turn.
-    // The enemy uses the SAME energy budget as the player had this turn (maxEnergy),
-    // and draws a fresh hand of 3 random cards from the 12-card deck pool (no duplicates).
+    // 1. Enemy plays its turn with the SAME energy budget as the player had this turn.
     const enemyEnergy = state.maxEnergy;
     const enemyHand: HandCard[] = [];
     const deckPool = [...buildDrawPile()];
     for (let i = 0; i < 3 && deckPool.length > 0; i++) {
       const idx = Math.floor(Math.random() * deckPool.length);
-      const c = deckPool.splice(idx, 1)[0]; // remove from pool to avoid duplicates
+      const c = deckPool.splice(idx, 1)[0];
       enemyHand.push({ ...c, uid: uuidv4(), handBonus: 0 });
     }
 
-    // Plan and execute the AI plays on the actual board
-    const plan = planEnemyTurn(state.board, enemyHand, enemyEnergy);
+    // Plan and execute the AI plays on the actual board, respecting lane bonuses.
+    const plan = planEnemyTurn(state.board, enemyHand, enemyEnergy, state.laneBonuses);
     let workBoard = state.board;
     let workEnergy = enemyEnergy;
     let log = state.log;
     for (const play of plan) {
       try {
-        const res = playCard(workBoard, enemyHand, workEnergy, "enemy", play.lane, play.card);
+        const res = playCard(
+          workBoard,
+          enemyHand,
+          workEnergy,
+          "enemy",
+          play.lane,
+          play.card,
+          state.laneBonuses[play.lane]
+        );
         workBoard = res.board;
         workEnergy = res.remainingEnergy;
         log = pushLog(

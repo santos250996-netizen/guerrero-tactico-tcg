@@ -4,11 +4,13 @@ import type {
   EffectId,
   FinalResult,
   HandCard,
+  LaneBonus,
+  LaneBonuses,
   LaneId,
   LaneOutcome,
   LaneState,
 } from "./types";
-import { LANE_META } from "./types";
+import { LANE_BONUS_POOL } from "./types";
 import { v4 as uuidv4 } from "uuid";
 
 export type Board = Record<LaneId, LaneState>;
@@ -19,6 +21,72 @@ export const MAX_TURNS = 6;
 export const MAX_HAND_SIZE = 5;
 export const MAX_LANE_CARDS = 4;
 export const STARTING_HAND_SIZE = 4;
+
+// ---------------------------------------------------------------------------
+// Per-game lane bonuses: 2 random lanes get a bonus (no repeats), 1 has none
+// ---------------------------------------------------------------------------
+
+export function rollLaneBonuses(): LaneBonuses {
+  // Pick 2 random lanes (no repeats)
+  const lanes = [...LANE_IDS];
+  for (let i = lanes.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+  }
+  const chosenLanes = lanes.slice(0, 2);
+  const remainingLane = lanes[2];
+
+  // Pick 2 random bonus kinds (no repeats)
+  const pool = [...LANE_BONUS_POOL];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const chosenBonuses = pool.slice(0, 2);
+
+  return {
+    [chosenLanes[0]]: chosenBonuses[0],
+    [chosenLanes[1]]: chosenBonuses[1],
+    [remainingLane]: null,
+  } as LaneBonuses;
+}
+
+// ---------------------------------------------------------------------------
+// Lane bonus helpers: effective cost, max cards per side, validation
+// ---------------------------------------------------------------------------
+
+export function getEffectiveCost(baseCost: number, bonus: LaneBonus | null): number {
+  if (!bonus) return baseCost;
+  if (bonus.kind === "cost_neg") return Math.max(1, baseCost - 1);
+  if (bonus.kind === "cost_pos") return baseCost + 1;
+  return baseCost;
+}
+
+export function getLaneMaxCards(bonus: LaneBonus | null): number {
+  if (!bonus) return MAX_LANE_CARDS;
+  if (bonus.kind === "limit_1") return 1;
+  if (bonus.kind === "limit_3") return 3;
+  return MAX_LANE_CARDS;
+}
+
+export function isCardCostAllowed(cardCost: number, bonus: LaneBonus | null): boolean {
+  if (!bonus) return true;
+  if (bonus.kind === "cost_only_1") return cardCost === 1;
+  if (bonus.kind === "cost_only_3") return cardCost === 3;
+  if (bonus.kind === "cost_only_5") return cardCost === 5;
+  return true;
+}
+
+export function getLaneBonusPower(
+  cardCategory: CardDef["category"],
+  bonus: LaneBonus | null
+): number {
+  if (!bonus) return 0;
+  if (bonus.kind === "cat_ataque" && cardCategory === "Ataque") return 3;
+  if (bonus.kind === "cat_item" && cardCategory === "Ítem") return 3;
+  if (bonus.kind === "cat_magia" && cardCategory === "Magia") return 3;
+  return 0;
+}
 
 // ---------------------------------------------------------------------------
 // Power & scoring helpers
@@ -52,6 +120,7 @@ interface EffectContext {
   card: CardDef; // card being played
   handBonus: number; // bonus from in-hand effects (e.g. Grito de Batalla)
   hand: HandCard[]; // remaining hand (for effects that touch hand)
+  laneBonus: LaneBonus | null; // per-game bonus assigned to this lane
 }
 
 interface EffectResult {
@@ -79,23 +148,22 @@ interface HandMutation {
  * Compute the final power of a card being played into `lane`, including:
  *   - in-hand bonus (e.g. Grito de Batalla)
  *   - subtype synergy (+2)
- *   - field bonus (+3 if category matches lane bonus category)
+ *   - per-game lane bonus (+3 to matching category, if any)
  *   - the card's own conditional effect (effectId)
  *
  * Also returns any side-effect mutations (debuffs to enemy, buffs to allies,
  * hand buffs for Grito de Batalla, etc.).
  */
 export function computeEffect(ctx: EffectContext): EffectResult {
-  const { board, side, lane, card, handBonus, hand } = ctx;
+  const { board, side, lane, card, handBonus, hand, laneBonus } = ctx;
 
   let finalPower = card.power + handBonus;
 
   // 1. Subtype synergy: +2 if card has the lane as a subtype
   if (card.subtypes.includes(lane)) finalPower += 2;
 
-  // 2. Field bonus: +3 if card's category matches lane bonus category
-  const fieldBonus = LANE_META[lane];
-  if (card.category === fieldBonus.bonusCategory) finalPower += fieldBonus.bonusValue;
+  // 2. Per-game lane bonus: +3 if category matches the bonus's category
+  finalPower += getLaneBonusPower(card.category, laneBonus);
 
   const mutations: BoardMutation[] = [];
   const handMutations: HandMutation[] = [];
@@ -231,7 +299,13 @@ export interface PlayResult {
 
 /**
  * Immutably play a card from the hand into a lane. Returns a new board+hand+energy.
- * Throws if invalid (not enough energy, lane full, card not in hand).
+ * Throws if invalid (not enough energy, lane full, cost-restricted, etc.).
+ *
+ * Honors the per-game lane bonus:
+ *   - cost_neg: card cost -1 (min 1) for energy check
+ *   - cost_pos: card cost +1 for energy check
+ *   - limit_1 / limit_3: max cards per side = 1 or 3 instead of 4
+ *   - cost_only_X: only cards with cost exactly X are allowed
  */
 export function playCard(
   board: Board,
@@ -239,13 +313,31 @@ export function playCard(
   energy: number,
   side: "player" | "enemy",
   lane: LaneId,
-  handCard: HandCard
+  handCard: HandCard,
+  laneBonus: LaneBonus | null
 ): PlayResult {
-  if (handCard.cost > energy) {
-    throw new Error(`Sin energía suficiente (necesita ${handCard.cost}, tiene ${energy})`);
+  // 1. Cost restriction (solo coste X)
+  if (!isCardCostAllowed(handCard.cost, laneBonus)) {
+    throw new Error(
+      `Esta carta no se puede jugar en ${lane}: el bono requiere coste exacto.`
+    );
   }
-  if (board[lane][side].length >= MAX_LANE_CARDS) {
-    throw new Error(`Carril ${lane} lleno (máximo ${MAX_LANE_CARDS} cartas)`);
+
+  // 2. Effective cost (with cost_neg / cost_pos modifiers)
+  const effectiveCost = getEffectiveCost(handCard.cost, laneBonus);
+  if (effectiveCost > energy) {
+    throw new Error(
+      `Sin energía suficiente (necesita ${effectiveCost}, tiene ${energy})` +
+        (laneBonus?.kind === "cost_neg" || laneBonus?.kind === "cost_pos"
+          ? ` (ajustado por bono del carril)`
+          : "")
+    );
+  }
+
+  // 3. Lane capacity (limit_1 / limit_3 / default 4)
+  const maxCards = getLaneMaxCards(laneBonus);
+  if (board[lane][side].length >= maxCards) {
+    throw new Error(`Carril ${lane} lleno (máximo ${maxCards} carta(s) por bando).`);
   }
 
   const effect = computeEffect({
@@ -255,6 +347,7 @@ export function playCard(
     card: handCard,
     handBonus: handCard.handBonus,
     hand: hand.filter((c) => c.uid !== handCard.uid),
+    laneBonus,
   });
 
   // Build a NEW board with mutations applied
@@ -313,7 +406,7 @@ export function playCard(
   return {
     board: newBoard,
     hand: newHand,
-    remainingEnergy: energy - handCard.cost,
+    remainingEnergy: energy - effectiveCost,
     playedCard: newCard,
     mutations: effect.mutations,
   };
@@ -343,10 +436,17 @@ export function scoreAIPlay(
   hand: HandCard[],
   energy: number,
   card: HandCard,
-  lane: LaneId
+  lane: LaneId,
+  laneBonus: LaneBonus | null
 ): number {
-  if (card.cost > energy) return -Infinity;
-  if (board[lane].enemy.length >= MAX_LANE_CARDS) return -Infinity;
+  // Respect lane bonus restrictions: cost_only_X filter
+  if (!isCardCostAllowed(card.cost, laneBonus)) return -Infinity;
+
+  const effectiveCost = getEffectiveCost(card.cost, laneBonus);
+  if (effectiveCost > energy) return -Infinity;
+
+  const maxCards = getLaneMaxCards(laneBonus);
+  if (board[lane].enemy.length >= maxCards) return -Infinity;
 
   const enemySide: "player" | "enemy" = "enemy";
   const allySide: "player" | "enemy" = "player";
@@ -357,7 +457,7 @@ export function scoreAIPlay(
   // Simulate the play
   let sim;
   try {
-    sim = playCard(board, hand, energy, enemySide, lane, card);
+    sim = playCard(board, hand, energy, enemySide, lane, card, laneBonus);
   } catch {
     return -Infinity;
   }
@@ -373,9 +473,9 @@ export function scoreAIPlay(
   score += gain * 1.0;
 
   // 2. Bonus for turning the lane around (loss -> win or tie -> win)
-  if (oldMargin < 0 && newMargin >= 0) score += 80; // turning loss into tie/win
-  if (oldMargin < 0 && newMargin > 0) score += 40; // turning loss into win
-  if (oldMargin === 0 && newMargin > 0) score += 60; // turning tie into win
+  if (oldMargin < 0 && newMargin >= 0) score += 80;
+  if (oldMargin < 0 && newMargin > 0) score += 40;
+  if (oldMargin === 0 && newMargin > 0) score += 60;
 
   // 3. Penalty for playing in already-won lane (waste)
   if (oldMargin > 10) score -= 50;
@@ -387,12 +487,11 @@ export function scoreAIPlay(
   // 5. Subtype synergy bonus is already in `gain` but add a small explicit bonus
   if (card.subtypes.includes(lane)) score += 5;
 
-  // 6. Field bonus already factored in `gain` — small explicit bonus for matching
-  const fieldBonus = LANE_META[lane];
-  if (card.category === fieldBonus.bonusCategory) score += 5;
+  // 6. Per-game lane category bonus (if matching): small explicit bonus
+  if (getLaneBonusPower(card.category, laneBonus) > 0) score += 5;
 
   // 7. Slight preference for spending closer to (but not exceeding) energy budget
-  const efficiency = card.cost / Math.max(1, energy);
+  const efficiency = effectiveCost / Math.max(1, energy);
   if (efficiency > 0.5 && efficiency <= 1.0) score += 4;
 
   // 8. Special: Filotormenta (board-wide debuff) is valuable when player has many cards
@@ -434,7 +533,8 @@ export function scoreAIPlay(
 export function planEnemyTurn(
   board: Board,
   hand: HandCard[],
-  energy: number
+  energy: number,
+  laneBonuses: LaneBonuses
 ): AIPlay[] {
   const plays: AIPlay[] = [];
   let workBoard: Board = board;
@@ -447,10 +547,14 @@ export function planEnemyTurn(
 
     let best: AIPlay | null = null;
     for (const card of workHand) {
-      if (card.cost > workEnergy) continue;
       for (const lane of LANE_IDS) {
-        if (workBoard[lane].enemy.length >= MAX_LANE_CARDS) continue;
-        const s = scoreAIPlay(workBoard, workHand, workEnergy, card, lane);
+        const laneBonus = laneBonuses[lane];
+        // Quick filter before scoring
+        if (!isCardCostAllowed(card.cost, laneBonus)) continue;
+        const effectiveCost = getEffectiveCost(card.cost, laneBonus);
+        if (effectiveCost > workEnergy) continue;
+        if (workBoard[lane].enemy.length >= getLaneMaxCards(laneBonus)) continue;
+        const s = scoreAIPlay(workBoard, workHand, workEnergy, card, lane, laneBonus);
         if (!best || s > best.score) {
           best = { card, lane, score: s };
         }
@@ -462,7 +566,15 @@ export function planEnemyTurn(
 
     // Apply the play to the working state
     try {
-      const res = playCard(workBoard, workHand, workEnergy, "enemy", best.lane, best.card);
+      const res = playCard(
+        workBoard,
+        workHand,
+        workEnergy,
+        "enemy",
+        best.lane,
+        best.card,
+        laneBonuses[best.lane]
+      );
       workBoard = res.board;
       workHand = res.hand;
       workEnergy = res.remainingEnergy;
