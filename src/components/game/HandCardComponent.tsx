@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Coins, Crosshair, Sparkles } from "lucide-react";
+import { Zap, Swords, Sparkles } from "lucide-react";
 import type { HandCard } from "@/lib/game/types";
 import { CATEGORY_META } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
@@ -34,31 +34,58 @@ export function HandCardComponent({
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
       onClick={onClick}
       className={cn(
-        "relative flex h-56 w-32 shrink-0 flex-col overflow-hidden rounded-lg border-2 bg-zinc-900 shadow-lg shadow-black/60",
+        // Premium TCG frame: metallic dark gradient with inner bevel + outer ring
+        "relative flex h-72 w-44 shrink-0 flex-col overflow-hidden rounded-xl border-2 p-1.5 shadow-2xl shadow-black/80",
+        "bg-gradient-to-b from-zinc-800 via-zinc-900 to-black",
         selected
-          ? "border-yellow-400 ring-2 ring-yellow-400/50"
-          : cat.borderClass,
+          ? "border-amber-400 ring-2 ring-amber-400/60"
+          : cn("border-zinc-700", cat.frameBorder),
         !affordable && "opacity-60 grayscale"
       )}
+      style={{
+        // Inner bevel using box-shadow
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 6px rgba(0,0,0,0.6), 0 6px 14px rgba(0,0,0,0.7)",
+      }}
     >
-      {/* Cost badge (top-left) */}
-      <div className="absolute -left-1.5 -top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-sky-600 text-xs font-bold text-white shadow-md">
-        {card.cost}
+      {/* Decorative rivets in corners */}
+      <span className="pointer-events-none absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-zinc-500 shadow-inner" />
+      <span className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-zinc-500 shadow-inner" />
+      <span className="pointer-events-none absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-zinc-500 shadow-inner" />
+      <span className="pointer-events-none absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-zinc-500 shadow-inner" />
+
+      {/* Cost badge (top-left): green with lightning icon */}
+      <div
+        className="absolute left-2 top-2 z-30 flex h-10 w-10 flex-col items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-emerald-400 to-emerald-700 text-white shadow-lg"
+        style={{ boxShadow: "0 0 8px rgba(16,185,129,0.6)" }}
+      >
+        <Zap className="h-3 w-3 fill-white" />
+        <span className="text-sm font-black leading-none">{card.cost}</span>
       </div>
 
-      {/* Power badge (top-right) */}
-      <div className="absolute -right-1.5 -top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-rose-600 text-xs font-bold text-white shadow-md">
-        {effectivePower}
+      {/* Power badge (top-right): red with crossed swords */}
+      <div
+        className="absolute right-2 top-2 z-30 flex h-10 w-10 flex-col items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-rose-500 to-rose-800 text-white shadow-lg"
+        style={{ boxShadow: "0 0 8px rgba(244,63,94,0.6)" }}
+      >
+        <Swords className="h-3 w-3" />
+        <span className="text-sm font-black leading-none">{effectivePower}</span>
       </div>
 
+      {/* Hand-bonus floating chip (visible when buffed) */}
       {card.handBonus ? (
-        <div className="absolute right-0 top-7 z-20 flex items-center gap-0.5 rounded-bl bg-emerald-500/95 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          <Sparkles className="h-3 w-3" />+{card.handBonus}
+        <div className="absolute right-2 top-12 z-30 flex items-center gap-0.5 rounded bg-emerald-500/95 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-md">
+          <Sparkles className="h-2.5 w-2.5" />+{card.handBonus}
         </div>
       ) : null}
 
-      {/* Card art (top ~55%) */}
-      <div className="relative h-28 w-full overflow-hidden border-b-2 border-black/60 bg-zinc-950">
+      {/* Art frame: rounded oval-ish (rounded-3xl rectangle for max art visibility) */}
+      <div
+        className={cn(
+          "relative mx-auto mt-2 h-32 w-full overflow-hidden rounded-2xl border-2 bg-zinc-950 shadow-inner",
+          cat.frameBorder
+        )}
+      >
         <img
           src={artUrl}
           alt={card.name}
@@ -66,49 +93,36 @@ export function HandCardComponent({
           loading="lazy"
           draggable={false}
         />
-        {/* gradient fade into the text area */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-zinc-900 to-transparent" />
-        {/* Category pill overlaid on the art */}
-        <div className="absolute left-1 top-1 z-10">
-          <span
-            className={cn(
-              "rounded border px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider backdrop-blur-sm",
-              cat.bgClass,
-              cat.textClass,
-              cat.borderClass
-            )}
-          >
-            {cat.label}
-          </span>
-        </div>
+        {/* Soft inner glow at bottom for depth */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5" />
+        {/* Subtle vignette to blend into frame */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/70 to-transparent" />
       </div>
 
-      {/* Text area (bottom ~45%) */}
-      <div className="flex flex-1 flex-col gap-0.5 px-1.5 py-1">
-        <div
-          className={cn(
-            "text-center text-[10px] font-bold uppercase leading-tight tracking-tight",
-            cat.textClass
-          )}
-        >
-          {card.name}
-        </div>
-        <div className="text-center text-[8px] font-bold uppercase tracking-wide text-zinc-400">
-          {card.subtypes.join(" / ")}
-        </div>
-        <div className="flex-1 rounded bg-black/50 px-1 py-0.5 text-center text-[8px] leading-tight text-zinc-300">
-          {card.text}
-        </div>
-        <div className="flex items-center justify-between text-[9px] text-zinc-500">
-          <span className="flex items-center gap-0.5">
-            <Coins className="h-2.5 w-2.5" />
-            {card.cost}
-          </span>
-          <span className="flex items-center gap-0.5 text-rose-400">
-            <Crosshair className="h-2.5 w-2.5" />
-            {effectivePower}
-          </span>
-        </div>
+      {/* Card name: golden with drop-shadow */}
+      <div className="mt-1 text-center text-[13px] font-black uppercase tracking-wider text-amber-400 [text-shadow:1px_1px_0_#000,0_0_4px_rgba(0,0,0,0.8)]">
+        {card.name}
+      </div>
+
+      {/* Subtypes: golden pill/shield */}
+      <div className="mx-auto mt-0.5 rounded border border-amber-600/60 bg-gradient-to-r from-amber-600 to-yellow-500 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-zinc-900 shadow">
+        {card.subtypes.join(" / ")}
+      </div>
+
+      {/* Effect text: parchment box */}
+      <div className="mt-1 flex-1 rounded border border-amber-200/30 bg-gradient-to-b from-amber-50 to-amber-100 px-1.5 py-1 text-[8px] leading-tight text-zinc-900 shadow-inner" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+        <span className="font-bold">Efecto:</span> {card.text}
+      </div>
+
+      {/* Category button at bottom */}
+      <div
+        className={cn(
+          "mt-1 rounded border-2 bg-gradient-to-b px-1 py-0.5 text-center text-[10px] font-black uppercase tracking-widest text-white shadow-md",
+          cat.buttonClass,
+          cat.buttonFace
+        )}
+      >
+        {cat.label}
       </div>
     </motion.button>
   );

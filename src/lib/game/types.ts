@@ -121,6 +121,12 @@ export const CATEGORY_META: Record<
     textClass: string;
     borderClass: string;
     label: string;
+    /** Class for the metallic category button at the bottom of the card */
+    buttonClass: string;
+    /** Class for the art frame metallic border */
+    frameBorder: string;
+    /** Tailwind gradient stops for the button face */
+    buttonFace: string;
   }
 > = {
   Ataque: {
@@ -129,6 +135,9 @@ export const CATEGORY_META: Record<
     textClass: "text-rose-300",
     borderClass: "border-rose-500/40",
     label: "ATAQUE",
+    buttonClass: "border-rose-300/60",
+    frameBorder: "border-rose-700/60",
+    buttonFace: "from-rose-950 to-rose-900",
   },
   Ítem: {
     color: "sky",
@@ -136,6 +145,9 @@ export const CATEGORY_META: Record<
     textClass: "text-sky-300",
     borderClass: "border-sky-500/40",
     label: "ÍTEM",
+    buttonClass: "border-sky-300/60",
+    frameBorder: "border-sky-700/60",
+    buttonFace: "from-sky-950 to-sky-900",
   },
   Magia: {
     color: "violet",
@@ -143,5 +155,8 @@ export const CATEGORY_META: Record<
     textClass: "text-violet-300",
     borderClass: "border-violet-500/40",
     label: "MAGIA",
+    buttonClass: "border-violet-300/60",
+    frameBorder: "border-violet-700/60",
+    buttonFace: "from-violet-950 to-violet-900",
   },
 };
