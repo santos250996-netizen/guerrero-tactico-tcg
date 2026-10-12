@@ -110,7 +110,7 @@ export function HandCardComponent({
       </div>
 
       {/* Effect text: parchment box */}
-      <div className="mt-1 flex-1 rounded border border-amber-200/30 bg-gradient-to-b from-amber-50 to-amber-100 px-1.5 py-1 text-[8px] leading-tight text-zinc-900 shadow-inner" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+      <div className="mt-1 flex-1 overflow-hidden rounded border border-amber-200/30 bg-gradient-to-b from-amber-50 to-amber-100 px-2 py-1 text-[10.5px] leading-snug text-zinc-900 shadow-inner" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
         <span className="font-bold">Efecto:</span> {card.text}
       </div>
 
