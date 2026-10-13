@@ -86,7 +86,7 @@ export const WARRIOR_DECK: CardDef[] = [
   {
     id: "provocar",
     name: "Provocar",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["proteccion"],
     cost: 1,
     power: 4,
@@ -97,7 +97,7 @@ export const WARRIOR_DECK: CardDef[] = [
   {
     id: "ira_rabiosa",
     name: "Ira Rabiosa",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia", "proteccion"],
     cost: 2,
     power: 6,
@@ -108,7 +108,7 @@ export const WARRIOR_DECK: CardDef[] = [
   {
     id: "grito_batalla",
     name: "Grito de Batalla",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 3,
     power: 8,
@@ -130,7 +130,7 @@ export const WARRIOR_DECK: CardDef[] = [
   {
     id: "avatar_titan",
     name: "Avatar del Titán",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["armas", "proteccion", "furia"],
     cost: 5,
     power: 16,
@@ -160,7 +160,7 @@ export const BASIC_CARDS: CardDef[] = [
   {
     id: "aprendiz",
     name: "Grito Salvaje",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 1,
     power: 6,
@@ -215,7 +215,7 @@ export const BASIC_CARDS: CardDef[] = [
   {
     id: "mago_joven",
     name: "Berserker",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 3,
     power: 12,
@@ -237,7 +237,7 @@ export const BASIC_CARDS: CardDef[] = [
   {
     id: "paladin",
     name: "Caudillo",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["proteccion", "furia"],
     cost: 4,
     power: 17,
@@ -270,7 +270,7 @@ export const BASIC_CARDS: CardDef[] = [
   {
     id: "hechicero",
     name: "Señor de la Guerra",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia", "proteccion"],
     cost: 5,
     power: 21,
@@ -345,7 +345,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "purificacion",
     name: "Purificación",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["proteccion", "furia"],
     cost: 3,
     power: 5,
@@ -356,7 +356,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "tormenta_rayos",
     name: "Tormenta de Relámpagos",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 4,
     power: 8,
@@ -367,7 +367,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "trampa_eterea",
     name: "Trampa Etérea",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["proteccion"],
     cost: 2,
     power: 3,
@@ -378,7 +378,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "reflejo_arcano",
     name: "Reflejo Arcano",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 3,
     power: 4,
@@ -400,7 +400,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "mimetismo",
     name: "Mimetismo",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia", "proteccion"],
     cost: 4,
     power: 5,
@@ -434,7 +434,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "despertar_bélico",
     name: "Despertar Bélico",
-    category: "Magia",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 4,
     power: 6,

@@ -1,6 +1,6 @@
 // Core game types for WoW TCG - Guerrero Táctico
 
-export type CardCategory = "Ataque" | "Ítem" | "Magia";
+export type CardCategory = "Ataque" | "Ítem" | "Acción";
 
 export type LaneId = "armas" | "proteccion" | "furia";
 
@@ -103,7 +103,7 @@ export type LaneBonusKind =
   | "cost_neg" // coste -1 (descuento de energía)
   | "cost_pos" // coste +1 (penalización de energía)
   | "cat_item" // Ítem +3
-  | "cat_magia" // Magia +3
+  | "cat_accion" // Acción +3
   | "cat_ataque" // Ataque +3
   | "limit_1" // Solo 1 por lado (max 1 carta por bando)
   | "cost_only_3" // Solo coste 3 (solo cartas con coste exacto 3)
@@ -141,9 +141,9 @@ export const LANE_BONUS_POOL: LaneBonus[] = [
     flavor: "positive",
   },
   {
-    kind: "cat_magia",
-    label: "Magia +3",
-    description: "+3 de poder a las cartas de Magia jugadas en este carril.",
+    kind: "cat_accion",
+    label: "Acción +3",
+    description: "+3 de poder a las cartas de Acción jugadas en este carril.",
     flavor: "positive",
   },
   {
@@ -222,12 +222,12 @@ export const CATEGORY_META: Record<
     frameBorder: "border-sky-700/60",
     buttonFace: "from-sky-950 to-sky-900",
   },
-  Magia: {
+  Acción: {
     color: "violet",
     bgClass: "bg-violet-500/15",
     textClass: "text-violet-300",
     borderClass: "border-violet-500/40",
-    label: "MAGIA",
+    label: "ACCIÓN",
     buttonClass: "border-violet-300/60",
     frameBorder: "border-violet-700/60",
     buttonFace: "from-violet-950 to-violet-900",

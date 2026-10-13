@@ -84,7 +84,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                   Ítem +3
                 </span>{" "}
                 <span className="rounded bg-emerald-700/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-50">
-                  Magia +3
+                  Acción +3
                 </span>{" "}
                 <span className="text-emerald-300">→ buffs positivos (verde)</span>
               </li>

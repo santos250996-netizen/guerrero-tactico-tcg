@@ -115,7 +115,7 @@ export function getLaneBonusPower(
   if (!bonus) return 0;
   if (bonus.kind === "cat_ataque" && cardCategory === "Ataque") return 3;
   if (bonus.kind === "cat_item" && cardCategory === "Ítem") return 3;
-  if (bonus.kind === "cat_magia" && cardCategory === "Magia") return 3;
+  if (bonus.kind === "cat_accion" && cardCategory === "Acción") return 3;
   return 0;
 }
 
