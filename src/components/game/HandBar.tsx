@@ -6,7 +6,6 @@ import { HandCardComponent } from "./HandCardComponent";
 import { AlertTriangle, Lock, LogOut, Activity } from "lucide-react";
 import { sfx } from "@/lib/sound";
 import type { LaneId } from "@/lib/game/types";
-import { cn } from "@/lib/utils";
 
 export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
   const hand = useGameStore((s) => s.hand);
@@ -78,12 +77,12 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
         ) : null}
       </div>
 
-      {/* When dragging, switch overflow to visible so the dragged card escapes the hand container */}
+      {/* Hand container — horizontal scroll when needed; data-hand-container is used by
+          HandCardComponent's pointer handlers for manual horizontal scrolling on mouse drag.
+          Touch users get native scrolling via `touch-action: pan-x` on the cards themselves. */}
       <div
-        className={cn(
-          "flex gap-1.5 px-2 pb-1 pt-0.5",
-          draggingCardUid ? "overflow-visible" : "no-scrollbar overflow-x-auto"
-        )}
+        data-hand-container
+        className="no-scrollbar flex gap-1.5 overflow-x-auto px-2 pb-1 pt-0.5"
       >
         <AnimatePresence mode="popLayout">
           {hand.length === 0 ? (
@@ -101,6 +100,7 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onPreview={(c) => useGameStore.getState().setPreviewCard?.(c as any)}
+                phase={phase}
               />
             ))
           )}

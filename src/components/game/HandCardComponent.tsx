@@ -6,6 +6,8 @@ import type { HandCard } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META, LANE_META } from "@/lib/game/types";
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState } from "react";
+import { sfx } from "@/lib/sound";
 
 interface HandCardComponentProps {
   card: HandCard;
@@ -15,6 +17,7 @@ interface HandCardComponentProps {
   onDragStart?: (cardUid: string) => void;
   onDragEnd?: () => void;
   onPreview?: (card: HandCard) => void;
+  phase: "playing" | "enemy" | "ended";
 }
 
 // Rarity letters — all uppercase per user spec (C / R / E / L)
@@ -33,6 +36,12 @@ const RARITY_SOLID_BG: Record<string, string> = {
   legendary: "bg-gradient-to-b from-amber-300 to-amber-600 text-zinc-950",
 };
 
+// Direction the user is dragging the card — determines whether we
+// drag the card to the board (vertical) or scroll the hand (horizontal).
+type DragMode = "none" | "vertical" | "horizontal";
+
+const DIRECTION_THRESHOLD = 8; // px before we lock to a direction
+
 export function HandCardComponent({
   card,
   selected,
@@ -41,78 +50,129 @@ export function HandCardComponent({
   onDragStart,
   onDragEnd,
   onPreview,
+  phase,
 }: HandCardComponentProps) {
   const cat = CATEGORY_META[card.category];
   const rar = RARITY_META[card.rarity];
   const artUrl = `/cards/${card.id}.png`;
   const effectivePower = card.power + (card.handBonus || 0);
-
-  // All subtype metas (cards can belong to 1, 2, or 3 lanes)
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 
-  return (
-    <motion.button
-      layout
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 30, scale: 0.85 }}
-      whileHover={{ y: -6, scale: 1.05 }}
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      // ====== DRAG-AND-DROP ======
-      drag
-      dragSnapToOrigin
-      dragElastic={0.6}
-      // Free drag in all directions; constrained to a generous area around the card
-      dragConstraints={{ left: -300, right: 300, top: -400, bottom: 100 }}
-      whileDrag={{ scale: 1.18, zIndex: 200, cursor: "grabbing", pointerEvents: "none" }}
-      onDragStart={() => {
-        onDragStart?.(card.uid);
-      }}
-      onDragEnd={(_event, info) => {
-        // Use the pointer position at drop time to find the lane under the cursor.
-        // During drag, `whileDrag` sets pointerEvents:none on the dragged card, but
-        // framer-motion may restore pointer events before onDragEnd runs. We
-        // explicitly find the dragged card via its data-hand-card-uid and disable
-        // its pointer-events temporarily so elementFromPoint sees THROUGH it.
-        const x = info.point.x;
-        const y = info.point.y;
-        const draggedCard = document.querySelector(`[data-hand-card-uid="${card.uid}"]`) as HTMLElement | null;
-        let el: Element | null = null;
-        if (draggedCard) {
-          const prevPE = draggedCard.style.pointerEvents;
-          draggedCard.style.pointerEvents = "none";
-          el = document.elementFromPoint(x, y);
-          draggedCard.style.pointerEvents = prevPE;
-        } else {
-          el = document.elementFromPoint(x, y);
-        }
-        const laneEl = el?.closest("[data-lane-id]") as HTMLElement | null;
-        const laneId = laneEl?.dataset.laneId as LaneId | undefined;
-        if (laneId) {
-          onPlayCard(card.uid, laneId);
-        }
+  // ====== Custom drag state (direction-aware) ======
+  const [isDragging, setIsDragging] = useState(false);
+  const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const modeRef = useRef<DragMode>("none");
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Cleanup on unmount: clear drag state if component unmounts mid-drag
+  useEffect(() => {
+    return () => {
+      if (modeRef.current === "vertical" && isDragging) {
         onDragEnd?.();
-      }}
-      className={cn(
-        // Full-art card: just a thin rarity-colored border around the full image
-        "relative flex h-44 w-28 shrink-0 touch-none flex-col overflow-hidden rounded-lg border-2 shadow-2xl shadow-black/80",
-        "bg-zinc-950",
-        selected
-          ? "border-amber-400 ring-2 ring-amber-400/70 z-10"
-          : rar.borderClass,
-        !affordable && "opacity-65 grayscale"
-      )}
-      data-hand-card-uid={card.uid}
-      style={{
-        boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 6px rgba(0,0,0,0.6), 0 6px 14px rgba(0,0,0,0.7)" +
-          (selected ? ", 0 0 18px rgba(251,191,36,0.5)" : ""),
-        // Allow dragged card to escape its parent's overflow-x-auto clipping
-        willChange: "transform",
-      }}
-    >
-      {/* Full-bleed art (same as board cards) */}
+      }
+    };
+  }, [isDragging, onDragEnd]);
+
+  // ====== Direction-aware pointer handlers ======
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!e.isPrimary) return;
+    if (phase !== "playing") return;
+    // Ignore right-click / middle-click
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    startRef.current = { x: e.clientX, y: e.clientY };
+    modeRef.current = "none";
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore — some browsers throw if pointerId is invalid
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!startRef.current) return;
+    const dx = e.clientX - startRef.current.x;
+    const dy = e.clientY - startRef.current.y;
+
+    // Lock to a direction once movement exceeds the threshold
+    if (modeRef.current === "none") {
+      if (Math.abs(dx) > DIRECTION_THRESHOLD || Math.abs(dy) > DIRECTION_THRESHOLD) {
+        console.log('[drag] dir decision:', {dx, dy, absDy2: Math.abs(dy)*2, absDx: Math.abs(dx), isVertical: Math.abs(dy)*2 >= Math.abs(dx)});
+        if (Math.abs(dy) * 2 >= Math.abs(dx)) {
+          // ====== VERTICAL ====== → drag the card to play it on the board
+          modeRef.current = "vertical";
+          setIsDragging(true);
+          console.log('[drag] VERTICAL mode set, isDragging=true');
+          setGhostPos({ x: e.clientX, y: e.clientY });
+          onDragStart?.(card.uid);
+        } else {
+          // ====== HORIZONTAL ====== → scroll the hand container
+          // (Touch users will already have triggered native scrolling via
+          // `touch-action: pan-x`; this branch only matters for mouse users.)
+          modeRef.current = "horizontal";
+          console.log('[drag] HORIZONTAL mode set');
+        }
+      }
+    }
+
+    if (modeRef.current === "vertical") {
+      setGhostPos({ x: e.clientX, y: e.clientY });
+    } else if (modeRef.current === "horizontal") {
+      // Manual horizontal scroll for mouse drag (touch already handled natively)
+      const container = buttonRef.current?.closest(
+        "[data-hand-container]"
+      ) as HTMLElement | null;
+      if (container) {
+        container.scrollLeft -= dx;
+        // Re-baseline so subsequent moves are relative to the new scroll position
+        startRef.current = { x: e.clientX, y: e.clientY };
+      }
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    console.log('[drag] pointerup fired, mode:', modeRef.current, 'isDragging:', isDragging);
+    if (modeRef.current === "vertical" && isDragging) {
+      // Find the lane under the pointer at drop time
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const laneEl = el?.closest("[data-lane-id]") as HTMLElement | null;
+      const laneId = laneEl?.dataset.laneId as LaneId | undefined;
+      console.log('[drag] pointerup:', {mode: modeRef.current, isDragging, x: e.clientX, y: e.clientY, elTag: el?.tagName, laneId});
+      if (laneId) {
+        onPlayCard(card.uid, laneId);
+      }
+      setIsDragging(false);
+      onDragEnd?.();
+    }
+    // Reset state
+    startRef.current = null;
+    modeRef.current = "none";
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    console.log('[drag] pointercancel fired, mode:', modeRef.current, 'isDragging:', isDragging);
+    if (modeRef.current === "vertical" && isDragging) {
+      setIsDragging(false);
+      onDragEnd?.();
+    }
+    startRef.current = null;
+    modeRef.current = "none";
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  // The actual card visual (shared between the in-place button and the drag ghost)
+  const CardVisual = (
+    <>
+      {/* Full-bleed art */}
       <img
         src={artUrl}
         alt={card.name}
@@ -124,7 +184,7 @@ export function HandCardComponent({
       {/* Dark gradient at the bottom for badge legibility */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
 
-      {/* Cost badge (top-left): sky/cyan */}
+      {/* Cost badge (top-left) */}
       <div
         className="absolute left-1 top-1 z-30 flex h-6 w-6 items-center justify-center rounded-full border border-white/90 bg-gradient-to-b from-sky-400 to-sky-700 text-[10px] font-black text-white shadow-md"
         style={{ boxShadow: "0 0 6px rgba(56,189,248,0.55)" }}
@@ -132,7 +192,7 @@ export function HandCardComponent({
         {card.cost}
       </div>
 
-      {/* Power badge (top-right): rose/red */}
+      {/* Power badge (top-right) */}
       <div
         className={cn(
           "absolute right-1 top-1 z-30 flex h-6 w-6 items-center justify-center rounded-full border border-white/90 text-[10px] font-black text-white shadow-md",
@@ -140,12 +200,16 @@ export function HandCardComponent({
             ? "bg-gradient-to-b from-emerald-400 to-emerald-700 ring-1 ring-emerald-300/60"
             : "bg-gradient-to-b from-rose-500 to-rose-800"
         )}
-        style={{ boxShadow: card.handBonus ? "0 0 6px rgba(16,185,129,0.55)" : "0 0 6px rgba(244,63,94,0.55)" }}
+        style={{
+          boxShadow: card.handBonus
+            ? "0 0 6px rgba(16,185,129,0.55)"
+            : "0 0 6px rgba(244,63,94,0.55)",
+        }}
       >
         {effectivePower}
       </div>
 
-      {/* Hand-bonus floating chip (visible when buffed) */}
+      {/* Hand-bonus floating chip */}
       {card.handBonus ? (
         <div className="absolute right-1 top-8 z-30 flex items-center gap-0.5 rounded bg-emerald-500/95 px-1 py-0 text-[8px] font-bold text-white shadow-md">
           <Sparkles className="h-2 w-2" />+{card.handBonus}
@@ -154,7 +218,7 @@ export function HandCardComponent({
 
       {/* Bottom info panel overlay */}
       <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-0.5 px-1.5 py-1">
-        {/* Top row of bottom panel: card type (left) + ALL subtype icons (right) */}
+        {/* Type chip (left) + ALL subtype icons (right) */}
         <div className="flex items-center justify-between gap-0.5">
           <span
             className={cn(
@@ -166,7 +230,6 @@ export function HandCardComponent({
           >
             {cat.label}
           </span>
-          {/* Show ALL subtype icons in a row (1, 2, or 3 icons) */}
           <div className="flex items-center gap-0.5">
             <AnimatePresence>
               {subtypeMetas.map((lm) => (
@@ -187,7 +250,7 @@ export function HandCardComponent({
           {card.name}
         </div>
 
-        {/* Bottom row: "Toca para ver efecto" (left) parallel to rarity letter (right) */}
+        {/* "Toca para ver efecto" (left) parallel to rarity letter (right) */}
         <div className="flex items-end justify-between gap-1">
           {onPreview ? (
             <span
@@ -223,6 +286,78 @@ export function HandCardComponent({
           </span>
         </div>
       </div>
-    </motion.button>
+    </>
   );
+
+  return (
+    <>
+      <motion.button
+        ref={buttonRef}
+        layout
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 30, scale: 0.85 }}
+        whileHover={{ y: -6, scale: 1.05 }}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 300, damping: 22 }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        data-hand-card-uid={card.uid}
+        className={cn(
+          "relative flex h-44 w-28 shrink-0 touch-pan-x select-none flex-col overflow-hidden rounded-lg border-2 shadow-2xl shadow-black/80",
+          "bg-zinc-950",
+          selected
+            ? "border-amber-400 ring-2 ring-amber-400/70 z-10"
+            : rar.borderClass,
+          !affordable && "opacity-65 grayscale",
+          // While dragging the in-place card is dimmed (ghost takes over)
+          isDragging && "opacity-30"
+        )}
+        style={{
+          boxShadow:
+            "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 6px rgba(0,0,0,0.6), 0 6px 14px rgba(0,0,0,0.7)" +
+            (selected ? ", 0 0 18px rgba(251,191,36,0.5)" : ""),
+          willChange: "transform",
+          // Hide the in-place card visual during drag (ghost is shown instead)
+          visibility: isDragging ? "hidden" : "visible",
+        }}
+      >
+        {CardVisual}
+      </motion.button>
+
+      {/* Drag ghost: follows the pointer while the card is being dragged */}
+      {isDragging &&
+        typeof document !== "undefined" &&
+        createFixedPortal(
+          <div
+            style={{
+              position: "fixed",
+              left: ghostPos.x - 56,
+              top: ghostPos.y - 88,
+              width: 112,
+              height: 176,
+              pointerEvents: "none",
+              zIndex: 9999,
+              transform: "scale(1.18)",
+              transformOrigin: "center",
+              filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.7))",
+            }}
+            className="relative overflow-hidden rounded-lg border-2 border-amber-400 bg-zinc-950 shadow-2xl"
+          >
+            {CardVisual}
+          </div>
+        )}
+    </>
+  );
+}
+
+// Helper to render a React node at the document body level (no portal lib needed).
+// We use position:fixed so the ghost escapes any overflow-clipped ancestor.
+import { createPortal } from "react-dom";
+
+function createFixedPortal(node: React.ReactNode) {
+  if (typeof document === "undefined") return null;
+  return createPortal(node, document.body);
 }
