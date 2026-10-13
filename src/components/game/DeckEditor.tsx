@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2 } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, RARITY_META } from "@/lib/game/types";
@@ -53,6 +53,9 @@ export function DeckEditor() {
           {deckSaveStatus === "ok" && <span className="text-[10px] text-emerald-400">¡Guardado!</span>}
           {deckSaveStatus === "err" && <span className="text-[10px] text-rose-400">Error</span>}
           <Button size="sm" variant="outline" className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800" onClick={() => resetDeck()}><RotateCcw className="h-3.5 w-3.5" /><span className="hidden sm:inline">Resetear</span></Button>
+          <Button size="sm" variant="outline" className="border-rose-800/50 bg-rose-950/40 text-rose-300 hover:bg-rose-900/40" onClick={() => { if (confirm("¿Vaciar el mazo? Tendrás que elegir 12 cartas de nuevo.")) { useGameStore.setState({ deckCardIds: [], deckDirty: true, deckSaveStatus: "idle" }); setSelectedSlot(null); } }} title="Vaciar todo el mazo" disabled={deckLocked}>
+            <Trash2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Vaciar</span>
+          </Button>
           <Button size="sm" variant="outline" className={cn("border-zinc-700 text-zinc-200 hover:bg-zinc-800", deckLocked ? "bg-amber-900/40 border-amber-600/50 text-amber-300" : "bg-zinc-900")} onClick={() => { setDeckLocked(!deckLocked); setSelectedSlot(null); }} title={deckLocked ? "Mazo bloqueado: clic en cualquier carta para ver detalles" : "Mazo desbloqueado: puedes intercambiar cartas"}>
             {deckLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">{deckLocked ? "Bloqueado" : "Bloquear"}</span>
