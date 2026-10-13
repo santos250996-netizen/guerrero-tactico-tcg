@@ -268,6 +268,17 @@ export const BASIC_CARDS: CardDef[] = [
     rarity: "common",
   },
   {
+    id: "rajadura",
+    name: "Rajadura",
+    category: "Ataque",
+    subtypes: ["armas", "furia"],
+    cost: 3,
+    power: 12,
+    text: "Sin efecto. Corte vertical profundo con garras y arma.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
     id: "hechicero",
     name: "Señor de la Guerra",
     category: "Acción",
