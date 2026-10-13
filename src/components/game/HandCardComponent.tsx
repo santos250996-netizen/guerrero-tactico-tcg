@@ -77,18 +77,23 @@ export function HandCardComponent({
 
   // ====== Direction-aware pointer handlers ======
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    // Skip non-primary pointers / non-playing phase
     if (!e.isPrimary) return;
     if (phase !== "playing") return;
     // Ignore right-click / middle-click
     if (e.button !== 0 && e.pointerType === "mouse") return;
     startRef.current = { x: e.clientX, y: e.clientY };
     modeRef.current = "none";
-    // NOTE: We don't call setPointerCapture here. We only call it inside
-    // handlePointerMove when the drag is actually starting (vertical mode).
-    // Calling it on every pointerdown caused the captured element to keep
-    // receiving subsequent taps even after the modal opened — the overlay
-    // would never intercept the click. By only capturing during an actual
-    // drag, taps work normally and the overlay correctly blocks interactions.
+    // Capture the pointer so we keep receiving pointermove/pointerup events even
+    // when the pointer leaves the card. This is needed for the drag to work.
+    // The `hadPointerDown` guard in handlePointerUp filters out stray pointerup
+    // events that target the card after the modal closes (Radix Dialog closes on
+    // pointerdown-outside, which makes the subsequent pointerup land on the card).
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore — some browsers throw if pointerId is invalid
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -133,20 +138,26 @@ export function HandCardComponent({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (modeRef.current === "vertical" && isDragging) {
+    // GUARD: only treat as a tap/click if pointerdown was actually received on THIS card.
+    // Radix Dialog closes on `pointerdown` (outside-click), so by the time `pointerup`
+    // fires, the modal may already be closed — the underlying hand card then receives
+    // a "stray" pointerup without a matching pointerdown. We must ignore these stray
+    // events, otherwise the close-click opens another card (the bug we're fixing).
+    const hadPointerDown = startRef.current !== null;
+    if (modeRef.current === "vertical" && hadPointerDown) {
       // Find the lane under the pointer at drop time
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const laneEl = el?.closest("[data-lane-id]") as HTMLElement | null;
       const laneId = laneEl?.dataset.laneId as LaneId | undefined;
-
       if (laneId) {
         onPlayCard(card.uid, laneId);
       }
       setIsDragging(false);
       onDragEnd?.();
-    } else if (modeRef.current === "none") {
-      // No drag movement exceeded the threshold → treat as a click/tap → open preview
-      // (The pointer moved less than DIRECTION_THRESHOLD px, so the user just tapped.)
+    } else if (modeRef.current === "none" && hadPointerDown) {
+      // No drag movement exceeded the threshold → treat as a click/tap → open preview.
+      // Only if pointerdown was actually received on this card (not a stray pointerup
+      // from closing the modal).
       onPreview?.(card);
     }
     // Reset state

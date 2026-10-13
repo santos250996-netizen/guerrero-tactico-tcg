@@ -192,3 +192,32 @@ Stage Summary:
 - A click/tap (pointer moved < 8px) opens the preview modal showing the same full-art card design with the effect text visible.
 - Three distinct interactions cleanly differentiated: tap = preview, vertical drag = play, horizontal drag = scroll.
 - Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.
+
+---
+Task ID: modal-close-bug-fix-1
+Agent: main (super-z)
+Task: Fix the bug where tapping to close the preview modal was being interpreted as opening another card (the close-click opened a new modal with whichever hand card was behind the overlay).
+
+Work Log:
+- Root cause identified via extensive debugging:
+  - Radix Dialog closes the modal on `pointerdown` (outside-click detection), NOT on `click`.
+  - Sequence of the bug: (1) User taps card A → pointerdown + pointerup on card A → modal opens with card A. (2) User taps on the overlay at a position where card B is behind → pointerdown fires on the overlay → Radix closes the modal → body's `pointer-events: none` is removed → pointerup fires and now targets the underlying hand card B (because body is interactive again) → hand card B's `handlePointerUp` fires with `mode: "none"` → calls `onPreview(cardB)` → modal reopens with card B.
+  - I confirmed this by adding stack traces and `bodyPE`/`modalOpen` logs — the second tap's `pointerup` handler showed `bodyPE: auto` and `modalOpen: false`, proving the modal had already closed by the time pointerup fired.
+- Fix in `src/components/game/HandCardComponent.tsx`:
+  - Re-added `setPointerCapture` in `handlePointerDown` (was removed earlier — it's needed so pointermove/pointerup fire on the card during a drag, otherwise the drag flow breaks because pointermove targets the element under the cursor, not the dragged card).
+  - Added a `hadPointerDown` guard in `handlePointerUp`: `const hadPointerDown = startRef.current !== null;`. This is `true` only if `handlePointerDown` was called on THIS card before the pointerup. Stray pointerup events (from the modal-closing click) won't have a matching pointerdown on this card, so `startRef.current` will be null and we skip the `onPreview` call.
+  - Changed the vertical-drag check from `modeRef.current === "vertical" && isDragging` to `modeRef.current === "vertical" && hadPointerDown` — React state updates are async, so `isDragging` may still be false on the same render where `setIsDragging(true)` was called in `handlePointerMove`. The ref-based `hadPointerDown` check is more reliable.
+- The `CardPreviewModal` is centered (top:50% left:50% translate -50%/-50%) with a dark backdrop overlay (`bg-black/80 backdrop-blur-sm`) that blocks all interactions with underlying elements. Tapping anywhere — on the card itself OR on the overlay — closes the modal.
+
+Verified in browser:
+- Tap card A → modal opens centered with card A ✓
+- Tap on overlay at card B's position → modal closes, does NOT open card B ✓ (bug fixed)
+- Tap on the card in the modal → modal closes ✓
+- Vertical drag Seccionar (cost 1) to ARMAS lane → hand 5→4, 1 card played ✓ (drag still works)
+- Horizontal drag → scrolls hand container ✓ (no regression)
+
+Stage Summary:
+- The close-click no longer opens another card.
+- The fix is a `hadPointerDown` guard in `handlePointerUp` that filters out stray pointerup events (caused by Radix Dialog closing on pointerdown-outside before pointerup fires).
+- `setPointerCapture` is still called in `handlePointerDown` (needed for drag tracking), but the guard ensures stray events from modal-close are ignored.
+- Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.
