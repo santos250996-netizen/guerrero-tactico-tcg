@@ -233,3 +233,12 @@ export const CATEGORY_META: Record<
     buttonFace: "from-violet-950 to-violet-900",
   },
 };
+
+export const RARITY_META: Record<Rarity, {
+  label: string; borderClass: string; textClass: string; gemClass: string; glowClass: string; order: number;
+}> = {
+  common: { label: "Común", borderClass: "border-zinc-500/60", textClass: "text-zinc-300", gemClass: "bg-zinc-400", glowClass: "", order: 0 },
+  rare: { label: "Rara", borderClass: "border-sky-500/70", textClass: "text-sky-300", gemClass: "bg-sky-400", glowClass: "shadow-[0_0_10px_rgba(56,189,248,0.25)]", order: 1 },
+  epic: { label: "Épica", borderClass: "border-violet-500/70", textClass: "text-violet-300", gemClass: "bg-violet-400", glowClass: "shadow-[0_0_12px_rgba(168,85,247,0.35)]", order: 2 },
+  legendary: { label: "Legendaria", borderClass: "border-amber-400/80", textClass: "text-amber-300", gemClass: "bg-amber-400", glowClass: "shadow-[0_0_18px_rgba(251,191,36,0.45)]", order: 3 },
+};

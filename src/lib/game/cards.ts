@@ -1,7 +1,10 @@
 import type { CardDef } from "./types";
 
-// Warrior deck - 12 unique cards. The deck is duplicated and shuffled per game
-// to give a stable 24-card draw pile.
+// ---------------------------------------------------------------------------
+// WARRIOR_DECK — 12 unique starter cards (rarity="rare"; avatar_titan is
+// "legendary"). Used as the default deck for new games.
+// ---------------------------------------------------------------------------
+
 export const WARRIOR_DECK: CardDef[] = [
   {
     id: "golpe_heroico",
@@ -12,6 +15,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 15,
     text: "+4 a tus demás cartas en este carril",
     effectId: "golpe_heroico",
+    rarity: "rare",
   },
   {
     id: "seccionar",
@@ -22,6 +26,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 5,
     text: "Resta -2 al enemigo más fuerte del carril",
     effectId: "seccionar",
+    rarity: "rare",
   },
   {
     id: "machaque_mortal",
@@ -32,6 +37,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 10,
     text: "+2 por cada carta de Ataque en el carril",
     effectId: "machaque_mortal",
+    rarity: "rare",
   },
   {
     id: "ejecutar",
@@ -42,6 +48,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 18,
     text: "+5 si el rival supera 20 pts en el carril",
     effectId: "ejecutar",
+    rarity: "rare",
   },
   {
     id: "bloqueo_escudo",
@@ -52,6 +59,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 8,
     text: "Resta -3 al enemigo más fuerte del carril",
     effectId: "bloqueo_escudo",
+    rarity: "rare",
   },
   {
     id: "muro_escudos",
@@ -62,6 +70,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 14,
     text: "+3 a tus cartas de Ítem en el carril",
     effectId: "muro_escudos",
+    rarity: "rare",
   },
   {
     id: "pocion_vida",
@@ -72,6 +81,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 4,
     text: "+2 por cada carta de Ítem en el carril",
     effectId: "pocion_vida",
+    rarity: "rare",
   },
   {
     id: "provocar",
@@ -82,6 +92,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 4,
     text: "+3 si hay carta con subtipo Protección",
     effectId: "provocar",
+    rarity: "rare",
   },
   {
     id: "ira_rabiosa",
@@ -92,6 +103,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 6,
     text: "+3 si hay carta con subtipo Furia",
     effectId: "ira_rabiosa",
+    rarity: "rare",
   },
   {
     id: "grito_batalla",
@@ -102,6 +114,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 8,
     text: "+2 a las cartas con subtipo Furia en tu mano",
     effectId: "grito_batalla",
+    rarity: "rare",
   },
   {
     id: "filotormenta",
@@ -112,6 +125,7 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 12,
     text: "Resta -1 a rivales en mesa (máx 6)",
     effectId: "filotormenta",
+    rarity: "rare",
   },
   {
     id: "avatar_titan",
@@ -122,15 +136,346 @@ export const WARRIOR_DECK: CardDef[] = [
     power: 16,
     text: "+1 por carta en mesa (máx +10)",
     effectId: "avatar_titan",
+    rarity: "legendary",
   },
 ];
 
-export function buildDrawPile(): CardDef[] {
-  // 12 unique cards, no duplicates — Fisher-Yates shuffle.
-  const pile: CardDef[] = WARRIOR_DECK.map((c) => ({ ...c }));
+// ---------------------------------------------------------------------------
+// BASIC_CARDS — 12 simple cards with no effects (rarity="common",
+// effectId="none"). Used as the basic card pool for the deck editor.
+// ---------------------------------------------------------------------------
+
+export const BASIC_CARDS: CardDef[] = [
+  {
+    id: "recluta",
+    name: "Cadete",
+    category: "Ataque",
+    subtypes: ["armas"],
+    cost: 1,
+    power: 7,
+    text: "Sin efecto. Recluta novato dispuesto a luchar.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "aprendiz",
+    name: "Grito Salvaje",
+    category: "Magia",
+    subtypes: ["furia"],
+    cost: 1,
+    power: 6,
+    text: "Sin efecto. Aprendiz lanzando su primer alarido.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "sanador",
+    name: "Vendas de Guerra",
+    category: "Ítem",
+    subtypes: ["proteccion"],
+    cost: 1,
+    power: 6,
+    text: "Sin efecto. Vendas preparadas para el combate.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "soldado",
+    name: "Legionario",
+    category: "Ataque",
+    subtypes: ["armas", "proteccion"],
+    cost: 2,
+    power: 10,
+    text: "Sin efecto. Soldado curtido en mil batallas.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "guardia",
+    name: "Centinela",
+    category: "Ítem",
+    subtypes: ["proteccion", "armas"],
+    cost: 2,
+    power: 9,
+    text: "Sin efecto. Guardia alerta en su puesto.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "veterano",
+    name: "Sargento",
+    category: "Ataque",
+    subtypes: ["armas"],
+    cost: 3,
+    power: 13,
+    text: "Sin efecto. Veterano con cicatrices de honor.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "mago_joven",
+    name: "Berserker",
+    category: "Magia",
+    subtypes: ["furia"],
+    cost: 3,
+    power: 12,
+    text: "Sin efecto. Joven mago en trance destructivo.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "caballero",
+    name: "Espadachín",
+    category: "Ataque",
+    subtypes: ["armas"],
+    cost: 4,
+    power: 18,
+    text: "Sin efecto. Caballero diestro con la espada.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "paladin",
+    name: "Caudillo",
+    category: "Magia",
+    subtypes: ["proteccion", "furia"],
+    cost: 4,
+    power: 17,
+    text: "Sin efecto. Paladín que lidera con el ejemplo.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "muro_hierro",
+    name: "Bastión",
+    category: "Ítem",
+    subtypes: ["proteccion", "armas"],
+    cost: 4,
+    power: 17,
+    text: "Sin efecto. Muro de hierro inexpugnable.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "campeon",
+    name: "Campeón Sanguinario",
+    category: "Ataque",
+    subtypes: ["armas", "furia"],
+    cost: 5,
+    power: 22,
+    text: "Sin efecto. Campeón sediento de sangre enemiga.",
+    effectId: "none",
+    rarity: "common",
+  },
+  {
+    id: "hechicero",
+    name: "Señor de la Guerra",
+    category: "Magia",
+    subtypes: ["furia", "proteccion"],
+    cost: 5,
+    power: 21,
+    text: "Sin efecto. Hechicero supremo del campo de batalla.",
+    effectId: "none",
+    rarity: "common",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// TACTICAL_CARDS — 12 epic + 3 legendary = 15 cards with powerful effects.
+// Used as the tactical card pool for the deck editor.
+// ---------------------------------------------------------------------------
+
+export const TACTICAL_CARDS: CardDef[] = [
+  // --- 12 EPIC cards ---
+  {
+    id: "herida_letal",
+    name: "Herida Letal",
+    category: "Ataque",
+    subtypes: ["armas"],
+    cost: 3,
+    power: 6,
+    text: "Resta -3 al enemigo más fuerte del carril; si llega a 0, se destruye",
+    effectId: "herida_letal",
+    rarity: "epic",
+  },
+  {
+    id: "carga_devastadora",
+    name: "Carga Devastadora",
+    category: "Ataque",
+    subtypes: ["furia"],
+    cost: 4,
+    power: 8,
+    text: "Duplica el poder de tu aliado más débil del carril",
+    effectId: "carga_devastadora",
+    rarity: "epic",
+  },
+  {
+    id: "asalto_coordinado",
+    name: "Asalto Coordinado",
+    category: "Ataque",
+    subtypes: ["armas", "furia"],
+    cost: 3,
+    power: 7,
+    text: "+1 por cada aliado en los OTROS carriles",
+    effectId: "asalto_coordinado",
+    rarity: "epic",
+  },
+  {
+    id: "burla_sadica",
+    name: "Burla Sádica",
+    category: "Ataque",
+    subtypes: ["furia"],
+    cost: 2,
+    power: 5,
+    text: "+4 si el rival lleva más poder que tú en el carril",
+    effectId: "burla_sadica",
+    rarity: "epic",
+  },
+  {
+    id: "sobrecarga",
+    name: "Sobrecarga",
+    category: "Ítem",
+    subtypes: ["armas"],
+    cost: 3,
+    power: 11,
+    text: "Cuesta 1 menos; pierdes 1 de energía el próximo turno",
+    effectId: "sobrecarga",
+    rarity: "epic",
+  },
+  {
+    id: "purificacion",
+    name: "Purificación",
+    category: "Magia",
+    subtypes: ["proteccion", "furia"],
+    cost: 3,
+    power: 5,
+    text: "Sacrificas tu aliado más débil del carril; ganas su poder +3",
+    effectId: "purificacion",
+    rarity: "epic",
+  },
+  {
+    id: "tormenta_rayos",
+    name: "Tormenta de Relámpagos",
+    category: "Magia",
+    subtypes: ["furia"],
+    cost: 4,
+    power: 8,
+    text: "Resta -2 a todas las cartas enemigas del tablero (máx 4)",
+    effectId: "tormenta_rayos",
+    rarity: "epic",
+  },
+  {
+    id: "trampa_eterea",
+    name: "Trampa Etérea",
+    category: "Magia",
+    subtypes: ["proteccion"],
+    cost: 2,
+    power: 3,
+    text: "La próxima carta enemiga en este carril recibe -3 de poder",
+    effectId: "trampa_eterea",
+    rarity: "epic",
+  },
+  {
+    id: "reflejo_arcano",
+    name: "Reflejo Arcano",
+    category: "Magia",
+    subtypes: ["furia"],
+    cost: 3,
+    power: 4,
+    text: "Copia el poder de la carta enemiga más fuerte del carril",
+    effectId: "reflejo_arcano",
+    rarity: "epic",
+  },
+  {
+    id: "venganza",
+    name: "Venganza",
+    category: "Ataque",
+    subtypes: ["furia"],
+    cost: 3,
+    power: 7,
+    text: "+6 si el rival supera tu poder en el carril por más de 5",
+    effectId: "venganza",
+    rarity: "epic",
+  },
+  {
+    id: "mimetismo",
+    name: "Mimetismo",
+    category: "Magia",
+    subtypes: ["furia", "proteccion"],
+    cost: 4,
+    power: 5,
+    text: "Copia el efecto del aliado con más poder del carril",
+    effectId: "mimetismo",
+    rarity: "epic",
+  },
+  {
+    id: "empuje_tactico",
+    name: "Empuje Táctico",
+    category: "Ítem",
+    subtypes: ["proteccion", "furia"],
+    cost: 2,
+    power: 4,
+    text: "Mueve tu aliado con menos poder de otro carril a este",
+    effectId: "empuje_tactico",
+    rarity: "epic",
+  },
+  // --- 3 LEGENDARY cards ---
+  {
+    id: "colera_titan",
+    name: "Cólera del Titán",
+    category: "Ataque",
+    subtypes: ["armas", "furia"],
+    cost: 5,
+    power: 12,
+    text: "Elimina TODAS las cartas enemigas de este carril",
+    effectId: "colera_titan",
+    rarity: "legendary",
+  },
+  {
+    id: "despertar_bélico",
+    name: "Despertar Bélico",
+    category: "Magia",
+    subtypes: ["furia"],
+    cost: 4,
+    power: 6,
+    text: "+3 de poder a TODAS las cartas en tu mano",
+    effectId: "despertar_bélico",
+    rarity: "legendary",
+  },
+  {
+    id: "trono_hierro",
+    name: "Trono de Hierro",
+    category: "Ítem",
+    subtypes: ["proteccion", "armas"],
+    cost: 5,
+    power: 14,
+    text: "+3 de poder a TODAS tus cartas en la mesa",
+    effectId: "trono_hierro",
+    rarity: "legendary",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Draw pile builders
+// ---------------------------------------------------------------------------
+
+/**
+ * Takes a deck (CardDef[]), returns a shuffled copy using Fisher-Yates.
+ * Each card is shallow-cloned so the returned pile can be mutated safely
+ * without touching the original deck constant.
+ */
+export function buildDrawPileFrom(deck: CardDef[]): CardDef[] {
+  const pile: CardDef[] = deck.map((c) => ({ ...c }));
   for (let i = pile.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pile[i], pile[j]] = [pile[j], pile[i]];
   }
   return pile;
+}
+
+/**
+ * Default draw pile: shuffle the WARRIOR_DECK.
+ */
+export function buildDrawPile(): CardDef[] {
+  return buildDrawPileFrom(WARRIOR_DECK);
 }
