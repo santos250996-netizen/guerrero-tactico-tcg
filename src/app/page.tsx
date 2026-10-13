@@ -21,6 +21,7 @@ import { ProfileModal } from "@/components/game/ProfileModal";
 import { LANE_IDS } from "@/lib/game/engine";
 import type { LaneId } from "@/lib/game/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Activity, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -42,6 +43,7 @@ export default function Home() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [registroOpen, setRegistroOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -81,20 +83,43 @@ export default function Home() {
         onOpenProfile={() => setProfileOpen(true)}
       />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:px-4">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-2 px-2 py-2">
         <div className="grid grid-cols-3 gap-2">
           {LANE_IDS.map((lane: LaneId) => (
             <LaneComponent key={lane} laneId={lane} />
           ))}
         </div>
+      </main>
 
-        <aside className="hidden w-64 shrink-0 flex-col rounded-lg border border-zinc-800 bg-zinc-950/60 lg:flex">
-          <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2 text-xs font-bold uppercase tracking-wider text-amber-400">
-            <Activity className="h-3.5 w-3.5" />
-            Registro de batalla
-          </div>
-          <ScrollArea className="flex-1 overflow-y-auto">
-            <div className="space-y-1 p-2">
+      <HandBar onOpenRegistro={() => setRegistroOpen(true)} />
+
+      {/* Overlays */}
+      <TurnTransitionBanner visible={aiTurnPhase === "banner"} phase="transition" />
+      <TurnTransitionBanner visible={aiTurnPhase === "thinking"} phase="thinking" />
+      <FloatingNumbersLayer />
+      <Confetti trigger={phase === "ended" && finalResult?.result === "WIN"} />
+      <LegendaryBurst trigger={legendaryBurst} onDone={() => useGameStore.setState({ legendaryBurst: false })} />
+
+      {/* Modals */}
+      <GameOverModal open={phase === "ended"} />
+      <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
+      <HistoryModal open={historyOpen} onOpenChange={setHistoryOpen} />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+      <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
+      <CardPreviewModal card={previewCard} open={previewCard !== null} onOpenChange={(o) => { if (!o) setPreviewCard(null); }} />
+
+      {/* Registro de batalla modal */}
+      <Dialog open={registroOpen} onOpenChange={setRegistroOpen}>
+        <DialogContent className="max-h-[80vh] overflow-hidden border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-400">
+              <Activity className="h-4 w-4" />
+              Registro de Batalla
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] overflow-y-auto">
+            <div className="space-y-1 p-1">
               <AnimatePresence initial={false}>
                 {log.length === 0 ? (
                   <div className="py-3 text-center text-[11px] text-zinc-600">Sin actividad todavía.</div>
@@ -123,29 +148,11 @@ export default function Home() {
               </AnimatePresence>
             </div>
           </ScrollArea>
-        </aside>
-      </main>
-
-      <HandBar />
-
-      {/* Overlays */}
-      <TurnTransitionBanner visible={aiTurnPhase === "banner"} phase="transition" />
-      <TurnTransitionBanner visible={aiTurnPhase === "thinking"} phase="thinking" />
-      <FloatingNumbersLayer />
-      <Confetti trigger={phase === "ended" && finalResult?.result === "WIN"} />
-      <LegendaryBurst trigger={legendaryBurst} onDone={() => useGameStore.setState({ legendaryBurst: false })} />
-
-      {/* Modals */}
-      <GameOverModal open={phase === "ended"} />
-      <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
-      <HistoryModal open={historyOpen} onOpenChange={setHistoryOpen} />
-      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
-      <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
-      <CardPreviewModal card={previewCard} open={previewCard !== null} onOpenChange={(o) => { if (!o) setPreviewCard(null); }} />
+        </DialogContent>
+      </Dialog>
 
       <footer className="mt-auto border-t border-zinc-800 bg-zinc-950 px-3 py-1 text-center text-[10px] text-zinc-500">
-        Toca una carta para seleccionarla · Toca un carril para jugarla · Pulsa <em className="text-amber-400">Pasar Turno</em> cuando termines.
+        Toca una carta para seleccionarla · Toca un carril para jugarla · Pulsa <em className="text-amber-400">Pasar</em> cuando termines.
       </footer>
     </div>
   );

@@ -1,12 +1,11 @@
 "use client";
 
 import {
-  Layers, BookOpen, History, RotateCcw, Swords, Library, Settings, User,
+  Layers, BookOpen, History, Swords, Library, Settings, User,
 } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { EnergyCrystals } from "./EnergyCrystals";
-import { sfx } from "@/lib/sound";
 
 interface HeaderBarProps {
   onOpenRules: () => void;
@@ -22,8 +21,6 @@ export function HeaderBar({ onOpenRules, onOpenHistory, onOpenSettings, onOpenPr
   const maxEnergy = useGameStore((s) => s.maxEnergy);
   const drawPile = useGameStore((s) => s.drawPile);
   const phase = useGameStore((s) => s.phase);
-  const endTurn = useGameStore((s) => s.endTurn);
-  const resetGame = useGameStore((s) => s.resetGame);
   const setView = useGameStore((s) => s.setView);
   const deckDirty = useGameStore((s) => s.deckDirty);
 
@@ -69,16 +66,6 @@ export function HeaderBar({ onOpenRules, onOpenHistory, onOpenSettings, onOpenPr
         <Button size="sm" variant="outline" className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800" onClick={onOpenSettings}>
           <Settings className="h-3.5 w-3.5" />
         </Button>
-
-        {phase === "playing" ? (
-          <Button size="sm" className="bg-gradient-to-r from-amber-600 to-rose-600 text-white hover:from-amber-500 hover:to-rose-500" onClick={() => { sfx.click(); endTurn(); }}>
-            <RotateCcw className="h-3.5 w-3.5" />Pasar
-          </Button>
-        ) : (
-          <Button size="sm" variant="secondary" className="bg-zinc-800 text-zinc-200" onClick={resetGame}>
-            <RotateCcw className="h-3.5 w-3.5" />Reiniciar
-          </Button>
-        )}
       </div>
     </header>
   );

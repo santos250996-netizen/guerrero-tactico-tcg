@@ -3,10 +3,10 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
-import { AlertTriangle, Lock, LogOut } from "lucide-react";
+import { AlertTriangle, Lock, LogOut, Activity } from "lucide-react";
 import { sfx } from "@/lib/sound";
 
-export function HandBar() {
+export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
   const hand = useGameStore((s) => s.hand);
   const selectedCardUid = useGameStore((s) => s.selectedCardUid);
   const energy = useGameStore((s) => s.energy);
@@ -72,7 +72,7 @@ export function HandBar() {
         </AnimatePresence>
       </div>
 
-      {/* Action bar — BLOQUEAR + ABANDONAR */}
+      {/* Action bar — Pasar + Registro + Abandonar */}
       <div className="flex items-center gap-2 border-t border-zinc-800 bg-black/40 px-3 py-2">
         {phase === "playing" ? (
           <button
@@ -80,7 +80,7 @@ export function HandBar() {
             className="flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-6 py-2.5 text-sm font-black uppercase tracking-wider text-white shadow-lg shadow-emerald-900/50 transition-all hover:from-teal-400 hover:to-emerald-500 active:scale-95"
           >
             <Lock className="h-4 w-4" />
-            Bloquear
+            Pasar
           </button>
         ) : (
           <button
@@ -91,6 +91,13 @@ export function HandBar() {
             Reiniciar
           </button>
         )}
+        <button
+          onClick={onOpenRegistro}
+          className="flex items-center justify-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+        >
+          <Activity className="h-3.5 w-3.5" />
+          Registro
+        </button>
         <button
           onClick={() => { if (confirm("¿Abandonar la partida?")) resetGame(); }}
           className="flex items-center justify-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
