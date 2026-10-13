@@ -7,6 +7,7 @@ import { CATEGORY_META, RARITY_META, LANE_META } from "@/lib/game/types";
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { sfx } from "@/lib/sound";
 
 interface HandCardComponentProps {
@@ -82,11 +83,12 @@ export function HandCardComponent({
     if (e.button !== 0 && e.pointerType === "mouse") return;
     startRef.current = { x: e.clientX, y: e.clientY };
     modeRef.current = "none";
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // ignore — some browsers throw if pointerId is invalid
-    }
+    // NOTE: We don't call setPointerCapture here. We only call it inside
+    // handlePointerMove when the drag is actually starting (vertical mode).
+    // Calling it on every pointerdown caused the captured element to keep
+    // receiving subsequent taps even after the modal opened — the overlay
+    // would never intercept the click. By only capturing during an actual
+    // drag, taps work normally and the overlay correctly blocks interactions.
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -101,6 +103,9 @@ export function HandCardComponent({
           // ====== VERTICAL ====== → drag the card to play it on the board
           modeRef.current = "vertical";
           setIsDragging(true);
+          // Now that a real drag is starting, capture the pointer so we keep
+          // receiving pointermove/pointerup events even if the pointer leaves the card.
+          try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
           setGhostPos({ x: e.clientX, y: e.clientY });
           onDragStart?.(card.uid);
         } else {
@@ -337,8 +342,6 @@ export function HandCardComponent({
 
 // Helper to render a React node at the document body level (no portal lib needed).
 // We use position:fixed so the ghost escapes any overflow-clipped ancestor.
-import { createPortal } from "react-dom";
-
 function createFixedPortal(node: React.ReactNode) {
   if (typeof document === "undefined") return null;
   return createPortal(node, document.body);
