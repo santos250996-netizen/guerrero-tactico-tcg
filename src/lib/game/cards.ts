@@ -323,7 +323,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "burla_sadica",
     name: "Burla Sádica",
-    category: "Ataque",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 2,
     power: 5,
@@ -389,7 +389,7 @@ export const TACTICAL_CARDS: CardDef[] = [
   {
     id: "venganza",
     name: "Venganza",
-    category: "Ataque",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 3,
     power: 7,
