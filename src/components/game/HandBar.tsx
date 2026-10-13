@@ -65,6 +65,7 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
                 selected={selectedCardUid === card.uid}
                 affordable={card.cost <= energy}
                 onClick={() => phase === "playing" && selectCard(card.uid)}
+                onPreview={(c) => useGameStore.getState().setPreviewCard?.(c as any)}
               />
             ))
           )}

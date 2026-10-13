@@ -11,13 +11,14 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
   const cat = CATEGORY_META[card.category]; const rar = RARITY_META[card.rarity];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-zinc-800 bg-zinc-950 p-0 sm:max-w-xs">
+      {/* Position the dialog at the top of the screen instead of centered */}
+      <DialogContent className="border-zinc-800 bg-zinc-950 p-0 top-[6%] translate-y-0 sm:max-w-xs max-w-[calc(100%-1rem)]">
         <DialogTitle className="sr-only">{card.name}</DialogTitle>
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 22 }}
+        <motion.div initial={{ scale: 0.9, opacity: 0, y: -20 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 22 }}
           className={cn("relative flex flex-col overflow-hidden rounded-xl border-2 bg-gradient-to-b from-zinc-800 via-zinc-900 to-black p-2", rar.borderClass, rar.glowClass)}>
           <div className="absolute left-2 top-2 z-30 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-sky-500 to-sky-700 text-white shadow-lg"><div className="flex flex-col items-center leading-none"><Zap className="h-3 w-3 fill-white" /><span className="text-xs font-black">{card.cost}</span></div></div>
           <div className="absolute right-2 top-2 z-30 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-rose-500 to-rose-800 text-white shadow-lg"><div className="flex flex-col items-center leading-none"><Swords className="h-3 w-3" /><span className="text-xs font-black">{card.power}</span></div></div>
-          <div className="relative mx-auto mt-2 h-72 w-full overflow-hidden rounded-2xl border-2 bg-zinc-950">
+          <div className="relative mx-auto mt-2 h-60 w-full overflow-hidden rounded-2xl border-2 bg-zinc-950">
             <img src={`/cards/${card.id}.png`} alt={card.name} className="h-full w-full object-cover" draggable={false} />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent" />
             <div className="absolute left-2 top-2 z-10"><span className={cn("rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm", cat.bgClass, cat.textClass, cat.borderClass)}>{cat.label}</span></div>

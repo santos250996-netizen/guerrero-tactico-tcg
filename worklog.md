@@ -51,3 +51,36 @@ Stage Summary:
   - Game view: all 5 header buttons icon-only, 3 lanes rendered, hand cards fit, action bar at bottom.
   - Editor view: same frame, internal scroll enabled, all sections visible.
 - Artifacts: `scripts/mobile-frame-desktop.png`, `scripts/mobile-frame-game.png`, `scripts/mobile-frame-editor.png`, `scripts/mobile-frame-mobile.png`.
+
+---
+Task ID: full-art-hand-1
+Agent: main (super-z)
+Task: Redesign hand cards to be full-art (like board cards) with new bottom info panel layout, and make the card-preview modal appear at the top of the screen.
+
+Work Log:
+- Rewrote `src/components/game/HandCardComponent.tsx` as a full-bleed art card (matching BoardCardMini's art-first layout). New layout per user spec:
+  - Top-left badge: cost (sky circle, text-[10px])
+  - Top-right badge: power (rose circle, text-[10px], turns emerald when hand-bonus is active)
+  - Hand-bonus chip below power badge when card is buffed
+  - Bottom dark gradient overlay panel containing:
+    - Top row of panel: card type chip (left, e.g. "ATAQUE"/"ÍTEM"/"ACCIÓN") + subtype icon (right, e.g. ⚔️/🛡️/🔥 — picks first subtype)
+    - Middle: card name (amber, uppercase, drop-shadow)
+    - Below name: subtle "Toca para ver efecto" link with `Info` icon — tappable to open preview modal (uses `stopPropagation` so the parent's select-to-play onClick doesn't fire)
+    - Bottom row: rarity letter badge in bottom-right corner (C/R/E/L with rarity color background)
+  - Border uses `rar.borderClass` (rarity color tint). When selected, switches to `border-amber-400 ring-2 ring-amber-400/70 z-10` with extra gold glow.
+  - When unaffordable: `opacity-65 grayscale`.
+- Updated `src/components/game/HandBar.tsx` to pass `onPreview={(c) => useGameStore.getState().setPreviewCard?.(c as any)}` to each HandCardComponent, restoring the wiring removed in the previous task.
+- Updated `src/components/game/CardPreviewModal.tsx`:
+  - DialogContent now uses `top-[6%] translate-y-0 max-w-[calc(100%-1rem)]` — `twMerge` overrides the default `top-[50%] translate-y-[-50%]`, so the modal slides in from the top of the viewport.
+  - Motion variant: now `y: -20 → 0` initial animate, matching the top-positioned entrance.
+  - Card art area in preview reduced from `h-72` → `h-60` to fit better in the top-aligned modal.
+- Verified in browser: full-art hand cards render correctly, all 5 cards show full-bleed art with the new overlay layout, "Toca para ver efecto" link opens the top-positioned modal at top: 54px, tapping the card body still selects it (amber ring appears).
+
+Stage Summary:
+- Hand cards are now full-art like board cards.
+- New bottom panel shows: type chip + subtype icon (top row), card name (middle), "Toca para ver efecto" subtle link (below name), rarity letter (bottom-right corner).
+- Top corners: cost (left) + power (right) — same as board cards.
+- Card preview modal now drops in from the top instead of center.
+- Tap card body = select for play; tap "Toca para ver efecto" = open preview modal.
+- Lint passes clean. `tsc --noEmit` shows only pre-existing errors in unrelated `examples/` and `skills/` dirs.
+- Artifacts: `scripts/full-art-hand.png`, `scripts/full-art-preview.png`, `scripts/full-art-selected.png`.
