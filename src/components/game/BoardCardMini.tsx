@@ -54,17 +54,17 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
 
       {/* Cost badge (top-left) */}
-      <div className="absolute left-1 top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-sky-500 to-sky-700 text-[11px] font-black text-white shadow-md">
+      <div className="absolute left-0.5 top-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border border-white/90 bg-gradient-to-b from-sky-500 to-sky-700 text-[8px] font-black text-white shadow-md">
         {card.cost}
       </div>
 
       {/* Power badge (top-right) */}
       <div className={cn(
-        "absolute right-1 top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/90 text-[11px] font-black text-white shadow-md",
+        "absolute right-0.5 top-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border border-white/90 text-[8px] font-black text-white shadow-md",
         isBuffed
-          ? "bg-gradient-to-b from-emerald-400 to-emerald-700 ring-2 ring-emerald-300/50"
+          ? "bg-gradient-to-b from-emerald-400 to-emerald-700 ring-1 ring-emerald-300/50"
           : isDebuffed
-            ? "bg-gradient-to-b from-rose-500 to-rose-800 ring-2 ring-rose-300/50"
+            ? "bg-gradient-to-b from-rose-500 to-rose-800 ring-1 ring-rose-300/50"
             : "bg-gradient-to-b from-rose-600 to-rose-900"
       )}>
         {card.currentPower}
@@ -72,12 +72,12 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
 
       {/* Buff/debuff indicator */}
       {isBuffed && (
-        <div className="absolute bottom-1 right-1 z-20 rounded bg-emerald-500/90 px-1 py-0.5 text-[8px] font-black text-white shadow">
+        <div className="absolute bottom-0.5 right-0.5 z-20 rounded bg-emerald-500/90 px-0.5 py-0 text-[6px] font-black text-white shadow">
           +{card.currentPower - card.basePower}
         </div>
       )}
       {isDebuffed && (
-        <div className="absolute bottom-1 right-1 z-20 rounded bg-rose-500/90 px-1 py-0.5 text-[8px] font-black text-white shadow">
+        <div className="absolute bottom-0.5 right-0.5 z-20 rounded bg-rose-500/90 px-0.5 py-0 text-[6px] font-black text-white shadow">
           {card.currentPower - card.basePower}
         </div>
       )}

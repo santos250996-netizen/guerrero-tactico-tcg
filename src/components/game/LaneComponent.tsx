@@ -103,7 +103,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
   const maxCards = getLaneMaxCards(laneBonus);
 
   const selectedCard = selectedCardUid
-    ? hand.find((c) => c.uid === selectedCardUid)
+    ? hand.find((c) => c.uid === selectedCardUid) ?? null
     : null;
 
   const canDrop =
@@ -111,8 +111,9 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     selectedCard !== null &&
     isCardCostAllowed(selectedCard.cost, laneBonus) &&
     (() => {
-      let c = getEffectiveCost(selectedCard.cost, laneBonus);
-      if (selectedCard.effectId === "sobrecarga") c = Math.max(1, c - 1);
+      const sc = selectedCard!;
+      let c = getEffectiveCost(sc.cost, laneBonus);
+      if (sc.effectId === "sobrecarga") c = Math.max(1, c - 1);
       return c <= energy;
     })() &&
     laneState.player.length < maxCards;
@@ -136,7 +137,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
   return (
     <section
       className={cn(
-        "relative flex flex-1 flex-col gap-1 overflow-hidden rounded-xl border-2 p-1.5",
+        "relative flex flex-1 flex-col gap-0.5 overflow-hidden rounded-lg border p-1",
         colors.bg,
         colors.border,
         laneBonus && colors.glow,
@@ -169,33 +170,33 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
 
       {/* Lane header */}
       <div className={cn(
-        "relative flex items-center justify-between rounded-lg border border-white/5 px-2 py-1 backdrop-blur-sm",
+        "relative flex items-center justify-between rounded border border-white/5 px-1 py-0.5 backdrop-blur-sm",
         colors.headerBg
       )}>
-        <div className="flex items-center gap-1.5">
-          <span className="text-base drop-shadow">{meta.emoji}</span>
+        <div className="flex items-center gap-0.5 min-w-0">
+          <span className="text-[10px] drop-shadow">{meta.emoji}</span>
           <span
             className={cn(
-              "text-[10px] font-black uppercase tracking-wider drop-shadow",
+              "truncate text-[7px] font-black uppercase tracking-wider drop-shadow",
               colors.text
             )}
           >
             {meta.title}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           {laneBonus ? (
             <span
               title={laneBonus.description}
               className={cn(
-                "rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-sm",
+                "rounded border px-1 py-0 text-[6px] font-bold uppercase tracking-wide shadow-sm",
                 BONUS_CHIP_CLASS[laneBonus.flavor].chip
               )}
             >
               {laneBonus.label}
             </span>
           ) : (
-            <span className="rounded border border-white/10 bg-black/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-500">
+            <span className="rounded border border-white/10 bg-black/50 px-1 py-0 text-[6px] font-bold uppercase tracking-wide text-zinc-500">
               Sin bono
             </span>
           )}
@@ -205,56 +206,56 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
       {/* Enemy slots — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid grid-cols-2 grid-rows-2 gap-1 rounded-lg border p-1",
+          "relative grid grid-cols-2 grid-rows-2 gap-0.5 rounded border p-0.5",
           enemyWinning
             ? "border-rose-500/30 bg-rose-950/10"
             : "border-white/5 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", height: "auto", minHeight: "0" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.enemy[i];
           if (card) {
             return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
           }
-          return <div key={`enemy-empty-${i}`} className="aspect-[3/4] rounded-lg border border-dashed border-white/5 bg-black/20" />;
+          return <div key={`enemy-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
         })}
       </div>
 
       {/* Central divider with VS */}
-      <div className="relative flex items-center justify-center py-0.5">
-        <div className={cn("h-[2px] flex-1 rounded-full bg-gradient-to-r to-transparent", colors.dividerLine)} />
-        <span className="mx-2 text-[8px] font-black uppercase tracking-widest text-zinc-600">VS</span>
-        <div className={cn("h-[2px] flex-1 rounded-full bg-gradient-to-l to-transparent", colors.dividerLine)} />
+      <div className="relative flex items-center justify-center py-0">
+        <div className={cn("h-[1px] flex-1 rounded-full bg-gradient-to-r to-transparent", colors.dividerLine)} />
+        <span className="mx-1 text-[6px] font-black uppercase tracking-widest text-zinc-600">VS</span>
+        <div className={cn("h-[1px] flex-1 rounded-full bg-gradient-to-l to-transparent", colors.dividerLine)} />
       </div>
 
       {/* Score panel with visual bar */}
-      <div className="relative rounded-lg border border-white/5 bg-black/50 px-2 py-1">
-        <div className="flex items-center justify-between mb-1">
-          <div className="text-right">
-            <div className="text-[7px] uppercase tracking-widest text-zinc-500">Rival</div>
-            <div className={cn("text-base font-black tabular-nums leading-none", enemyWinning ? "text-rose-400" : "text-zinc-300")}>
+      <div className="relative rounded border border-white/5 bg-black/50 px-1 py-0.5">
+        <div className="flex items-center justify-between mb-0.5">
+          <div className="text-right leading-none">
+            <div className="text-[5px] uppercase tracking-widest text-zinc-500">Rival</div>
+            <div className={cn("text-[10px] font-black tabular-nums leading-none", enemyWinning ? "text-rose-400" : "text-zinc-300")}>
               {enemyScore}
             </div>
           </div>
           {scoreDiff > 0 && (
             <span className={cn(
-              "text-[7px] font-bold tabular-nums",
+              "text-[6px] font-bold tabular-nums",
               playerWinning ? "text-emerald-500" : "text-rose-500"
             )}>
               +{scoreDiff}
             </span>
           )}
-          <div className="text-left">
-            <div className="text-[7px] uppercase tracking-widest text-zinc-500">Tú</div>
-            <div className={cn("text-base font-black tabular-nums leading-none", playerWinning ? "text-emerald-400" : "text-zinc-300")}>
+          <div className="text-left leading-none">
+            <div className="text-[5px] uppercase tracking-widest text-zinc-500">Tú</div>
+            <div className={cn("text-[10px] font-black tabular-nums leading-none", playerWinning ? "text-emerald-400" : "text-zinc-300")}>
               {playerScore}
             </div>
           </div>
         </div>
         {/* Visual diff bar */}
         {(playerScore > 0 || enemyScore > 0) && (
-          <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-black/60">
+          <div className="flex h-1 w-full overflow-hidden rounded-full bg-black/60">
             <div className="bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500" style={{ width: `${(playerScore / (playerScore + enemyScore)) * 100}%` }} />
             <div className="bg-gradient-to-r from-rose-500 to-rose-700 transition-all duration-500" style={{ width: `${(enemyScore / (playerScore + enemyScore)) * 100}%` }} />
           </div>
@@ -264,21 +265,21 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
       {/* Player slots (drop zone) — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid grid-cols-2 grid-rows-2 gap-1 rounded-lg border border-dashed p-1 transition-colors",
+          "relative grid grid-cols-2 grid-rows-2 gap-0.5 rounded border border-dashed p-0.5 transition-colors",
           canDrop
             ? "border-yellow-400/60 bg-yellow-500/5"
             : playerWinning
               ? "border-emerald-500/30 bg-emerald-950/10"
               : "border-white/10 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", height: "auto", minHeight: "0" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.player[i];
           if (card) {
             return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
           }
-          return <div key={`player-empty-${i}`} className="aspect-[3/4] rounded-lg border border-dashed border-white/5 bg-black/20" />;
+          return <div key={`player-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
         })}
       </div>
     </section>

@@ -67,7 +67,7 @@ export default function Home() {
 
   if (deckLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-zinc-950 to-black text-zinc-100">
+      <div className="app-frame items-center justify-center text-zinc-100">
         <Loader2 className="h-10 w-10 animate-spin text-amber-400" />
         <div className="mt-3 text-sm font-bold uppercase tracking-widest text-amber-400">Cargando batalla…</div>
       </div>
@@ -75,7 +75,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-950 to-black text-zinc-100">
+    <div className="app-frame text-zinc-100">
       <HeaderBar
         onOpenRules={() => setRulesOpen(true)}
         onOpenHistory={() => setHistoryOpen(true)}
@@ -83,8 +83,8 @@ export default function Home() {
         onOpenProfile={() => setProfileOpen(true)}
       />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-2 px-2 py-2">
-        <div className="grid grid-cols-3 gap-2">
+      <main className="app-main mx-auto flex w-full flex-1 flex-col gap-2 px-2 py-2">
+        <div className="grid grid-cols-3 gap-1.5">
           {LANE_IDS.map((lane: LaneId) => (
             <LaneComponent key={lane} laneId={lane} />
           ))}
@@ -150,10 +150,6 @@ export default function Home() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
-
-      <footer className="mt-auto border-t border-zinc-800 bg-zinc-950 px-3 py-1 text-center text-[10px] text-zinc-500">
-        Toca una carta para seleccionarla · Toca un carril para jugarla · Pulsa <em className="text-amber-400">Pasar</em> cuando termines.
-      </footer>
     </div>
   );
 }
