@@ -3,7 +3,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Lock, LogOut } from "lucide-react";
+import { sfx } from "@/lib/sound";
 
 export function HandBar() {
   const hand = useGameStore((s) => s.hand);
@@ -13,6 +14,8 @@ export function HandBar() {
   const invalidPlayMsg = useGameStore((s) => s.invalidPlayMsg);
   const dismissInvalidMsg = useGameStore((s) => s.dismissInvalidMsg);
   const phase = useGameStore((s) => s.phase);
+  const endTurn = useGameStore((s) => s.endTurn);
+  const resetGame = useGameStore((s) => s.resetGame);
 
   return (
     <div className="border-t border-zinc-800 bg-zinc-950/95">
@@ -48,7 +51,7 @@ export function HandBar() {
         )}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto px-3 pb-3 pt-1">
+      <div className="flex gap-2 overflow-x-auto px-3 pb-2 pt-1">
         <AnimatePresence mode="popLayout">
           {hand.length === 0 ? (
             <div className="flex h-32 w-full items-center justify-center text-xs text-zinc-600">
@@ -62,10 +65,39 @@ export function HandBar() {
                 selected={selectedCardUid === card.uid}
                 affordable={card.cost <= energy}
                 onClick={() => phase === "playing" && selectCard(card.uid)}
+                onPreview={(c) => useGameStore.getState().setPreviewCard?.(c as any)}
               />
             ))
           )}
         </AnimatePresence>
+      </div>
+
+      {/* Action bar — BLOQUEAR + ABANDONAR */}
+      <div className="flex items-center gap-2 border-t border-zinc-800 bg-black/40 px-3 py-2">
+        {phase === "playing" ? (
+          <button
+            onClick={() => { sfx.click(); endTurn(); }}
+            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600 px-6 py-2.5 text-sm font-black uppercase tracking-wider text-white shadow-lg shadow-emerald-900/50 transition-all hover:from-teal-400 hover:to-emerald-500 active:scale-95"
+          >
+            <Lock className="h-4 w-4" />
+            Bloquear
+          </button>
+        ) : (
+          <button
+            onClick={() => resetGame()}
+            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-600 to-rose-600 px-6 py-2.5 text-sm font-black uppercase tracking-wider text-white shadow-lg shadow-rose-900/50 transition-all hover:from-amber-500 hover:to-rose-500 active:scale-95"
+          >
+            <Lock className="h-4 w-4" />
+            Reiniciar
+          </button>
+        )}
+        <button
+          onClick={() => { if (confirm("¿Abandonar la partida?")) resetGame(); }}
+          className="flex items-center justify-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Abandonar
+        </button>
       </div>
     </div>
   );
