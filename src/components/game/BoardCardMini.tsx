@@ -53,9 +53,6 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
       {/* Dark gradient at bottom for badge legibility */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
 
-      {/* Category color tint at bottom */}
-      <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t to-transparent", cat.bgClass.replace("/15", "/30"))} />
-
       {/* Cost badge (top-left) */}
       <div className="absolute left-1 top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-sky-500 to-sky-700 text-[11px] font-black text-white shadow-md">
         {card.cost}
