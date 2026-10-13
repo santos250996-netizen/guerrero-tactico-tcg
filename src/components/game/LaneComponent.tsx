@@ -202,33 +202,23 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         </div>
       </div>
 
-      {/* Enemy slots — 2x2 grid */}
+      {/* Enemy slots — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid grid-cols-2 gap-1 rounded-lg border p-1",
+          "relative grid h-32 grid-cols-2 grid-rows-2 gap-1 rounded-lg border p-1",
           enemyWinning
             ? "border-rose-500/30 bg-rose-950/10"
             : "border-white/5 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", minHeight: "5rem" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
-        <AnimatePresence mode="popLayout">
-          {laneState.enemy.length === 0 ? (
-            <div className="col-span-2 flex h-16 items-center justify-center text-[9px] text-zinc-600">
-              Esperando rival…
-            </div>
-          ) : (
-            <>
-              {laneState.enemy.map((c) => (
-                <BoardCardMini key={c.uid} card={c} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />
-              ))}
-              {/* Fill empty slots */}
-              {Array.from({ length: Math.max(0, maxCards - laneState.enemy.length) }).map((_, i) => (
-                <div key={`enemy-slot-${i}`} className="aspect-square rounded-lg border border-dashed border-white/5 bg-black/20" />
-              ))}
-            </>
-          )}
-        </AnimatePresence>
+        {Array.from({ length: maxCards }).map((_, i) => {
+          const card = laneState.enemy[i];
+          if (card) {
+            return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
+          }
+          return <div key={`enemy-empty-${i}`} className="rounded-lg border border-dashed border-white/5 bg-black/20" />;
+        })}
       </div>
 
       {/* Central divider with VS */}
@@ -271,35 +261,25 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         )}
       </div>
 
-      {/* Player slots (drop zone) — 2x2 grid */}
+      {/* Player slots (drop zone) — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid grid-cols-2 gap-1 rounded-lg border border-dashed p-1 transition-colors",
+          "relative grid h-32 grid-cols-2 grid-rows-2 gap-1 rounded-lg border border-dashed p-1 transition-colors",
           canDrop
             ? "border-yellow-400/60 bg-yellow-500/5"
             : playerWinning
               ? "border-emerald-500/30 bg-emerald-950/10"
               : "border-white/10 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", minHeight: "5rem" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
-        <AnimatePresence mode="popLayout">
-          {laneState.player.length === 0 ? (
-            <div className="col-span-2 flex h-16 items-center justify-center text-[9px] text-zinc-600">
-              {buildHint() || "Vacío"}
-            </div>
-          ) : (
-            <>
-              {laneState.player.map((c) => (
-                <BoardCardMini key={c.uid} card={c} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />
-              ))}
-              {/* Fill empty slots */}
-              {Array.from({ length: Math.max(0, maxCards - laneState.player.length) }).map((_, i) => (
-                <div key={`player-slot-${i}`} className="aspect-square rounded-lg border border-dashed border-white/5 bg-black/20" />
-              ))}
-            </>
-          )}
-        </AnimatePresence>
+        {Array.from({ length: maxCards }).map((_, i) => {
+          const card = laneState.player[i];
+          if (card) {
+            return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
+          }
+          return <div key={`player-empty-${i}`} className="rounded-lg border border-dashed border-white/5 bg-black/20" />;
+        })}
       </div>
     </section>
   );

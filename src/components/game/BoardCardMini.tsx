@@ -26,7 +26,7 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
       whileHover={onPreview ? { scale: 1.08, zIndex: 10 } : undefined}
       className={cn(
-        "relative aspect-square w-full overflow-hidden rounded-lg border-2",
+        "relative h-full w-full overflow-hidden rounded-lg border-2",
         rar.borderClass,
         onPreview && "cursor-pointer"
       )}
