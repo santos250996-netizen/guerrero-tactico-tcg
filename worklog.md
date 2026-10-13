@@ -151,3 +151,44 @@ Stage Summary:
 - Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.
 - Verified in browser via real Playwright mouse events: dragged Seccionar (cost 1) to ARMAS lane → hand went 5 → 4, 1 card played in lane.
 - Artifacts: `scripts/drag-drop-final.png`, `scripts/drag-drop-after.png`, `scripts/drag-drop-success.png`, `scripts/drag-drop-played.png`.
+
+---
+Task ID: drag-direction-click-1
+Agent: main (super-z)
+Task: Implement direction-aware drag (vertical = play card, horizontal = scroll hand); differentiate a click/tap from a drag — a tap (no significant movement) on the card anywhere opens the preview modal.
+
+Work Log:
+- `src/components/game/HandCardComponent.tsx`:
+  - Replaced framer-motion's `drag` with custom pointer-event handlers (`onPointerDown`, `onPointerMove`, `onPointerUp`, `onPointerCancel`) for full direction-aware control.
+  - `handlePointerDown`: records start position, calls `setPointerCapture` so subsequent pointer events come to the card even if the pointer leaves the card.
+  - `handlePointerMove`: detects direction once movement exceeds `DIRECTION_THRESHOLD=8px`. Direction logic biased toward vertical: `Math.abs(dy) * 2 >= Math.abs(dx)` → vertical mode; otherwise horizontal mode.
+    - Vertical mode → `setIsDragging(true)`, set ghost position, call `onDragStart` (which `selectCard`s the card). A `position:fixed` drag ghost is rendered at the document body level via React portal so it escapes any overflow-clipped ancestor.
+    - Horizontal mode → manually scroll the hand container via `container.scrollLeft -= dx`. (Touch users already get native horizontal scrolling via `touch-action: pan-x` on the card, so this branch only matters for mouse users.)
+  - `handlePointerUp`: branches by mode:
+    - `vertical && isDragging` → find lane via `document.elementFromPoint(info.point)`, call `onPlayCard(card.uid, laneId)`.
+    - `none` (no drag exceeded threshold) → treat as a tap/click → call `onPreview(card)` to open the preview modal.
+    - `horizontal` → no special action (just resets state).
+  - Added `phase` prop so the component can early-exit when not in playing phase.
+  - Added `data-hand-card-uid={card.uid}` for hit-detection lookup.
+  - The card's `touch-action: pan-x` lets the browser natively handle horizontal touch scrolling on mobile.
+  - Removed the separate `onPreview` click handler on the "Toca para ver efecto" link — the link is now a visual hint only; tapping the card ANYWHERE opens the preview.
+- `src/components/game/HandBar.tsx`:
+  - Pass `phase={phase}` to each `HandCardComponent`.
+  - Added `data-hand-container` attribute on the hand container div (used by `HandCardComponent` to find the parent for manual horizontal scroll).
+  - Removed the `draggingCardUid ? overflow-visible : overflow-x-auto` conditional — the drag ghost uses `position:fixed` so it doesn't need parent overflow to change.
+  - Removed unused `cn` import.
+
+Critical insight discovered during debugging: framer-motion's `drag` listener only fires for `isTrusted:true` events (real browser events, not synthetic `dispatchEvent` calls). The custom pointer-event handlers approach avoids this limitation entirely because `onPointerDown/Move/Up` are React synthetic event handlers, and real Playwright mouse events trigger them.
+
+Verified in browser:
+- Tap (no movement) on Poción de Vida → preview modal opens at top:54px ✓
+- Vertical drag of Poción de Vida to PROTECCIÓN lane → hand 5→4, 1 card played ✓
+- Horizontal drag on Provocar → modal does NOT open, no card played, hand container scrolls ✓ (the container only has ~4px of scroll with 4 cards, so the scroll is barely visible — but the behavior is correct: it doesn't play the card and doesn't open the modal).
+
+Stage Summary:
+- Drag direction now determines behavior:
+  - Up (vertical) → drag the card to the board, drop on a lane to play it.
+  - Sideways (horizontal) → scroll the hand container horizontally to see other cards.
+- A click/tap (pointer moved < 8px) opens the preview modal showing the same full-art card design with the effect text visible.
+- Three distinct interactions cleanly differentiated: tap = preview, vertical drag = play, horizontal drag = scroll.
+- Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.

@@ -97,12 +97,10 @@ export function HandCardComponent({
     // Lock to a direction once movement exceeds the threshold
     if (modeRef.current === "none") {
       if (Math.abs(dx) > DIRECTION_THRESHOLD || Math.abs(dy) > DIRECTION_THRESHOLD) {
-        console.log('[drag] dir decision:', {dx, dy, absDy2: Math.abs(dy)*2, absDx: Math.abs(dx), isVertical: Math.abs(dy)*2 >= Math.abs(dx)});
         if (Math.abs(dy) * 2 >= Math.abs(dx)) {
           // ====== VERTICAL ====== → drag the card to play it on the board
           modeRef.current = "vertical";
           setIsDragging(true);
-          console.log('[drag] VERTICAL mode set, isDragging=true');
           setGhostPos({ x: e.clientX, y: e.clientY });
           onDragStart?.(card.uid);
         } else {
@@ -110,7 +108,6 @@ export function HandCardComponent({
           // (Touch users will already have triggered native scrolling via
           // `touch-action: pan-x`; this branch only matters for mouse users.)
           modeRef.current = "horizontal";
-          console.log('[drag] HORIZONTAL mode set');
         }
       }
     }
@@ -131,18 +128,21 @@ export function HandCardComponent({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    console.log('[drag] pointerup fired, mode:', modeRef.current, 'isDragging:', isDragging);
     if (modeRef.current === "vertical" && isDragging) {
       // Find the lane under the pointer at drop time
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const laneEl = el?.closest("[data-lane-id]") as HTMLElement | null;
       const laneId = laneEl?.dataset.laneId as LaneId | undefined;
-      console.log('[drag] pointerup:', {mode: modeRef.current, isDragging, x: e.clientX, y: e.clientY, elTag: el?.tagName, laneId});
+
       if (laneId) {
         onPlayCard(card.uid, laneId);
       }
       setIsDragging(false);
       onDragEnd?.();
+    } else if (modeRef.current === "none") {
+      // No drag movement exceeded the threshold → treat as a click/tap → open preview
+      // (The pointer moved less than DIRECTION_THRESHOLD px, so the user just tapped.)
+      onPreview?.(card);
     }
     // Reset state
     startRef.current = null;
@@ -155,7 +155,6 @@ export function HandCardComponent({
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
-    console.log('[drag] pointercancel fired, mode:', modeRef.current, 'isDragging:', isDragging);
     if (modeRef.current === "vertical" && isDragging) {
       setIsDragging(false);
       onDragEnd?.();
@@ -250,31 +249,14 @@ export function HandCardComponent({
           {card.name}
         </div>
 
-        {/* "Toca para ver efecto" (left) parallel to rarity letter (right) */}
+        {/* "Toca para ver efecto" (left) parallel to rarity letter (right) — visual hint only, the whole card is tappable */}
         <div className="flex items-end justify-between gap-1">
-          {onPreview ? (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => {
-                e.stopPropagation();
-                onPreview(card);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onPreview(card);
-                }
-              }}
-              className="inline-flex items-center gap-0.5 text-[6px] uppercase tracking-widest text-zinc-400 hover:text-amber-300 transition-colors cursor-pointer"
-            >
-              <Info className="h-2 w-2" />
-              Toca para ver efecto
-            </span>
-          ) : (
-            <span className="h-1 w-1" />
-          )}
+          <span
+            className="inline-flex items-center gap-0.5 text-[6px] uppercase tracking-widest text-zinc-400 hover:text-amber-300 transition-colors"
+          >
+            <Info className="h-2 w-2" />
+            Toca para ver efecto
+          </span>
           <span
             title={rar.label}
             className={cn(
