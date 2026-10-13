@@ -19,7 +19,15 @@ export type EffectId =
   | "ira_rabiosa" // +3 si hay carta con subtipo furia
   | "grito_batalla" // +2 a cartas Furia en mano
   | "filotormenta" // -1 a todos los rivales
-  | "avatar_titan"; // +1 por carta en mesa
+  | "avatar_titan" // +1 por carta en mesa
+  // --- 12 tactical effects ---
+  | "herida_letal" | "carga_devastadora" | "asalto_coordinado" | "burla_sadica"
+  | "sobrecarga" | "purificacion" | "tormenta_rayos" | "trampa_eterea"
+  | "reflejo_arcano" | "venganza" | "mimetismo" | "empuje_tactico"
+  // --- 3 legendary effects ---
+  | "colera_titan" | "despertar_bélico" | "trono_hierro";
+
+export type Rarity = "common" | "rare" | "epic" | "legendary";
 
 export interface CardDef {
   id: string;
@@ -30,10 +38,11 @@ export interface CardDef {
   power: number;
   text: string;
   effectId: EffectId;
+  rarity: Rarity;
 }
 
 export interface BoardCard {
-  uid: string; // unique instance id on the board
+  uid: string;
   defId: string;
   name: string;
   category: CardCategory;
@@ -43,6 +52,7 @@ export interface BoardCard {
   currentPower: number;
   text: string;
   effectId: EffectId;
+  rarity: Rarity;
 }
 
 export interface HandCard extends CardDef {
