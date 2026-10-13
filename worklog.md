@@ -110,3 +110,44 @@ Stage Summary:
 - The preview modal no longer renders a different card design — it renders the same full-art hand card, just larger, with the effect text replacing the "Toca para ver efecto" hint.
 - Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated examples/skills dirs.
 - Artifacts: `scripts/full-art-v2-hand.png`, `scripts/full-art-v2-modal.png`.
+
+---
+Task ID: multi-subtype-drag-1
+Agent: main (super-z)
+Task: Show ALL subtype icons on cards (1, 2, or 3 icons); put "Toca para ver efecto" parallel to rarity letter; fix rarity letters (all uppercase C/R/E/L); redesign preview modal (remove subtype chip from rarity row, move rarity to bottom center as text); implement mandatory drag-and-drop for hand cards (no more tap-to-select).
+
+Work Log:
+- `src/store/gameStore.ts`:
+  - Added `draggingCardUid: string | null` state property + `setDraggingCard(uid)` action. HandBar's overflow flips to `overflow-visible` when this is set so the dragged card can escape its container.
+- `src/components/game/HandCardComponent.tsx` (full rewrite):
+  - Rarity letters now all uppercase per user spec: common="C", rare="R", epic="E", legendary="L".
+  - Subtype icons: now renders ALL matching subtypes (e.g. Avatar del Titán shows ⚔️ 🛡️ 🔥; Poción de Vida shows 🛡️ 🔥) instead of just the first one.
+  - "Toca para ver efecto" (left) is now in the same horizontal row as the rarity letter (right) — both parallel at the bottom of the panel.
+  - Added framer-motion `drag` props: `drag`, `dragSnapToOrigin`, `dragElastic=0.6`, `dragConstraints={{left:-300,right:300,top:-400,bottom:100}}`, `whileDrag={{scale:1.18, zIndex:200, cursor:"grabbing", pointerEvents:"none"}}`.
+  - Added `onDragStart` → calls `onDragStart?.(card.uid)` (parent calls `selectCard` + `setDraggingCard`).
+  - Added `onDragEnd` → finds the dragged card via `document.querySelector('[data-hand-card-uid="..."]')`, temporarily sets `pointerEvents:none` so `elementFromPoint(info.point.x, info.point.y)` sees through it, finds `[data-lane-id]` ancestor, and calls `onPlayCard(card.uid, laneId)`.
+  - Added `data-hand-card-uid={card.uid}` attribute on the motion.button for hit-detection lookup.
+  - Removed the old `onClick` tap-to-select behavior (drag is now obligatory).
+- `src/components/game/HandBar.tsx`:
+  - Wired `onPlayCard`, `onDragStart`, `onDragEnd` from store actions.
+  - When `draggingCardUid` is set, the hand container switches from `overflow-x-auto` to `overflow-visible` so the dragged card can escape vertically during drag.
+  - Status text shows "Arrastra a un carril" with `animate-pulse` during drag.
+  - `handlePlayCard` includes a safety check: only calls `selectCard(cardUid)` if `selectedCardUid !== cardUid` (avoids toggle-deselect, since `onDragStart` already called selectCard).
+- `src/components/game/CardPreviewModal.tsx` (redesign):
+  - Subtype icons: now shows ALL matching subtypes in the top row, not just the first.
+  - Removed the subtype chip from the bottom row (which used to be parallel to the rarity letter).
+  - Rarity now displayed as TEXT at the BOTTOM CENTER of the card: "C · Común" / "R · Rara" / "E · Épica" / "L · Legendaria" — with a small rarity-color dot + uppercase letter + label.
+- `src/components/game/LaneComponent.tsx`:
+  - Added `data-lane-id={laneId}` attribute on the section element for drag-target hit detection.
+
+Critical debugging journey: discovered that `dispatchEvent(new PointerEvent(...))` does NOT trigger framer-motion's `drag` listener (because synthetic events are `isTrusted:false`). Real Playwright `mouse.down()/move()/up()` events ARE trusted and work correctly. Also discovered that on `onDragEnd`, framer-motion may have already restored `whileDrag`'s `pointerEvents:none` before the callback runs, so `elementFromPoint` would return the dragged card's own IMG. Fixed by finding the dragged card via `data-hand-card-uid` and explicitly setting `style.pointerEvents='none'` before `elementFromPoint`. Finally found that `selectCard` toggles (deselects if called twice with same uid), so the safety check `if (state.selectedCardUid !== cardUid)` was needed.
+
+Stage Summary:
+- Cards now show ALL subtype icons: Avatar del Titán displays ⚔️ 🛡️ 🔥; multi-subtype cards show all icons side-by-side.
+- "Toca para ver efecto" and rarity letter are now in the same horizontal row, parallel.
+- Rarity letters are all uppercase: C / R / E / L.
+- Preview modal: subtype chip removed from bottom row; rarity now appears as TEXT at the bottom center ("L · Legendaria").
+- Drag-and-drop is mandatory: tap-to-select was removed; cards must be dragged to a lane to be played. `whileDrag` gives the card a 1.18× scale + gold z-index bump; on drop, `elementFromPoint` finds the lane and `playSelectedCardIntoLane` runs.
+- Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.
+- Verified in browser via real Playwright mouse events: dragged Seccionar (cost 1) to ARMAS lane → hand went 5 → 4, 1 card played in lane.
+- Artifacts: `scripts/drag-drop-final.png`, `scripts/drag-drop-after.png`, `scripts/drag-drop-success.png`, `scripts/drag-drop-played.png`.

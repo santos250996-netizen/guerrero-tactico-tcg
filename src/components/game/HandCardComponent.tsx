@@ -1,24 +1,26 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Info } from "lucide-react";
 import type { HandCard } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META, LANE_META } from "@/lib/game/types";
+import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 
 interface HandCardComponentProps {
   card: HandCard;
   selected: boolean;
   affordable: boolean; // can pay the cost with current energy
-  onClick: () => void;
+  onPlayCard: (cardUid: string, laneId: LaneId) => void;
+  onDragStart?: (cardUid: string) => void;
+  onDragEnd?: () => void;
   onPreview?: (card: HandCard) => void;
 }
 
-// Rarity letter per user spec: common=rare lowercase, epic=legendary uppercase.
-// c / r / E / L
+// Rarity letters — all uppercase per user spec (C / R / E / L)
 const RARITY_LETTER: Record<string, string> = {
-  common: "c",
-  rare: "r",
+  common: "C",
+  rare: "R",
   epic: "E",
   legendary: "L",
 };
@@ -35,15 +37,18 @@ export function HandCardComponent({
   card,
   selected,
   affordable,
-  onClick,
+  onPlayCard,
+  onDragStart,
+  onDragEnd,
   onPreview,
 }: HandCardComponentProps) {
   const cat = CATEGORY_META[card.category];
   const rar = RARITY_META[card.rarity];
   const artUrl = `/cards/${card.id}.png`;
   const effectivePower = card.power + (card.handBonus || 0);
-  const laneSubtype = card.subtypes[0];
-  const laneMeta = LANE_META[laneSubtype];
+
+  // All subtype metas (cards can belong to 1, 2, or 3 lanes)
+  const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 
   return (
     <motion.button
@@ -54,20 +59,57 @@ export function HandCardComponent({
       whileHover={{ y: -6, scale: 1.05 }}
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      onClick={onClick}
+      // ====== DRAG-AND-DROP ======
+      drag
+      dragSnapToOrigin
+      dragElastic={0.6}
+      // Free drag in all directions; constrained to a generous area around the card
+      dragConstraints={{ left: -300, right: 300, top: -400, bottom: 100 }}
+      whileDrag={{ scale: 1.18, zIndex: 200, cursor: "grabbing", pointerEvents: "none" }}
+      onDragStart={() => {
+        onDragStart?.(card.uid);
+      }}
+      onDragEnd={(_event, info) => {
+        // Use the pointer position at drop time to find the lane under the cursor.
+        // During drag, `whileDrag` sets pointerEvents:none on the dragged card, but
+        // framer-motion may restore pointer events before onDragEnd runs. We
+        // explicitly find the dragged card via its data-hand-card-uid and disable
+        // its pointer-events temporarily so elementFromPoint sees THROUGH it.
+        const x = info.point.x;
+        const y = info.point.y;
+        const draggedCard = document.querySelector(`[data-hand-card-uid="${card.uid}"]`) as HTMLElement | null;
+        let el: Element | null = null;
+        if (draggedCard) {
+          const prevPE = draggedCard.style.pointerEvents;
+          draggedCard.style.pointerEvents = "none";
+          el = document.elementFromPoint(x, y);
+          draggedCard.style.pointerEvents = prevPE;
+        } else {
+          el = document.elementFromPoint(x, y);
+        }
+        const laneEl = el?.closest("[data-lane-id]") as HTMLElement | null;
+        const laneId = laneEl?.dataset.laneId as LaneId | undefined;
+        if (laneId) {
+          onPlayCard(card.uid, laneId);
+        }
+        onDragEnd?.();
+      }}
       className={cn(
         // Full-art card: just a thin rarity-colored border around the full image
-        "relative flex h-44 w-28 shrink-0 flex-col overflow-hidden rounded-lg border-2 shadow-2xl shadow-black/80",
+        "relative flex h-44 w-28 shrink-0 touch-none flex-col overflow-hidden rounded-lg border-2 shadow-2xl shadow-black/80",
         "bg-zinc-950",
         selected
           ? "border-amber-400 ring-2 ring-amber-400/70 z-10"
           : rar.borderClass,
         !affordable && "opacity-65 grayscale"
       )}
+      data-hand-card-uid={card.uid}
       style={{
         boxShadow:
           "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 6px rgba(0,0,0,0.6), 0 6px 14px rgba(0,0,0,0.7)" +
           (selected ? ", 0 0 18px rgba(251,191,36,0.5)" : ""),
+        // Allow dragged card to escape its parent's overflow-x-auto clipping
+        willChange: "transform",
       }}
     >
       {/* Full-bleed art (same as board cards) */}
@@ -112,8 +154,8 @@ export function HandCardComponent({
 
       {/* Bottom info panel overlay */}
       <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-0.5 px-1.5 py-1">
-        {/* Top row of bottom panel: card type (left) + subtype icon (right) */}
-        <div className="flex items-center justify-between">
+        {/* Top row of bottom panel: card type (left) + ALL subtype icons (right) */}
+        <div className="flex items-center justify-between gap-0.5">
           <span
             className={cn(
               "rounded border px-1 py-0 text-[7px] font-bold uppercase tracking-wider backdrop-blur-sm",
@@ -124,12 +166,20 @@ export function HandCardComponent({
           >
             {cat.label}
           </span>
-          <span
-            className="flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[9px] leading-none backdrop-blur-sm"
-            title={laneMeta?.title}
-          >
-            {laneMeta?.emoji}
-          </span>
+          {/* Show ALL subtype icons in a row (1, 2, or 3 icons) */}
+          <div className="flex items-center gap-0.5">
+            <AnimatePresence>
+              {subtypeMetas.map((lm) => (
+                <span
+                  key={lm.title}
+                  title={lm.title}
+                  className="flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[9px] leading-none backdrop-blur-sm"
+                >
+                  {lm.emoji}
+                </span>
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Card name */}

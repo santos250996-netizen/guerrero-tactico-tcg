@@ -6,27 +6,28 @@ import { CATEGORY_META, RARITY_META, LANE_META } from "@/lib/game/types";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Rarity letter per user spec: common=rare lowercase, epic=legendary uppercase.
+// Rarity letters — all uppercase per user spec (C / R / E / L)
 const RARITY_LETTER: Record<string, string> = {
-  common: "c",
-  rare: "r",
+  common: "C",
+  rare: "R",
   epic: "E",
   legendary: "L",
 };
 
-const RARITY_SOLID_BG: Record<string, string> = {
-  common: "bg-gradient-to-b from-zinc-400 to-zinc-700 text-zinc-950",
-  rare: "bg-gradient-to-b from-sky-400 to-sky-700 text-white",
-  epic: "bg-gradient-to-b from-violet-400 to-violet-700 text-white",
-  legendary: "bg-gradient-to-b from-amber-300 to-amber-600 text-zinc-950",
+// Solid rarity background color for the rare pill text
+const RARITY_TEXT_COLOR: Record<string, string> = {
+  common: "text-zinc-300",
+  rare: "text-sky-300",
+  epic: "text-violet-300",
+  legendary: "text-amber-300",
 };
 
 export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   if (!card) return null;
   const cat = CATEGORY_META[card.category];
   const rar = RARITY_META[card.rarity];
-  const laneSubtype = card.subtypes[0];
-  const laneMeta = LANE_META[laneSubtype];
+  // All subtype metas
+  const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -79,10 +80,15 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             {card.power}
           </div>
 
-          {/* Bottom info panel overlay — same structure as hand card */}
+          {/* Subtle "Vista previa" pill at top-center */}
+          <div className="pointer-events-none absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded-full bg-black/50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-200/70 backdrop-blur-sm">
+            <Sparkles className="inline h-2.5 w-2.5" /> Vista previa
+          </div>
+
+          {/* Bottom info panel overlay — same structure as hand card, minus the rare-row parallel */}
           <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 py-2.5">
-            {/* Top row of bottom panel: card type (left) + subtype icon (right) */}
-            <div className="flex items-center justify-between">
+            {/* Top row of bottom panel: card type (left) + ALL subtype icons (right) */}
+            <div className="flex items-center justify-between gap-1">
               <span
                 className={cn(
                   "rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm",
@@ -93,12 +99,17 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               >
                 {cat.label}
               </span>
-              <span
-                className="flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-sm leading-none backdrop-blur-sm"
-                title={laneMeta?.title}
-              >
-                {laneMeta?.emoji}
-              </span>
+              <div className="flex items-center gap-0.5">
+                {subtypeMetas.map((lm) => (
+                  <span
+                    key={lm.title}
+                    title={lm.title}
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-sm leading-none backdrop-blur-sm"
+                  >
+                    {lm.emoji}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Card name */}
@@ -111,26 +122,13 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               <span className="font-bold">Efecto:</span> {card.text}
             </div>
 
-            {/* Bottom row: subtype chip (left, parallel) + rarity letter (right) */}
-            <div className="flex items-end justify-between gap-2">
-              <span className="rounded border border-amber-600/60 bg-gradient-to-r from-amber-600 to-yellow-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-900 shadow">
-                {card.subtypes.join(" / ")}
-              </span>
-              <span
-                title={rar.label}
-                className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white/80 text-sm font-black shadow-md",
-                  RARITY_SOLID_BG[card.rarity]
-                )}
-              >
-                {RARITY_LETTER[card.rarity]}
-              </span>
+            {/* Rarity as TEXT at bottom center (no parallel subtype, no badge) */}
+            <div className={cn("mt-0.5 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-widest", RARITY_TEXT_COLOR[card.rarity])}>
+              <span className={cn("inline-block h-2 w-2 rounded-full", rar.gemClass)} />
+              <span>{RARITY_LETTER[card.rarity]}</span>
+              <span className="opacity-70">·</span>
+              <span>{rar.label}</span>
             </div>
-          </div>
-
-          {/* Subtle "Sparkles" icon top-center as a flourish (no functional role) */}
-          <div className="pointer-events-none absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded-full bg-black/50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-200/70 backdrop-blur-sm">
-            <Sparkles className="inline h-2.5 w-2.5" /> Vista previa
           </div>
         </motion.div>
 

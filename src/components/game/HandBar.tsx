@@ -5,17 +5,40 @@ import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
 import { AlertTriangle, Lock, LogOut, Activity } from "lucide-react";
 import { sfx } from "@/lib/sound";
+import type { LaneId } from "@/lib/game/types";
+import { cn } from "@/lib/utils";
 
 export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
   const hand = useGameStore((s) => s.hand);
   const selectedCardUid = useGameStore((s) => s.selectedCardUid);
+  const draggingCardUid = useGameStore((s) => s.draggingCardUid);
   const energy = useGameStore((s) => s.energy);
   const selectCard = useGameStore((s) => s.selectCard);
+  const setDraggingCard = useGameStore((s) => s.setDraggingCard);
+  const playSelectedCardIntoLane = useGameStore((s) => s.playSelectedCardIntoLane);
   const invalidPlayMsg = useGameStore((s) => s.invalidPlayMsg);
   const dismissInvalidMsg = useGameStore((s) => s.dismissInvalidMsg);
   const phase = useGameStore((s) => s.phase);
   const endTurn = useGameStore((s) => s.endTurn);
   const resetGame = useGameStore((s) => s.resetGame);
+
+  const handleDragStart = (cardUid: string) => {
+    selectCard(cardUid);
+    setDraggingCard(cardUid);
+  };
+  const handleDragEnd = () => {
+    setDraggingCard(null);
+  };
+  const handlePlayCard = (cardUid: string, laneId: LaneId) => {
+    // selectCard was already called during onDragStart, so we just need to play.
+    // (selectCard toggles, so calling it again here would deselect.)
+    // Safety fallback: if selection got cleared somehow, re-select first.
+    const state = useGameStore.getState();
+    if (state.selectedCardUid !== cardUid) {
+      selectCard(cardUid);
+    }
+    playSelectedCardIntoLane(laneId);
+  };
 
   return (
     <div className="border-t border-zinc-800 bg-zinc-950/95">
@@ -44,14 +67,24 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
         <span className="text-[9px] uppercase tracking-wider text-zinc-500">
           Tu mano · {hand.length} carta(s)
         </span>
-        {phase === "playing" && selectedCardUid && (
+        {phase === "playing" && draggingCardUid ? (
+          <span className="text-[9px] text-amber-400 animate-pulse">
+            Arrastra a un carril
+          </span>
+        ) : phase === "playing" && selectedCardUid ? (
           <span className="text-[9px] text-yellow-400">
             Toca un carril para jugarla
           </span>
-        )}
+        ) : null}
       </div>
 
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-2 pb-1 pt-0.5">
+      {/* When dragging, switch overflow to visible so the dragged card escapes the hand container */}
+      <div
+        className={cn(
+          "flex gap-1.5 px-2 pb-1 pt-0.5",
+          draggingCardUid ? "overflow-visible" : "no-scrollbar overflow-x-auto"
+        )}
+      >
         <AnimatePresence mode="popLayout">
           {hand.length === 0 ? (
             <div className="flex h-44 w-full items-center justify-center text-[10px] text-zinc-600">
@@ -64,7 +97,9 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
                 card={card}
                 selected={selectedCardUid === card.uid}
                 affordable={card.cost <= energy}
-                onClick={() => phase === "playing" && selectCard(card.uid)}
+                onPlayCard={handlePlayCard}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
                 onPreview={(c) => useGameStore.getState().setPreviewCard?.(c as any)}
               />
             ))
@@ -72,7 +107,7 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
         </AnimatePresence>
       </div>
 
-      {/* Action bar — Pasar (big) + Registro + Abandonar (small) */}
+      {/* Action bar — Pasar (big) + Registro + Salir (small) */}
       <div className="flex items-center gap-1.5 border-t border-zinc-800 bg-black/40 px-2 py-1.5">
         {phase === "playing" ? (
           <button

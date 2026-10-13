@@ -136,6 +136,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
 
   return (
     <section
+      data-lane-id={laneId}
       className={cn(
         "relative flex flex-1 flex-col gap-0.5 overflow-hidden rounded-lg border p-1",
         colors.bg,

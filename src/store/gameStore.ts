@@ -118,6 +118,7 @@ interface GameStoreState {
 
   // UI state
   selectedCardUid: string | null;
+  draggingCardUid: string | null;
   invalidPlayMsg: string | null;
   lastEnemyPlays: AIPlay[];
   log: LogEntry[];
@@ -125,6 +126,7 @@ interface GameStoreState {
   // Actions
   initGame: () => void;
   selectCard: (uid: string | null) => void;
+  setDraggingCard: (uid: string | null) => void;
   playSelectedCardIntoLane: (lane: LaneId) => void;
   endTurn: () => Promise<void>;
   canPlaySelected: (lane: LaneId) => boolean;
@@ -262,6 +264,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   deckSaveStatus: "idle",
   deckLoading: false,
   selectedCardUid: null,
+  draggingCardUid: null,
   invalidPlayMsg: null,
   lastEnemyPlays: [],
   log: [],
@@ -316,6 +319,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const cur = get().selectedCardUid;
     set({ selectedCardUid: cur === uid ? null : uid, invalidPlayMsg: null });
     if (useSettings.getState().soundOn) sfx.select();
+  },
+
+  setDraggingCard: (uid) => {
+    set({ draggingCardUid: uid });
   },
 
   canPlaySelected: (lane) => {
