@@ -148,7 +148,7 @@ export const WARRIOR_DECK: CardDef[] = [
 export const BASIC_CARDS: CardDef[] = [
   {
     id: "recluta",
-    name: "Cadete",
+    name: "Tajo Veloz",
     category: "Ataque",
     subtypes: ["armas"],
     cost: 1,
@@ -181,7 +181,7 @@ export const BASIC_CARDS: CardDef[] = [
   },
   {
     id: "soldado",
-    name: "Legionario",
+    name: "Embestida",
     category: "Ataque",
     subtypes: ["armas", "proteccion"],
     cost: 2,
@@ -203,7 +203,7 @@ export const BASIC_CARDS: CardDef[] = [
   },
   {
     id: "veterano",
-    name: "Sargento",
+    name: "Golpe Brutal",
     category: "Ataque",
     subtypes: ["armas"],
     cost: 3,
@@ -225,7 +225,7 @@ export const BASIC_CARDS: CardDef[] = [
   },
   {
     id: "caballero",
-    name: "Espadachín",
+    name: "Estocada Maestra",
     category: "Ataque",
     subtypes: ["armas"],
     cost: 4,
@@ -258,7 +258,7 @@ export const BASIC_CARDS: CardDef[] = [
   },
   {
     id: "campeon",
-    name: "Campeón Sanguinario",
+    name: "Masacre Sangrienta",
     category: "Ataque",
     subtypes: ["armas", "furia"],
     cost: 5,
