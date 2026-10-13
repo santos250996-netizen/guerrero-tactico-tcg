@@ -741,6 +741,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       maxEnergy: newMaxEnergy,
       drawPile: newDrawPile,
       hand: newHand,
+      phase: "playing",
       selectedCardUid: null,
       invalidPlayMsg: null,
       lastEnemyPlays: plan,
