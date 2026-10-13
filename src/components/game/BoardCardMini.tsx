@@ -26,7 +26,7 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
       whileHover={onPreview ? { scale: 1.08, zIndex: 10 } : undefined}
       className={cn(
-        "relative h-full w-full overflow-hidden rounded-lg border-2",
+        "relative aspect-[3/4] w-full overflow-hidden rounded-lg border-2",
         rar.borderClass,
         onPreview && "cursor-pointer"
       )}
@@ -49,6 +49,9 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
         loading="lazy"
         draggable={false}
       />
+
+      {/* Dark gradient at bottom for badge legibility */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
 
       {/* Category color tint at bottom */}
       <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t to-transparent", cat.bgClass.replace("/15", "/30"))} />

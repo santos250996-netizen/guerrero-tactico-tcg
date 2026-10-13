@@ -205,19 +205,19 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
       {/* Enemy slots — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid h-32 grid-cols-2 grid-rows-2 gap-1 rounded-lg border p-1",
+          "relative grid grid-cols-2 grid-rows-2 gap-1 rounded-lg border p-1",
           enemyWinning
             ? "border-rose-500/30 bg-rose-950/10"
             : "border-white/5 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", height: "auto", minHeight: "0" }}
       >
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.enemy[i];
           if (card) {
             return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
           }
-          return <div key={`enemy-empty-${i}`} className="rounded-lg border border-dashed border-white/5 bg-black/20" />;
+          return <div key={`enemy-empty-${i}`} className="aspect-[3/4] rounded-lg border border-dashed border-white/5 bg-black/20" />;
         })}
       </div>
 
@@ -264,21 +264,21 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
       {/* Player slots (drop zone) — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid h-32 grid-cols-2 grid-rows-2 gap-1 rounded-lg border border-dashed p-1 transition-colors",
+          "relative grid grid-cols-2 grid-rows-2 gap-1 rounded-lg border border-dashed p-1 transition-colors",
           canDrop
             ? "border-yellow-400/60 bg-yellow-500/5"
             : playerWinning
               ? "border-emerald-500/30 bg-emerald-950/10"
               : "border-white/10 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", height: "auto", minHeight: "0" }}
       >
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.player[i];
           if (card) {
             return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
           }
-          return <div key={`player-empty-${i}`} className="rounded-lg border border-dashed border-white/5 bg-black/20" />;
+          return <div key={`player-empty-${i}`} className="aspect-[3/4] rounded-lg border border-dashed border-white/5 bg-black/20" />;
         })}
       </div>
     </section>
