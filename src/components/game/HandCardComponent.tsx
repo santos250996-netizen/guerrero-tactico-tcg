@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap, Swords, Sparkles, Info } from "lucide-react";
+import { Sparkles, Info } from "lucide-react";
 import type { HandCard } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META, LANE_META } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
@@ -14,10 +14,11 @@ interface HandCardComponentProps {
   onPreview?: (card: HandCard) => void;
 }
 
-// Single-letter rarity code shown in the bottom-right corner
+// Rarity letter per user spec: common=rare lowercase, epic=legendary uppercase.
+// c / r / E / L
 const RARITY_LETTER: Record<string, string> = {
-  common: "C",
-  rare: "R",
+  common: "c",
+  rare: "r",
   epic: "E",
   legendary: "L",
 };
@@ -41,7 +42,6 @@ export function HandCardComponent({
   const rar = RARITY_META[card.rarity];
   const artUrl = `/cards/${card.id}.png`;
   const effectivePower = card.power + (card.handBonus || 0);
-  // Pick the FIRST matching lane subtype to display its lane icon
   const laneSubtype = card.subtypes[0];
   const laneMeta = LANE_META[laneSubtype];
 
@@ -137,36 +137,35 @@ export function HandCardComponent({
           {card.name}
         </div>
 
-        {/* "Toca para ver efecto" subtle hint — opens preview modal */}
-        {onPreview && (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPreview(card);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
+        {/* Bottom row: "Toca para ver efecto" (left) parallel to rarity letter (right) */}
+        <div className="flex items-end justify-between gap-1">
+          {onPreview ? (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
                 e.stopPropagation();
                 onPreview(card);
-              }
-            }}
-            className="mx-auto inline-flex items-center gap-0.5 text-[6px] uppercase tracking-widest text-zinc-400 hover:text-amber-300 transition-colors cursor-pointer"
-          >
-            <Info className="h-2 w-2" />
-            Toca para ver efecto
-          </span>
-        )}
-
-        {/* Bottom row: rarity letter (bottom-right) + small gap (bottom-left empty for now) */}
-        <div className="flex items-end justify-between">
-          <span className="h-1 w-1" />
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onPreview(card);
+                }
+              }}
+              className="inline-flex items-center gap-0.5 text-[6px] uppercase tracking-widest text-zinc-400 hover:text-amber-300 transition-colors cursor-pointer"
+            >
+              <Info className="h-2 w-2" />
+              Toca para ver efecto
+            </span>
+          ) : (
+            <span className="h-1 w-1" />
+          )}
           <span
             title={rar.label}
             className={cn(
-              "flex h-5 w-5 items-center justify-center rounded-full border border-white/80 text-[9px] font-black shadow-md",
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/80 text-[10px] font-black shadow-md",
               RARITY_SOLID_BG[card.rarity]
             )}
           >

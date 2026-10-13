@@ -84,3 +84,29 @@ Stage Summary:
 - Tap card body = select for play; tap "Toca para ver efecto" = open preview modal.
 - Lint passes clean. `tsc --noEmit` shows only pre-existing errors in unrelated `examples/` and `skills/` dirs.
 - Artifacts: `scripts/full-art-hand.png`, `scripts/full-art-preview.png`, `scripts/full-art-selected.png`.
+
+---
+Task ID: full-art-hand-v2-1
+Agent: main (super-z)
+Task: Place "Toca para ver efecto" parallel to rarity letter; fix rarity letters (c/r/E/L); redesign preview modal to render the SAME full-art hand-card design (larger) with effect text replacing the hint.
+
+Work Log:
+- Updated `src/components/game/HandCardComponent.tsx`:
+  - Rarity letters per user spec: common="c", rare="r", epic="E", legendary="L" (lowercase for common/rare, uppercase for epic/legendary).
+  - Removed the separate "Toca para ver efecto" centered row.
+  - Now the bottom row of the panel shows: "Toca para ver efecto" (left, with Info icon) PARALLEL to the rarity letter badge (right). Both on the same horizontal line as the user requested.
+- Rewrote `src/components/game/CardPreviewModal.tsx`:
+  - Replaced the old bordered "detailed card" design with the SAME full-art hand-card design, just larger (h-[28rem] w-56 vs hand's h-44 w-28).
+  - Same elements as hand card: cost (top-left, larger h-10 w-10), power (top-right, larger), bottom panel with: type chip + subtype icon (top row), card name (middle, text-base), and the bottom row now shows subtype chip (left, parallel) + rarity letter (right).
+  - Replaced the "Toca para ver efecto" hint with the actual effect text in a parchment-styled box, so the user sees the SAME card design as in hand, but now with the effect text visible.
+  - DialogContent uses `top-[6%] translate-y-0` + `bg-transparent border-transparent p-0 shadow-none` so only the card itself is visible — no card-within-a-dialog-frame wrapping.
+  - Added a "Vista previa" pill at the top of the card with a Sparkles icon as a subtle flourish.
+  - Close button (✕) placed below the card (since the dialog's default X is hidden via showCloseButton=false).
+- Verified in browser: hand cards show "r" for rare, "L" for legendary. Bottom row has "Toca para ver efecto" on the left parallel to the rarity letter on the right. Modal opens at top: 54px showing the same card design larger with the effect text.
+
+Stage Summary:
+- "Toca para ver efecto" and rarity letter are now in the same horizontal row (parallel), at the bottom of the card.
+- Rarity letters: c / r / E / L (lowercase for common and rare, uppercase for epic and legendary).
+- The preview modal no longer renders a different card design — it renders the same full-art hand card, just larger, with the effect text replacing the "Toca para ver efecto" hint.
+- Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated examples/skills dirs.
+- Artifacts: `scripts/full-art-v2-hand.png`, `scripts/full-art-v2-modal.png`.
