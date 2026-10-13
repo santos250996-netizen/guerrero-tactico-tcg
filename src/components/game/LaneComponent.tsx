@@ -202,31 +202,31 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         </div>
       </div>
 
-      {/* Enemy slots */}
+      {/* Enemy slots — 2x2 grid */}
       <div
         className={cn(
-          "relative flex min-h-[3.5rem] flex-col gap-1 rounded-lg border p-1",
+          "relative grid grid-cols-2 gap-1 rounded-lg border p-1",
           enemyWinning
-            ? "border-rose-500/30 bg-rose-950/10 shadow-[inset_0_0_8px_rgba(244,63,94,0.15)]"
+            ? "border-rose-500/30 bg-rose-950/10"
             : "border-white/5 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", minHeight: "5rem" }}
       >
         <AnimatePresence mode="popLayout">
           {laneState.enemy.length === 0 ? (
-            <motion.div
-              key="enemy-empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex h-9 items-center justify-center text-[9px] text-zinc-600"
-            >
+            <div className="col-span-2 flex h-16 items-center justify-center text-[9px] text-zinc-600">
               Esperando rival…
-            </motion.div>
+            </div>
           ) : (
-            laneState.enemy.map((c) => (
-              <BoardCardMini key={c.uid} card={c} side="enemy" />
-            ))
+            <>
+              {laneState.enemy.map((c) => (
+                <BoardCardMini key={c.uid} card={c} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />
+              ))}
+              {/* Fill empty slots */}
+              {Array.from({ length: Math.max(0, maxCards - laneState.enemy.length) }).map((_, i) => (
+                <div key={`enemy-slot-${i}`} className="aspect-square rounded-lg border border-dashed border-white/5 bg-black/20" />
+              ))}
+            </>
           )}
         </AnimatePresence>
       </div>
@@ -271,33 +271,33 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         )}
       </div>
 
-      {/* Player slots (drop zone) */}
+      {/* Player slots (drop zone) — 2x2 grid */}
       <div
         className={cn(
-          "relative flex min-h-[3.5rem] flex-col gap-1 rounded-lg border border-dashed p-1 transition-colors",
+          "relative grid grid-cols-2 gap-1 rounded-lg border border-dashed p-1 transition-colors",
           canDrop
-            ? "border-yellow-400/60 bg-yellow-500/5 shadow-[inset_0_0_8px_rgba(251,191,36,0.1)]"
+            ? "border-yellow-400/60 bg-yellow-500/5"
             : playerWinning
-              ? "border-emerald-500/30 bg-emerald-950/10 shadow-[inset_0_0_8px_rgba(16,185,129,0.1)]"
+              ? "border-emerald-500/30 bg-emerald-950/10"
               : "border-white/10 bg-black/30"
         )}
-        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)", minHeight: "5rem" }}
       >
         <AnimatePresence mode="popLayout">
           {laneState.player.length === 0 ? (
-            <motion.div
-              key="player-empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex h-9 items-center justify-center text-[9px] text-zinc-600"
-            >
-              {buildHint()}
-            </motion.div>
+            <div className="col-span-2 flex h-16 items-center justify-center text-[9px] text-zinc-600">
+              {buildHint() || "Vacío"}
+            </div>
           ) : (
-            laneState.player.map((c) => (
-              <BoardCardMini key={c.uid} card={c} side="player" />
-            ))
+            <>
+              {laneState.player.map((c) => (
+                <BoardCardMini key={c.uid} card={c} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />
+              ))}
+              {/* Fill empty slots */}
+              {Array.from({ length: Math.max(0, maxCards - laneState.player.length) }).map((_, i) => (
+                <div key={`player-slot-${i}`} className="aspect-square rounded-lg border border-dashed border-white/5 bg-black/20" />
+              ))}
+            </>
           )}
         </AnimatePresence>
       </div>
