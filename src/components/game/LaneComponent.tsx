@@ -14,26 +14,57 @@ import { cn } from "@/lib/utils";
 
 const LANE_COLOR_CLASSES: Record<
   string,
-  { bg: string; border: string; text: string; ring: string }
+  {
+    bg: string;
+    border: string;
+    text: string;
+    ring: string;
+    glow: string;
+    headerBg: string;
+    dividerLine: string;
+  }
 > = {
   amber: {
-    bg: "bg-amber-950/40",
-    border: "border-amber-700/40",
+    bg: "bg-gradient-to-b from-amber-950/60 via-zinc-950/80 to-black",
+    border: "border-amber-700/50",
     text: "text-amber-300",
     ring: "ring-amber-400/60",
+    glow: "shadow-[0_0_20px_-2px_rgba(251,191,36,0.2)]",
+    headerBg: "bg-gradient-to-r from-amber-950/80 to-zinc-950/80",
+    dividerLine: "from-amber-600/40",
   },
   sky: {
-    bg: "bg-sky-950/40",
-    border: "border-sky-700/40",
+    bg: "bg-gradient-to-b from-sky-950/60 via-zinc-950/80 to-black",
+    border: "border-sky-700/50",
     text: "text-sky-300",
     ring: "ring-sky-400/60",
+    glow: "shadow-[0_0_20px_-2px_rgba(56,189,248,0.2)]",
+    headerBg: "bg-gradient-to-r from-sky-950/80 to-zinc-950/80",
+    dividerLine: "from-sky-600/40",
   },
   rose: {
-    bg: "bg-rose-950/40",
-    border: "border-rose-700/40",
+    bg: "bg-gradient-to-b from-rose-950/60 via-zinc-950/80 to-black",
+    border: "border-rose-700/50",
     text: "text-rose-300",
     ring: "ring-rose-400/60",
+    glow: "shadow-[0_0_20px_-2px_rgba(244,63,94,0.2)]",
+    headerBg: "bg-gradient-to-r from-rose-950/80 to-zinc-950/80",
+    dividerLine: "from-rose-600/40",
   },
+};
+
+// C3: Background tint overlay classes based on the active lane bonus type
+const BONUS_TINT: Record<string, string> = {
+  cat_ataque: "from-rose-950/30",
+  cat_item: "from-sky-950/30",
+  cat_accion: "from-violet-950/30",
+  cost_neg: "from-emerald-950/30",
+  cost_pos: "from-rose-950/40",
+  limit_1: "from-amber-950/30",
+  limit_3: "from-amber-950/20",
+  cost_only_1: "from-amber-950/25",
+  cost_only_3: "from-amber-950/25",
+  cost_only_5: "from-amber-950/25",
 };
 
 const BONUS_CHIP_CLASS: Record<
@@ -66,6 +97,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
   const enemyScore = laneState.enemy.reduce((a, c) => a + c.currentPower, 0);
   const playerWinning = playerScore > enemyScore;
   const enemyWinning = enemyScore > playerScore;
+  const scoreDiff = Math.abs(playerScore - enemyScore);
 
   const laneBonus = laneBonuses[laneId];
   const maxCards = getLaneMaxCards(laneBonus);
@@ -74,12 +106,15 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     ? hand.find((c) => c.uid === selectedCardUid)
     : null;
 
-  // canDrop now honors lane bonus restrictions
   const canDrop =
     phase === "playing" &&
     selectedCard !== null &&
     isCardCostAllowed(selectedCard.cost, laneBonus) &&
-    getEffectiveCost(selectedCard.cost, laneBonus) <= energy &&
+    (() => {
+      let c = getEffectiveCost(selectedCard.cost, laneBonus);
+      if (selectedCard.effectId === "sobrecarga") c = Math.max(1, c - 1);
+      return c <= energy;
+    })() &&
     laneState.player.length < maxCards;
 
   const cardFitsLane =
@@ -91,7 +126,6 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     }
   };
 
-  // Hint message for the drop zone when empty
   const buildHint = () => {
     if (!canDrop) return "Vacío";
     const parts: string[] = [`Jugar aquí`];
@@ -100,58 +134,95 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
   };
 
   return (
-    <motion.section
-      layout
+    <section
       className={cn(
-        "flex flex-1 flex-col gap-1 rounded-lg border p-1.5",
+        "relative flex flex-1 flex-col gap-1 overflow-hidden rounded-xl border-2 p-1.5",
         colors.bg,
         colors.border,
+        laneBonus && colors.glow,
         canDrop && "cursor-pointer ring-2 " + colors.ring
       )}
       onClick={onLaneClick}
       role="button"
       aria-label={`Carril ${meta.title}`}
+      style={{
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 8px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.5)",
+      }}
     >
-      {/* Lane header with title + dynamic bonus chip */}
-      <div className="flex items-center justify-between rounded bg-black/40 px-1.5 py-1">
-        <div className="flex items-center gap-1">
-          <span className="text-sm">{meta.emoji}</span>
+      {/* C3: Bonus background tint */}
+      {laneBonus && BONUS_TINT[laneBonus.kind] && (
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-0 bg-gradient-to-b to-transparent",
+            BONUS_TINT[laneBonus.kind]
+          )}
+        />
+      )}
+
+      {/* Subtle texture pattern overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `repeating-linear-gradient(45deg, rgba(255,255,255,0.5) 0px, rgba(255,255,255,0.5) 1px, transparent 1px, transparent 4px)`,
+        }}
+      />
+
+      {/* Lane header */}
+      <div className={cn(
+        "relative flex items-center justify-between rounded-lg border border-white/5 px-2 py-1 backdrop-blur-sm",
+        colors.headerBg
+      )}>
+        <div className="flex items-center gap-1.5">
+          <span className="text-base drop-shadow">{meta.emoji}</span>
           <span
             className={cn(
-              "text-[10px] font-bold uppercase tracking-wider",
+              "text-[10px] font-black uppercase tracking-wider drop-shadow",
               colors.text
             )}
           >
             {meta.title}
           </span>
         </div>
-        {laneBonus ? (
-          <span
-            title={laneBonus.description}
-            className={cn(
-              "rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-              BONUS_CHIP_CLASS[laneBonus.flavor].chip
-            )}
-          >
-            {laneBonus.label}
-          </span>
-        ) : (
-          <span className="rounded border border-white/10 bg-black/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-500">
-            Sin bono
-          </span>
-        )}
+        <div className="flex items-center gap-1">
+          {laneBonus ? (
+            <span
+              title={laneBonus.description}
+              className={cn(
+                "rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-sm",
+                BONUS_CHIP_CLASS[laneBonus.flavor].chip
+              )}
+            >
+              {laneBonus.label}
+            </span>
+          ) : (
+            <span className="rounded border border-white/10 bg-black/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-500">
+              Sin bono
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Enemy slots */}
-      <div className="flex min-h-[3.5rem] flex-col gap-1 rounded bg-black/20 p-1">
+      <div
+        className={cn(
+          "relative flex min-h-[3.5rem] flex-col gap-1 rounded-lg border p-1",
+          enemyWinning
+            ? "border-rose-500/30 bg-rose-950/10 shadow-[inset_0_0_8px_rgba(244,63,94,0.15)]"
+            : "border-white/5 bg-black/30"
+        )}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
+      >
         <AnimatePresence mode="popLayout">
           {laneState.enemy.length === 0 ? (
-            <div
+            <motion.div
               key="enemy-empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="flex h-9 items-center justify-center text-[9px] text-zinc-600"
             >
               Esperando rival…
-            </div>
+            </motion.div>
           ) : (
             laneState.enemy.map((c) => (
               <BoardCardMini key={c.uid} card={c} side="enemy" />
@@ -160,50 +231,69 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         </AnimatePresence>
       </div>
 
-      {/* Score panel */}
-      <div className="flex items-center justify-between rounded border border-white/5 bg-black/60 px-2 py-1">
-        <div className="text-right">
-          <div className="text-[8px] uppercase text-zinc-500">Rival</div>
-          <div
-            className={cn(
-              "text-base font-bold tabular-nums",
-              enemyWinning ? "text-rose-400" : "text-zinc-300"
-            )}
-          >
-            {enemyScore}
+      {/* Central divider with VS */}
+      <div className="relative flex items-center justify-center py-0.5">
+        <div className={cn("h-[2px] flex-1 rounded-full bg-gradient-to-r to-transparent", colors.dividerLine)} />
+        <span className="mx-2 text-[8px] font-black uppercase tracking-widest text-zinc-600">VS</span>
+        <div className={cn("h-[2px] flex-1 rounded-full bg-gradient-to-l to-transparent", colors.dividerLine)} />
+      </div>
+
+      {/* Score panel with visual bar */}
+      <div className="relative rounded-lg border border-white/5 bg-black/50 px-2 py-1">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-right">
+            <div className="text-[7px] uppercase tracking-widest text-zinc-500">Rival</div>
+            <div className={cn("text-base font-black tabular-nums leading-none", enemyWinning ? "text-rose-400" : "text-zinc-300")}>
+              {enemyScore}
+            </div>
+          </div>
+          {scoreDiff > 0 && (
+            <span className={cn(
+              "text-[7px] font-bold tabular-nums",
+              playerWinning ? "text-emerald-500" : "text-rose-500"
+            )}>
+              +{scoreDiff}
+            </span>
+          )}
+          <div className="text-left">
+            <div className="text-[7px] uppercase tracking-widest text-zinc-500">Tú</div>
+            <div className={cn("text-base font-black tabular-nums leading-none", playerWinning ? "text-emerald-400" : "text-zinc-300")}>
+              {playerScore}
+            </div>
           </div>
         </div>
-        <span className="px-1 text-[8px] font-bold text-zinc-600">VS</span>
-        <div className="text-left">
-          <div className="text-[8px] uppercase text-zinc-500">Tú</div>
-          <div
-            className={cn(
-              "text-base font-bold tabular-nums",
-              playerWinning ? "text-emerald-400" : "text-zinc-300"
-            )}
-          >
-            {playerScore}
+        {/* Visual diff bar */}
+        {(playerScore > 0 || enemyScore > 0) && (
+          <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-black/60">
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500" style={{ width: `${(playerScore / (playerScore + enemyScore)) * 100}%` }} />
+            <div className="bg-gradient-to-r from-rose-500 to-rose-700 transition-all duration-500" style={{ width: `${(enemyScore / (playerScore + enemyScore)) * 100}%` }} />
           </div>
-        </div>
+        )}
       </div>
 
       {/* Player slots (drop zone) */}
       <div
         className={cn(
-          "flex min-h-[3.5rem] flex-col gap-1 rounded border border-dashed p-1 transition-colors",
+          "relative flex min-h-[3.5rem] flex-col gap-1 rounded-lg border border-dashed p-1 transition-colors",
           canDrop
-            ? "border-yellow-400/60 bg-yellow-500/5"
-            : "border-white/10 bg-black/20"
+            ? "border-yellow-400/60 bg-yellow-500/5 shadow-[inset_0_0_8px_rgba(251,191,36,0.1)]"
+            : playerWinning
+              ? "border-emerald-500/30 bg-emerald-950/10 shadow-[inset_0_0_8px_rgba(16,185,129,0.1)]"
+              : "border-white/10 bg-black/30"
         )}
+        style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
         <AnimatePresence mode="popLayout">
           {laneState.player.length === 0 ? (
-            <div
+            <motion.div
               key="player-empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="flex h-9 items-center justify-center text-[9px] text-zinc-600"
             >
               {buildHint()}
-            </div>
+            </motion.div>
           ) : (
             laneState.player.map((c) => (
               <BoardCardMini key={c.uid} card={c} side="player" />
@@ -211,6 +301,6 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
           )}
         </AnimatePresence>
       </div>
-    </motion.section>
+    </section>
   );
 }
