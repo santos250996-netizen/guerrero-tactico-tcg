@@ -27,8 +27,19 @@ export function DeckEditor() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [deckLocked, setDeckLocked] = useState(false);
 
-  const deckCards = useMemo(() => deckCardIds.map((id) => cardPool.find((c) => c.id === id)).filter((c): c is CardDef => Boolean(c)), [deckCardIds, cardPool]);
-  const availableCards = useMemo(() => cardPool.filter((c) => { if (deckCardIds.includes(c.id)) return false; if (rarityFilter !== "all" && c.rarity !== rarityFilter) return false; if (categoryFilter !== "all" && c.category !== categoryFilter) return false; return true; }), [cardPool, deckCardIds, rarityFilter, categoryFilter]);
+  // Deduplicate cardPool by id (safety — API should already deduplicate, but
+  // this prevents React "duplicate key" errors if any duplicates slip through)
+  const uniqueCardPool = useMemo(() => {
+    const seen = new Set<string>();
+    return cardPool.filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    });
+  }, [cardPool]);
+
+  const deckCards = useMemo(() => deckCardIds.map((id) => uniqueCardPool.find((c) => c.id === id)).filter((c): c is CardDef => Boolean(c)), [deckCardIds, uniqueCardPool]);
+  const availableCards = useMemo(() => uniqueCardPool.filter((c) => { if (deckCardIds.includes(c.id)) return false; if (rarityFilter !== "all" && c.rarity !== rarityFilter) return false; if (categoryFilter !== "all" && c.category !== categoryFilter) return false; return true; }), [uniqueCardPool, deckCardIds, rarityFilter, categoryFilter]);
   const costCurve = useMemo(() => { const c: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; for (const d of deckCards) if (c[d.cost] !== undefined) c[d.cost]++; return c; }, [deckCards]);
   const totalCost = useMemo(() => deckCards.reduce((a, c) => a + c.cost, 0), [deckCards]);
   const totalPower = useMemo(() => deckCards.reduce((a, c) => a + c.power, 0), [deckCards]);
