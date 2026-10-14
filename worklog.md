@@ -346,3 +346,69 @@ Stage Summary:
 - The 4 keyword categories (Activación Directa, Sinergia, Tablero y Triggers, Umbrales y Recursos, Nuevas Tácticas) are all represented.
 - Lint clean; `tsc --noEmit` only pre-existing errors in unrelated dirs; `next build` compiles successfully.
 - Pushed to GitHub: `feat(keywords): add 25 official keywords with effect logic + example cards` (068d1a7).
+
+---
+Task ID: balance-formula-1
+Agent: main (super-z)
+Task: Implement the definitive PTP mathematical balance formula (PTP = cost*4 + 1.5 ± 0.5, with per-trigger modifiers and per-keyword base values), and integrate balance UI badges into the DeckEditor + CardPreviewModal.
+
+Work Log:
+- `src/lib/game/balance.ts` (NEW):
+  - Constants: `ENERGY_MULTIPLIER=4.0`, `BASE_ENTRY_POINTS=1.5`, `TOLERANCE=0.5`.
+  - `getTargetPTP(energyCost)`: returns `cost*4 + 1.5`.
+  - `getPTPRange(energyCost)`: returns `{target, min=target-0.5, max=target+0.5}`.
+  - `getTriggerModifier(trigger)`: ON_PLAY=1.0, PASSIVE=1.2, START_TURN=1.3, END_TURN=1.2, ON_DEATH=0.8, UMBRAL=0.7.
+  - `getKeywordBaseValue(keyword, magnitude)`: heuristic per-keyword base value given X:
+    - Sacrificio [X] = 2*X (the +X*2 self bonus)
+    - Remate [X] = 2*X (enemy worth ≤X removed)
+    - Celeridad = 1.5 (saves 1 energy on next card)
+    - Sobrecarga [X] = 0 (cost reduction balances next-turn penalty)
+    - Mimetismo = 4 (copies a strong ally's effect)
+    - Eco [X] = 2*X (assuming ~2 hand cards share subtype on average)
+    - Refuerzo [X] = X (single +X buff)
+    - Ventaja [X] = X*0.7 (conditional, ~50% chance to fire)
+    - Vanguardia [X] = X*0.7 (conditional)
+    - Aislado [X] = X*0.7 (conditional)
+    - Trampa [X] = X (single -X to next enemy)
+    - Reagrupar = 3 (positional value of moving weakest ally)
+    - Último Aliento [X] = X (transfer +X on death)
+    - Baluarte = 4 (passive protection aura)
+    - Sigilo = 3 (first-turn immunity)
+    - Vínculo [X] = 2*X (both cards gain +X)
+    - Muro = 3 (force enemy to play here)
+    - Retorno [X] = 2 (card recursion value)
+    - Despertar [X] = 5 (the +5 umbral bonus)
+    - Reciclar [X] = X (energy recovery)
+    - Doble Golpe [X] = 2*X (-X here AND adjacent)
+    - Refugio [X] = X (absorb up to X)
+    - Emboscada [X] = X*0.5 (conditional, ~30% chance)
+    - Transferencia [X] = X (positional redistribution)
+    - Renovación [X] = max(0, X-1) (draw X minus the discard penalty)
+    - none = 0
+  - `calculateEffectPoints(card)`: `baseValue * triggerMod` for the card's keyword.
+  - `getCurrentPTP(card)`: `card.power + calculateEffectPoints(card)`.
+  - `getBalanceInfo(card)`: returns full `BalanceInfo {target, current, effectPoints, range, delta, absDelta, balanced, status}`.
+  - `isCardBalanced(card)`: boolean — `absDelta ≤ TOLERANCE`.
+  - `getBalanceStatusLabel(card)`: human-readable label ("Balanceada", "Marginal", "Sobrepuesta"/"Faltante").
+  - `getDeckBalanceSummary(cards)`: aggregated counts of balanced/marginal/unbalanced cards + avgDelta.
+- `src/components/game/DeckEditor.tsx`:
+  - Imported `getBalanceInfo` + `getDeckBalanceSummary` from `@/lib/game/balance`.
+  - Added `balanceSummary` memo via `useMemo(() => getDeckBalanceSummary(deckCards), [deckCards])`.
+  - New "Balance PTP" summary section between stats grid and cost curve:
+    - Header: `<Scale /> Balance PTP` icon + "X/total OK · Δmed=±X.XX" subtitle.
+    - Stacked horizontal bar showing balanced (emerald) / marginal (amber) / unbalanced (rose) proportions.
+    - Legend with counts per status.
+  - Each deck card AND each available pool card now has a small balance badge next to the category label, showing the delta value (e.g., "+1.5" or "-0.3") color-coded per status. Tooltip shows full details: target/current/delta.
+- `src/components/game/CardPreviewModal.tsx`:
+  - Imported `getBalanceInfo`.
+  - Computed `bal` info + `balColorClass` + `balSign`.
+  - Added a balance badge below the rarity at the bottom of the card showing: `PTP current / target · Δdelta · ✓ OK / ~ Marginal / ↑ Sobre / ↓ Falta`, color-coded (emerald/amber/rose).
+
+Stage Summary:
+- The complete PTP balance formula from the user spec is implemented in `balance.ts`.
+- DeckEditor now shows a top-level "Balance PTP" summary with green/amber/red stacked bar showing how many cards are balanced.
+- Every card in the deck AND available pool now shows a small color-coded balance badge with its delta value.
+- The CardPreviewModal shows a larger, more detailed balance badge below the rarity.
+- Designers can now visually identify which cards need rebalancing at a glance.
+- Lint clean; `tsc --noEmit` only pre-existing errors in unrelated dirs; `next build` compiles successfully.
+- Pushed to GitHub: `feat(balance): add PTP mathematical balance formula + UI badges` (b2266e7).
