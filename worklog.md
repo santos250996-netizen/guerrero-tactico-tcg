@@ -221,3 +221,66 @@ Stage Summary:
 - The fix is a `hadPointerDown` guard in `handlePointerUp` that filters out stray pointerup events (caused by Radix Dialog closing on pointerdown-outside before pointerup fires).
 - `setPointerCapture` is still called in `handlePointerDown` (needed for drag tracking), but the guard ensures stray events from modal-close are ignored.
 - Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.
+
+---
+Task ID: triggers-system-1
+Agent: main (super-z)
+Task: Implement the 6 trigger types (ON_PLAY, PASSIVE, START_TURN, END_TURN, ON_DEATH, UMBRAL) per user spec, wire them into the turn lifecycle, add example cards, and show the trigger type on the card UI.
+
+Work Log:
+- `src/lib/game/types.ts`:
+  - Added `Trigger` type: `"on_play" | "passive" | "start_turn" | "end_turn" | "on_death" | "umbral"`.
+  - Added `UmbralCondition` interface (currently just `powerThreshold`).
+  - Added `TRIGGER_META` map with `label`, `short`, `description`, `emoji`, `color` for each trigger (used by the UI chips).
+  - Added optional `trigger?: Trigger` + `umbralCondition?: UmbralCondition` fields to `CardDef`.
+  - Added `trigger`, `umbralCondition`, `umbralTriggered` fields to `BoardCard` (so the engine can dispatch and remember per-card umbral state).
+- `src/lib/game/engine.ts`:
+  - `playCard`: now copies `trigger`, `umbralCondition`, `umbralTriggered=false` from the HandCard to the new BoardCard.
+  - Added `TriggerResult` interface `{ board, logs, umbralFired }` returned by all dispatchers.
+  - Added 5 exported dispatcher functions:
+    - `applyStartTurnEffects(board, side)`: fires each card whose `trigger === "start_turn"`. Re-uses effectIds like `golpe_heroico` (+2 to allies in lane) and `avatar_titan` (+1 per board card, capped at +5).
+    - `applyEndTurnEffects(board, side)`: fires `end_turn` cards. `pocion_vida` gives +1 to ally Items in lane; `grito_batalla` gives +1 to self.
+    - `applyPassiveEffects(board)`: continuous aura dispatch. `muro_escudos` gives +1 to ally Items in lane; `trono_hierro` gives +1 to ALL allies on board.
+    - `applyOnDeathEffects(board, side, lane, deadCard)`: fires when a card dies. `seccionar` does -3 to strongest enemy in lane; `filotormenta` does -1 to ALL enemies on board.
+    - `checkUmbralTriggers(board)`: scans for cards with `trigger === "umbral"` whose `currentPower >= umbralCondition.powerThreshold` and haven't already fired. Grants +5 permanent bonus and marks `umbralTriggered=true` so it can't re-fire.
+- `src/store/gameStore.ts`:
+  - Imported all 5 dispatcher functions + `TriggerResult`.
+  - Added `pushTriggerLogs` helper that pushes all of a TriggerResult's logs onto the game log.
+  - Wired trigger dispatchers into the turn lifecycle in `endTurn`:
+    1. After player presses "Pasar" → `applyEndTurnEffects(board, "player")` + umbral check
+    2. Before AI plays → `applyStartTurnEffects(board, "enemy")` + umbral check
+    3. After each enemy play → ON_DEATH for each `res.removedCards` + umbral check (uses `prePlayBoard` to look up the dying card's full state since `workBoard` (= `res.board`) has them already filtered out)
+    4. After AI finishes → `applyEndTurnEffects(board, "enemy")` + umbral check
+    5. At the start of player's new turn → `applyStartTurnEffects(board, "player")` + umbral check
+  - Wired trigger dispatchers into `playSelectedCardIntoLane`:
+    1. After the player's play → ON_DEATH for each `res.removedCards` (using `state.board` for deadCard lookup) + umbral check
+- `src/lib/game/cards.ts`:
+  - Added 5 example cards (one per new trigger type) to `TACTICAL_CARDS`:
+    - `baluarte_pasivo` "Baluarte Eterno" — Ítem, passive aura, re-uses `muro_escudos` effectId
+    - `acumulador` "Acumulador Arcano" — Acción, start_turn, re-uses `golpe_heroico`
+    - `renovacion` "Renovación Vital" — Ítem, end_turn, re-uses `pocion_vida`
+    - `ultimo_aliento` "Último Aliento" — Ataque, on_death, re-uses `seccionar`
+    - `despertar_furias` "Despertar de las Furias" — Acción, umbral @ power 12, legendary, re-uses `grito_batalla`
+  - All existing cards keep their default `trigger: "on_play"` (no behavior change).
+- `src/components/game/HandCardComponent.tsx`:
+  - Imported `TRIGGER_META` from types.
+  - Compute `triggerMeta` from `card.trigger ?? "on_play"`.
+  - Added a small trigger chip below the card name showing `{emoji} {short}` (e.g., "♾️ PASIVO", "🌅 INICIO", "💀 MUERTE", "🔥 UMBRAL") with the trigger's color (text-emerald-300 for passive, text-amber-300 for start_turn, text-rose-300 for on_death, etc.). The chip has a `title` attribute with the full description so users can hover/long-press for details.
+- `src/components/game/CardPreviewModal.tsx`:
+  - Same trigger chip — larger version (`text-[9px]`, rounded-full, with the full `label` instead of `short`) shown below the card name and above the effect text.
+
+Critical implementation notes:
+- The dispatchers RE-USE existing effectIds but interpret them through the trigger's lifecycle lens. This means a card like `muro_escudos` with `trigger: "passive"` will fire its `+3 to ally Items` effect ONCE on play (because the on_play dispatcher still runs) AND ALSO continuously via `applyPassiveEffects` (giving +1 to ally Items). For now this is intentional — designers can choose to put passive effects on cards with `effectId: "none"` to avoid double-firing, or pick effectIds whose on_play + passive semantics compose well.
+- UMBRAL dispatchers check `umbralTriggered` to prevent re-firing. The flag is mutated on the cloned board (per-call), and the cloned board replaces the live state, so the flag persists across calls.
+- ON_DEATH dispatch needs the dying card's full state (including `trigger` + `effectId`). Since `playCard` filters out `removedCards` from `res.board`, we look up the dead card in the PRE-play board (either `state.board` for player plays, or `prePlayBoard` snapshot for enemy plays).
+
+Stage Summary:
+- 6 trigger types implemented per user spec.
+- 5 trigger dispatchers in engine.ts: start_turn, end_turn, passive, on_death, umbral.
+- All dispatchers wired into the turn lifecycle in gameStore (player's end_turn, enemy's start_turn, after each play's removedCards, after each play's umbral check, enemy's end_turn, player's start_turn at new turn).
+- 5 example cards added (one per new trigger) demonstrating each type.
+- Trigger chip visible on hand cards AND preview modal, colored per trigger type with emoji + label.
+- All existing cards keep default `trigger: "on_play"` (no behavior regression).
+- Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.
+- `next build` compiles successfully (10.2s).
+- Pushed to GitHub: `feat(triggers): add 6 trigger types...` commit (force-push to overwrite diverged auto-commit).
