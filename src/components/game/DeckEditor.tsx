@@ -164,7 +164,6 @@ export function DeckEditor() {
                 key={card.id}
                 card={card}
                 onClick={() => handlePoolCardClick(card.id)}
-                dimmed={selectedSlot === null}
               />
             ))}
           </div>}
