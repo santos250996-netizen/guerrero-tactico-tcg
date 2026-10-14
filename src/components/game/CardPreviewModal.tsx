@@ -5,7 +5,6 @@ import type { CardDef } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBalanceInfo } from "@/lib/game/balance";
 
 // Rarity letters — all uppercase per user spec (C / R / E / L)
 const RARITY_LETTER: Record<string, string> = {
@@ -32,10 +31,6 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
   const keyword = card.keyword ?? "none";
   const keywordMeta = KEYWORD_META[keyword];
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
-  // Balance info — PTP target vs current with delta
-  const bal = getBalanceInfo(card);
-  const balColorClass = bal.status === "balanced" ? "text-emerald-300 border-emerald-500/40 bg-emerald-950/40" : bal.status === "marginal" ? "text-amber-300 border-amber-500/40 bg-amber-950/40" : "text-rose-300 border-rose-500/40 bg-rose-950/40";
-  const balSign = bal.delta > 0 ? "+" : "";
 
   // Close handler — single tap anywhere (including the card) closes the modal.
   const close = () => onOpenChange(false);
@@ -182,18 +177,6 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               <span>{RARITY_LETTER[card.rarity]}</span>
               <span className="opacity-70">·</span>
               <span>{rar.label}</span>
-            </div>
-
-            {/* Balance badge — PTP target vs current with delta color-coded */}
-            <div className={cn("mt-1 flex items-center justify-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm", balColorClass)}>
-              <span className="opacity-80">PTP</span>
-              <span className="tabular-nums">{bal.current.toFixed(1)}</span>
-              <span className="opacity-60">/</span>
-              <span className="tabular-nums opacity-80">{bal.target.toFixed(1)}</span>
-              <span className="opacity-60">·</span>
-              <span className="tabular-nums">{balSign}{bal.delta.toFixed(1)}</span>
-              <span className="opacity-60">·</span>
-              <span>{bal.status === "balanced" ? "✓ OK" : bal.status === "marginal" ? "~ Marginal" : bal.delta > 0 ? "↑ Sobre" : "↓ Falta"}</span>
             </div>
           </div>
         </motion.div>
