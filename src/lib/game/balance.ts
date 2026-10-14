@@ -92,34 +92,29 @@ export function getTriggerModifier(trigger: Trigger | undefined): number {
 export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): number {
   const X = magnitude ?? 0;
   switch (keyword) {
-    // I. ACTIVACIÓN DIRECTA (ON PLAY) — valor pleno
+    // I. ACTIVACIÓN DIRECTA (ON PLAY)
     case "sacrificio":
-      // Destruye aliado ≤X, ganas +X*2. El aliado perdido compensa parte del
-      // bonus. Valor neto aprox: 2*X - X*0.5 = 1.5*X. Redondeamos a 2*X ya
-      // que el sacrificio es opcional y condicional.
-      return 2 * X;
+      // Sacrificio [X]: destruye aliado ≤X, ganas +X a sí misma.
+      // El aliado perdido compensa parte del bonus. Valor neto: +X (el bonus).
+      return X;
     case "remate":
-      // Destruye enemigo con poder ≤ X. El poder eliminado del rival suele
-      // ser cercano a X. Valor = 2*X (debuff + remoción).
-      return 2 * X;
+      // Remate [X]: destruye enemigo con poder ≤ X. Valor = X (el daño/destrucción).
+      return X;
     case "celeridad":
-      // -1 al coste de la próxima carta (mín 1). Ahorro de 1 energía, valor
-      // aprox = 1.5 (considerando que la próxima carta cuesta ~2-3).
+      // -1 al coste de la próxima carta (mín 1). Ahorro ~1 energía, valor ~1.5.
       return 1.5;
     case "sobrecarga":
-      // -1 coste esta carta, -X energía próximo turno. Para X=1, neto=0.
-      // Para X>1, es un perjuicio neto. Tomamos valor = 0 (la ganancia de
-      // coste se compensa con la penalización).
-      return 0;
+      // -1 coste esta carta, -X energía próximo turno. El +X bonus a esta carta
+      // compensa la penalización. Valor neto: +X (el bonus).
+      return X;
     case "mimetismo":
-      // Copia efecto del aliado más fuerte. Valor promedio del efecto copiado
-      // = ~4 (la mayoría de efectos valen 3-6).
+      // Copia efecto del aliado más fuerte. Valor promedio = 4.
       return 4;
     // II. SINERGIA DE MANO Y POSICIÓN
     case "eco":
-      // +X a todas las cartas en mano con subtipo/categoría similar. Asumiendo
-      // 2 cartas compartiendo en promedio, valor = 2*X.
-      return 2 * X;
+      // +X a cartas en mano que compartan subtipo/categoría. Asumiendo 1 carta
+      // compartida en promedio (no 2). Valor = X.
+      return X;
     case "refuerzo":
       // +X a una carta aliada. Valor = X.
       return X;
@@ -134,13 +129,13 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
       return X * 0.7;
     // III. TABLERO Y TRIGGERS ESPECIALES
     case "trampa":
-      // -X a próxima carta enemiga aquí. Valor = X.
+      // -X a próxima carta enemiga aquí. Valor = X (el debuff).
       return X;
     case "reagrupar":
-      // Mueve aliado más débil de otro carril. Valor posicional = ~3.
+      // Mueve aliado más débil de otro carril. Valor posicional = 3.
       return 3;
     case "ultimo_aliento":
-      // (On Death) +X a aliado más débil. Valor = X.
+      // (On Death) +X a aliado. Valor = X.
       return X;
     case "baluarte":
       // (Passive) los aliados aquí no pueden ser debuffados. Aura valiosa.
@@ -149,24 +144,24 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
       // (Passive) primer turno inmune a efectos enemigos directos.
       return 3;
     case "vinculo":
-      // (Passive) misma categoría → ambos +X. Valor = 2*X.
-      return 2 * X;
+      // (Passive) misma categoría → AMBAS ganan +X. Valor = X (solo self-bonus).
+      return X;
     case "muro":
       // (Passive) el rival debe jugar aquí. Control posicional.
       return 3;
     case "retorno":
-      // (On Death) si coste ≤ X, regresa a mano. Valor de recursión = 2.
-      return 2;
+      // (On Death) si coste ≤ X, regresa a mano. Valor de recursión = X.
+      return X;
     // IV. UMBRALES Y RECURSOS
     case "despertar":
-      // (Umbral) +5 permanente al alcanzar X de poder. Valor = 5.
+      // (Umbral) +5 permanente al alcanzar X de poder. Valor = 5 (el bonus).
       return 5;
     case "reciclar":
       // (On Death) recupera X energía. Valor = X.
       return X;
     // V. NUEVAS KEYWORDS TÁCTICAS
     case "doble_golpe":
-      // -X aquí y en carril adyacente. Valor = 2*X.
+      // -X aquí y en carril adyacente. Valor = 2*X (dos carriles).
       return 2 * X;
     case "refugio":
       // (Passive) absorbe hasta X debuff. Valor = X.

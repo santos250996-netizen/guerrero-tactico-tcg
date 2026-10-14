@@ -23,6 +23,7 @@ import {
   WARRIOR_DECK,
   BASIC_CARDS,
   TACTICAL_CARDS,
+  ALL_CARDS,
 } from "../src/lib/game/cards";
 import {
   getBalanceInfo,
@@ -63,14 +64,14 @@ const onlyUnbalanced = args.includes("--unbalanced");
 const onlyMarginal = args.includes("--marginal");
 const groupByCost = args.includes("--group", "cost") || args.includes("--group=cost");
 
-// ----- Gather all cards -----
-const allCards: CardDef[] = [...WARRIOR_DECK, ...BASIC_CARDS, ...TACTICAL_CARDS];
+// ----- Gather all cards (ALL_CARDS = unique 84 cards, no duplicates) -----
+const allCards: CardDef[] = ALL_CARDS;
 
 console.log(`${ANSI.bold}${ANSI.cyan}═══════════════════════════════════════════════════════════════════════${ANSI.reset}`);
 console.log(`${ANSI.bold}${ANSI.cyan}  GUERRERO TÁCTICO TCG — AUDITORÍA DE BALANCE PTP${ANSI.reset}`);
 console.log(`${ANSI.bold}${ANSI.cyan}═══════════════════════════════════════════════════════════════════════${ANSI.reset}`);
 console.log(`${ANSI.dim}Fórmula: PTP = (coste * 4.0) + 1.5 ± 0.5 (tolerancia)${ANSI.reset}`);
-console.log(`${ANSI.dim}Cartas auditadas: ${allCards.length} (WARRIOR_DECK=${WARRIOR_DECK.length}, BASIC=${BASIC_CARDS.length}, TACTICAL=${TACTICAL_CARDS.length})${ANSI.reset}`);
+console.log(`${ANSI.dim}Cartas auditadas: ${allCards.length} (todas únicas del catálogo oficial)${ANSI.reset}`);
 console.log();
 
 // ----- Aggregate summary -----
