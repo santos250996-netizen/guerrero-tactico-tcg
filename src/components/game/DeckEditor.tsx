@@ -1,13 +1,15 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, RARITY_META } from "@/lib/game/types";
 import type { CardDef, CardCategory, LaneId, Rarity } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { CardPreviewModal } from "./CardPreviewModal";
+import { PRESET_DECKS } from "@/lib/game/cards";
+import { sfx } from "@/lib/sound";
 
 const COST_BUCKETS = [1, 2, 3, 4, 5] as const;
 
@@ -26,6 +28,20 @@ export function DeckEditor() {
   const [categoryFilter, setCategoryFilter] = useState<CardCategory | "all">("all");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [deckLocked, setDeckLocked] = useState(false);
+
+  // Load a preset deck — replaces all 12 slots with the preset's card IDs
+  const loadPresetDeck = (deckId: string) => {
+    const preset = PRESET_DECKS.find((d) => d.id === deckId);
+    if (!preset) return;
+    const ids = preset.cards.map((c) => c.id);
+    useGameStore.setState({
+      deckCardIds: ids,
+      deckDirty: true,
+      deckSaveStatus: "idle",
+    });
+    setSelectedSlot(null);
+    sfx.click();
+  };
 
   // Deduplicate cardPool by id (safety — API should already deduplicate, but
   // this prevents React "duplicate key" errors if any duplicates slip through)
@@ -74,6 +90,32 @@ export function DeckEditor() {
         </div>
       </header>
       <main className="app-main mx-auto flex w-full flex-1 flex-col gap-2 px-2 py-2">
+        {/* Preset deck selector — 7 official decks */}
+        <section className="rounded-md border border-amber-800/40 bg-amber-950/20 p-2">
+          <div className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-300">
+            <Library className="h-3 w-3" />
+            Mazos Predeterminados
+          </div>
+          <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
+            {PRESET_DECKS.map((deck) => (
+              <button
+                key={deck.id}
+                onClick={() => loadPresetDeck(deck.id)}
+                className={cn(
+                  "flex min-w-[100px] shrink-0 flex-col items-center gap-0.5 rounded-md border-2 px-2 py-1.5 text-center transition-colors",
+                  deckCardIds.join(",") === deck.cards.map((c) => c.id).join(",")
+                    ? "border-amber-400 bg-amber-900/40"
+                    : "border-zinc-700 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800"
+                )}
+              >
+                <span className="text-base">{deck.emoji}</span>
+                <span className="text-[8px] font-bold uppercase tracking-wider text-zinc-200">{deck.name}</span>
+                <span className="text-[6px] uppercase tracking-wide text-zinc-500">{deck.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* Stats grid */}
         <section className="grid grid-cols-2 gap-1.5">
           <StatCard icon={<Layers className="h-3 w-3 text-zinc-400" />} label="Cartas" value={`${deckCards.length} / 12`} sub={`${availableCards.length} disp.`} />

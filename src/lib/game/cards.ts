@@ -1184,6 +1184,69 @@ export const ALL_CARDS: CardDef[] = [
 ];
 
 // ============================================================================
+// PRESET_DECKS — 7 mazos predeterminados para el selector del DeckEditor
+// ============================================================================
+export interface PresetDeck {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  cards: CardDef[];
+}
+
+export const PRESET_DECKS: PresetDeck[] = [
+  {
+    id: "furia_de_sangre",
+    name: "Furia de Sangre",
+    emoji: "🩸",
+    description: "Agresión y Sacrificio",
+    cards: FURIA_DE_SANGRE,
+  },
+  {
+    id: "falange_inexpugnable",
+    name: "Falange Inexpugnable",
+    emoji: "🛡️",
+    description: "Escudos y Control",
+    cards: FALANGE_INEXPUGNABLE,
+  },
+  {
+    id: "maestros_de_la_forja",
+    name: "Maestros de la Forja",
+    emoji: "🔨",
+    description: "Armas y Tempo",
+    cards: MAESTROS_DE_LA_FORJA,
+  },
+  {
+    id: "impulso_sangriento",
+    name: "Impulso Sangriento",
+    emoji: "⚔️",
+    description: "Furia y Agresión Clásica",
+    cards: IMPULSO_SANGRIENTO,
+  },
+  {
+    id: "bastion_inquebrantable",
+    name: "Bastión Inquebrantable",
+    emoji: "🏰",
+    description: "Control y Muro Clásico",
+    cards: BASTION_INQUEBRANTABLE,
+  },
+  {
+    id: "legado_de_la_forja",
+    name: "Legado de la Forja",
+    emoji: "⚒️",
+    description: "Armas y Tempo Clásico",
+    cards: LEGADO_DE_LA_FORJA,
+  },
+  {
+    id: "malla_de_emboscada",
+    name: "Malla de Emboscada",
+    emoji: "🎯",
+    description: "Control y Trampas",
+    cards: MALLA_DE_EMBOSCADA,
+  },
+];
+
+// ============================================================================
 // Default deck for new games — use the first deck (Furia de Sangre)
 // ============================================================================
 export const WARRIOR_DECK: CardDef[] = FURIA_DE_SANGRE;
