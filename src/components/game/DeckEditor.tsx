@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library, Info, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, RARITY_META, TRIGGER_META, KEYWORD_META, LANE_META } from "@/lib/game/types";
@@ -28,6 +28,7 @@ export function DeckEditor() {
   const [categoryFilter, setCategoryFilter] = useState<CardCategory | "all">("all");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [deckLocked, setDeckLocked] = useState(false);
+  const [deckDropdownOpen, setDeckDropdownOpen] = useState(false);
 
   // Load a preset deck — replaces all 12 slots with the preset's card IDs
   const loadPresetDeck = (deckId: string) => {
@@ -90,30 +91,53 @@ export function DeckEditor() {
         </div>
       </header>
       <main className="app-main mx-auto flex w-full flex-1 flex-col gap-2 px-2 py-2">
-        {/* Preset deck selector — 7 official decks */}
-        <section className="rounded-md border border-amber-800/40 bg-amber-950/20 p-2">
-          <div className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-300">
-            <Library className="h-3 w-3" />
-            Mazos Predeterminados
-          </div>
-          <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
-            {PRESET_DECKS.map((deck) => (
-              <button
-                key={deck.id}
-                onClick={() => loadPresetDeck(deck.id)}
-                className={cn(
-                  "flex min-w-[100px] shrink-0 flex-col items-center gap-0.5 rounded-md border-2 px-2 py-1.5 text-center transition-colors",
-                  deckCardIds.join(",") === deck.cards.map((c) => c.id).join(",")
-                    ? "border-amber-400 bg-amber-900/40"
-                    : "border-zinc-700 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800"
-                )}
-              >
-                <span className="text-base">{deck.emoji}</span>
-                <span className="text-[8px] font-bold uppercase tracking-wider text-zinc-200">{deck.name}</span>
-                <span className="text-[6px] uppercase tracking-wide text-zinc-500">{deck.description}</span>
-              </button>
-            ))}
-          </div>
+        {/* Preset deck selector — dropdown button */}
+        <section className="relative rounded-md border border-amber-800/40 bg-amber-950/20 p-2">
+          <button
+            onClick={() => setDeckDropdownOpen(!deckDropdownOpen)}
+            className="flex w-full items-center justify-between gap-2 rounded-md border border-amber-700/50 bg-zinc-900 px-3 py-2 text-left transition-colors hover:bg-zinc-800"
+          >
+            <div className="flex items-center gap-2">
+              <Library className="h-3.5 w-3.5 text-amber-400" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                {(() => {
+                  const active = PRESET_DECKS.find(d => deckCardIds.join(",") === d.cards.map(c => c.id).join(","));
+                  return active ? `${active.emoji} ${active.name}` : "Mazos Predeterminados";
+                })()}
+              </span>
+            </div>
+            <ChevronDown className={cn("h-3.5 w-3.5 text-zinc-400 transition-transform", deckDropdownOpen && "rotate-180")} />
+          </button>
+
+          {/* Dropdown list */}
+          {deckDropdownOpen && (
+            <>
+              {/* Backdrop to close on outside tap */}
+              <div className="fixed inset-0 z-40" onClick={() => setDeckDropdownOpen(false)} />
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[60vh] overflow-y-auto rounded-md border border-zinc-700 bg-zinc-950 shadow-2xl">
+                {PRESET_DECKS.map((deck) => {
+                  const isActive = deckCardIds.join(",") === deck.cards.map(c => c.id).join(",");
+                  return (
+                    <button
+                      key={deck.id}
+                      onClick={() => { loadPresetDeck(deck.id); setDeckDropdownOpen(false); }}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 border-b border-zinc-800 px-3 py-2.5 text-left transition-colors last:border-0",
+                        isActive ? "bg-amber-900/40" : "hover:bg-zinc-900"
+                      )}
+                    >
+                      <span className="text-lg">{deck.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className={cn("text-[10px] font-bold uppercase tracking-wider", isActive ? "text-amber-300" : "text-zinc-200")}>{deck.name}</div>
+                        <div className="truncate text-[8px] text-zinc-500">{deck.description}</div>
+                      </div>
+                      {isActive && <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </section>
 
         {/* Stats grid */}
