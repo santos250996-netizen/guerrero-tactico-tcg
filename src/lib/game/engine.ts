@@ -738,6 +738,11 @@ export function playCard(
     text: handCard.text,
     effectId: handCard.effectId,
     rarity: handCard.rarity,
+    // Carry over the trigger metadata so the engine can dispatch the right
+    // hooks later (start_turn, end_turn, passive, on_death, umbral).
+    trigger: handCard.trigger ?? "on_play",
+    umbralCondition: handCard.umbralCondition,
+    umbralTriggered: false,
   };
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
 
@@ -1108,4 +1113,296 @@ export function getEffectLabel(effectId: EffectId): string {
     default:
       return "—";
   }
+}
+
+// ---------------------------------------------------------------------------
+// Trigger dispatchers — fire effects at the right point of the turn lifecycle.
+// These functions return mutations / log entries; the caller (gameStore)
+// applies them to the board state and pushes log entries.
+//
+// For now, only a small set of effects make sense for each non-on_play trigger
+// (we re-use existing effectIds but interpret them through the trigger lens).
+// New effectIds specific to start_turn/end_turn/on_death/umbral can be added
+// later — the dispatcher already routes them based on `trigger`.
+// ---------------------------------------------------------------------------
+
+export interface TriggerResult {
+  /** Newly-produced board (a fresh copy with mutations applied). */
+  board: Board;
+  /** Human-readable log entries (one per fired card). */
+  logs: { side: "player" | "enemy" | "system"; text: string }[];
+  /** Cards whose umbral trigger fired this dispatch (so the caller can flag them). */
+  umbralFired: { side: "player" | "enemy"; lane: LaneId; uid: string }[];
+}
+
+function cloneBoard(board: Board): Board {
+  return {
+    armas: { player: [...board.armas.player], enemy: [...board.armas.enemy] },
+    proteccion: { player: [...board.proteccion.player], enemy: [...board.proteccion.enemy] },
+    furia: { player: [...board.furia.player], enemy: [...board.furia.enemy] },
+  };
+}
+
+function applyPowerDelta(board: Board, side: "player" | "enemy", lane: LaneId, uid: string, delta: number) {
+  const arr = board[lane][side];
+  const idx = arr.findIndex((c) => c.uid === uid);
+  if (idx < 0) return;
+  arr[idx] = {
+    ...arr[idx],
+    currentPower: Math.max(0, arr[idx].currentPower + delta),
+  };
+}
+
+/**
+ * Fire all START_TURN effects on the board for the given side.
+ * Currently re-uses effectIds whose semantics naturally fit a per-turn tick
+ * (e.g. grito_batalla giving +2 to hand-Furia cards each turn start, avatar_titan
+ * gaining +1 per board card). Effect dispatch is filtered by `trigger === "start_turn"`.
+ */
+export function applyStartTurnEffects(board: Board, side: "player" | "enemy"): TriggerResult {
+  const newBoard = cloneBoard(board);
+  const logs: TriggerResult["logs"] = [];
+
+  for (const lane of LANE_IDS) {
+    for (const card of newBoard[lane][side]) {
+      if (card.trigger !== "start_turn") continue;
+      // Per-turn effect: small steady buff to allies in lane (example semantics)
+      switch (card.effectId) {
+        case "golpe_heroico": {
+          // +2 to other allies in this lane each turn
+          for (const ally of newBoard[lane][side]) {
+            if (ally.uid === card.uid) continue;
+            applyPowerDelta(newBoard, side, lane, ally.uid, 2);
+          }
+          logs.push({
+            side,
+            text: `🌅 ${card.name}: +2 a aliados del carril ${lane} (Inicio de Turno)`,
+          });
+          break;
+        }
+        case "avatar_titan": {
+          // +1 per board card each turn (capped at +5 per tick)
+          const total = LANE_IDS.reduce(
+            (acc, ln) => acc + newBoard[ln].player.length + newBoard[ln].enemy.length,
+            0
+          );
+          const gain = Math.min(5, total);
+          if (gain > 0) {
+            applyPowerDelta(newBoard, side, lane, card.uid, gain);
+            logs.push({
+              side,
+              text: `🌅 ${card.name}: +${gain} (1 por carta en mesa, Inicio de Turno)`,
+            });
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  return { board: newBoard, logs, umbralFired: [] };
+}
+
+/**
+ * Fire all END_TURN effects on the board for the given side.
+ * Fires just before scoring the lane. Examples: renewal, small heals, card draw.
+ */
+export function applyEndTurnEffects(board: Board, side: "player" | "enemy"): TriggerResult {
+  const newBoard = cloneBoard(board);
+  const logs: TriggerResult["logs"] = [];
+
+  for (const lane of LANE_IDS) {
+    for (const card of newBoard[lane][side]) {
+      if (card.trigger !== "end_turn") continue;
+      switch (card.effectId) {
+        case "pocion_vida": {
+          // +1 to all ally Items in this lane at end of turn
+          for (const ally of newBoard[lane][side]) {
+            if (ally.category === "Ítem") {
+              applyPowerDelta(newBoard, side, lane, ally.uid, 1);
+            }
+          }
+          logs.push({
+            side,
+            text: `🌇 ${card.name}: +1 a Ítems del carril ${lane} (Fin de Turno)`,
+          });
+          break;
+        }
+        case "grito_batalla": {
+          // +1 to self at end of turn (steady growth)
+          applyPowerDelta(newBoard, side, lane, card.uid, 1);
+          logs.push({
+            side,
+            text: `🌇 ${card.name}: +1 a sí mismo (Fin de Turno)`,
+          });
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  return { board: newBoard, logs, umbralFired: [] };
+}
+
+/**
+ * Recompute PASSIVE effects on the board. Passive effects don't fire once —
+ * they're continuously active while the card is on the board. This function
+ * is called after every board mutation to re-buff allies / re-debuff enemies
+ * according to each passive card's effectId.
+ *
+ * Implementation note: passive buffs stack onto `currentPower` directly. To
+ * avoid double-counting on each call, callers should pass a board where the
+ * passive buff has been reset (e.g. by re-cloning from base values). For now
+ * we only apply a SMALL passive buff (+1) per passive card so re-calls
+ * don't spiral out of control — proper passive semantics would require
+ * tracking buff sources separately.
+ */
+export function applyPassiveEffects(board: Board): TriggerResult {
+  const newBoard = cloneBoard(board);
+  const logs: TriggerResult["logs"] = [];
+
+  for (const lane of LANE_IDS) {
+    for (const side of ["player", "enemy"] as const) {
+      for (const card of newBoard[lane][side]) {
+        if (card.trigger !== "passive") continue;
+        switch (card.effectId) {
+          case "muro_escudos": {
+            // Aura: +1 to ally Items in this lane (continuous)
+            let buffed = 0;
+            for (const ally of newBoard[lane][side]) {
+              if (ally.uid === card.uid) continue;
+              if (ally.category === "Ítem") {
+                applyPowerDelta(newBoard, side, lane, ally.uid, 1);
+                buffed++;
+              }
+            }
+            if (buffed > 0) {
+              logs.push({
+                side,
+                text: `♾️ ${card.name}: aura +1 a ${buffed} Ítem(s) del carril ${lane}`,
+              });
+            }
+            break;
+          }
+          case "trono_hierro": {
+            // Aura: +1 to ALL allies on the board (continuous, capped)
+            let buffed = 0;
+            for (const ln of LANE_IDS) {
+              for (const ally of newBoard[ln][side]) {
+                if (ally.uid === card.uid) continue;
+                applyPowerDelta(newBoard, side, ln, ally.uid, 1);
+                buffed++;
+              }
+            }
+            if (buffed > 0) {
+              logs.push({
+                side,
+                text: `♾️ ${card.name}: aura +1 a ${buffed} aliado(s) en mesa`,
+              });
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+  }
+
+  return { board: newBoard, logs, umbralFired: [] };
+}
+
+/**
+ * Fire ON_DEATH effects when a card is destroyed. The caller passes the
+ * dying card and its location; this function dispatches its effectId in the
+ * "on death" context.
+ */
+export function applyOnDeathEffects(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  deadCard: BoardCard
+): TriggerResult {
+  const newBoard = cloneBoard(board);
+  const logs: TriggerResult["logs"] = [];
+
+  if (deadCard.trigger !== "on_death") {
+    return { board: newBoard, logs, umbralFired: [] };
+  }
+
+  const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
+
+  switch (deadCard.effectId) {
+    case "seccionar": {
+      // -3 to strongest enemy in this lane on death
+      const target = highestPowerCard(newBoard[lane][enemySide]);
+      if (target) {
+        applyPowerDelta(newBoard, enemySide, lane, target.uid, -3);
+        logs.push({
+          side,
+          text: `💀 ${deadCard.name}: -3 al enemigo más fuerte del carril ${lane} (Último Aliento)`,
+        });
+      }
+      break;
+    }
+    case "filotormenta": {
+      // -1 to ALL enemies on board on death
+      let debuffed = 0;
+      for (const ln of LANE_IDS) {
+        for (const e of newBoard[ln][enemySide]) {
+          applyPowerDelta(newBoard, enemySide, ln, e.uid, -1);
+          debuffed++;
+        }
+      }
+      if (debuffed > 0) {
+        logs.push({
+          side,
+          text: `💀 ${deadCard.name}: -1 a ${debuffed} enemigo(s) en mesa (Último Aliento)`,
+        });
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  return { board: newBoard, logs, umbralFired: [] };
+}
+
+/**
+ * Check UMBRAL triggers on the board. Fires each card whose `umbralCondition`
+ * is now satisfied (and hasn't already fired). Marks the card so it doesn't
+ * fire again. Returns the new board + log entries + list of fired cards.
+ */
+export function checkUmbralTriggers(board: Board): TriggerResult {
+  const newBoard = cloneBoard(board);
+  const logs: TriggerResult["logs"] = [];
+  const umbralFired: TriggerResult["umbralFired"] = [];
+
+  for (const lane of LANE_IDS) {
+    for (const side of ["player", "enemy"] as const) {
+      for (const card of newBoard[lane][side]) {
+        if (card.trigger !== "umbral") continue;
+        if (card.umbralTriggered) continue;
+        const threshold = card.umbralCondition?.powerThreshold;
+        if (threshold === undefined) continue;
+        if (card.currentPower >= threshold) {
+          // Fire: +5 permanent bonus to self (one-shot)
+          applyPowerDelta(newBoard, side, lane, card.uid, 5);
+          card.umbralTriggered = true;
+          umbralFired.push({ side, lane, uid: card.uid });
+          logs.push({
+            side,
+            text: `🔥 ${card.name} despierta! Superó ${threshold} de poder: +5 (Despertar)`,
+          });
+        }
+      }
+    }
+  }
+
+  return { board: newBoard, logs, umbralFired };
 }

@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
 import type { CardDef } from "@/lib/game/types";
-import { CATEGORY_META, RARITY_META, LANE_META } from "@/lib/game/types";
+import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META } from "@/lib/game/types";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,8 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
   if (!card) return null;
   const cat = CATEGORY_META[card.category];
   const rar = RARITY_META[card.rarity];
+  const trigger = card.trigger ?? "on_play";
+  const triggerMeta = TRIGGER_META[trigger];
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 
   // Close handler — single tap anywhere (including the card) closes the modal.
@@ -134,6 +136,20 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             {/* Card name */}
             <div className="text-center text-base font-black uppercase tracking-wider text-amber-300 [text-shadow:1px_1px_0_#000,0_0_6px_rgba(0,0,0,0.9)] leading-tight">
               {card.name}
+            </div>
+
+            {/* Trigger type chip — when the effect fires */}
+            <div className="flex justify-center">
+              <span
+                title={triggerMeta.description}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                  triggerMeta.color
+                )}
+              >
+                <span>{triggerMeta.emoji}</span>
+                {triggerMeta.label}
+              </span>
             </div>
 
             {/* Effect text */}

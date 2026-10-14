@@ -29,6 +29,75 @@ export type EffectId =
 
 export type Rarity = "common" | "rare" | "epic" | "legendary";
 
+// ---------------------------------------------------------------------------
+// Triggers — when a card's effect fires during the game lifecycle.
+// ---------------------------------------------------------------------------
+
+export type Trigger =
+  | "on_play" // fires once when the card is played from hand to board
+  | "passive" // active continuously while the card is on the board
+  | "start_turn" // fires at the start of each of the 6 turns
+  | "end_turn" // fires at the end of the play phase, before scoring
+  | "on_death" // fires when the card is destroyed or sacrificed
+  | "umbral"; // fires once per game when its condition is met (e.g. power threshold)
+
+// Optional condition for `umbral` triggers (currently just a power threshold,
+// but kept as an object so it can be extended later with other condition types).
+export interface UmbralCondition {
+  /** Minimum currentPower required to fire the umbral trigger. */
+  powerThreshold?: number;
+}
+
+export const TRIGGER_META: Record<
+  Trigger,
+  { label: string; short: string; description: string; emoji: string; color: string }
+> = {
+  on_play: {
+    label: "Al Jugar",
+    short: "JUGAR",
+    description: "Se activa una sola vez al entrar al tablero desde tu mano.",
+    emoji: "⚡",
+    color: "text-sky-300",
+  },
+  passive: {
+    label: "Pasivo",
+    short: "PASIVO",
+    description:
+      "Permanece activo mientras la carta esté en la mesa. Se pierde si la carta es destruida.",
+    emoji: "♾️",
+    color: "text-emerald-300",
+  },
+  start_turn: {
+    label: "Inicio de Turno",
+    short: "INICIO",
+    description: "Se dispara al comienzo de cada uno de los 6 turnos.",
+    emoji: "🌅",
+    color: "text-amber-300",
+  },
+  end_turn: {
+    label: "Fin de Turno",
+    short: "FIN",
+    description: "Se dispara al concluir la fase de juego, antes del cálculo del carril.",
+    emoji: "🌇",
+    color: "text-violet-300",
+  },
+  on_death: {
+    label: "Último Aliento",
+    short: "MUERTE",
+    description: "Se dispara automáticamente cuando la carta es destruida o sacrificada.",
+    emoji: "💀",
+    color: "text-rose-300",
+  },
+  umbral: {
+    label: "Despertar",
+    short: "UMBRAL",
+    description:
+      "Se activa una sola vez por partida cuando se cumple una condición específica.",
+    emoji: "🔥",
+    color: "text-fuchsia-300",
+  },
+};
+
 export interface CardDef {
   id: string;
   name: string;
@@ -39,6 +108,10 @@ export interface CardDef {
   text: string;
   effectId: EffectId;
   rarity: Rarity;
+  /** When the card's effect fires. Defaults to "on_play" if omitted. */
+  trigger?: Trigger;
+  /** Optional condition for `umbral` triggers. Ignored for other triggers. */
+  umbralCondition?: UmbralCondition;
 }
 
 export interface BoardCard {
@@ -53,6 +126,12 @@ export interface BoardCard {
   text: string;
   effectId: EffectId;
   rarity: Rarity;
+  /** When the card's effect fires (copied from the CardDef when the card was played). */
+  trigger?: Trigger;
+  /** Optional condition for `umbral` triggers. */
+  umbralCondition?: UmbralCondition;
+  /** True once an umbral trigger has fired for this board card (prevents re-firing). */
+  umbralTriggered?: boolean;
 }
 
 export interface HandCard extends CardDef {

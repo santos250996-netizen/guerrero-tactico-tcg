@@ -15,6 +15,11 @@ import {
   MAX_HAND_SIZE,
   MAX_TURNS,
   STARTING_HAND_SIZE,
+  applyEndTurnEffects,
+  applyOnDeathEffects,
+  applyPassiveEffects,
+  applyStartTurnEffects,
+  checkUmbralTriggers,
   computeFinalResult,
   emptyLaneTraps,
   getFinalCost,
@@ -28,6 +33,7 @@ import {
   type Board,
   type LaneTraps,
   type TrapState,
+  type TriggerResult,
 } from "@/lib/game/engine";
 import { buildDrawPileFrom, WARRIOR_DECK } from "@/lib/game/cards";
 import { sfx } from "@/lib/sound";
@@ -215,6 +221,22 @@ function pushLog(
     kind,
   };
   return [entry, ...list].slice(0, MAX_LOG_ENTRIES);
+}
+
+/**
+ * Push all log entries from a TriggerResult onto the game log.
+ * Used by the turn-lifecycle hooks (start_turn, end_turn, on_death, umbral).
+ */
+function pushTriggerLogs(
+  list: LogEntry[],
+  turn: number,
+  result: TriggerResult
+): LogEntry[] {
+  let next = list;
+  for (const l of result.logs) {
+    next = pushLog(next, turn, l.side, l.text, "info");
+  }
+  return next;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -513,8 +535,25 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         );
       }
 
+      // ====== TRIGGER DISPATCH ======
+      // 1. ON_DEATH: for each card destroyed by this play, fire its on_death effect.
+      //    We need the dying card's full state (including trigger/effectId) which
+      //    we can recover from the pre-mutation board (state.board).
+      let triggerBoard = res.board;
+      for (const rc of res.removedCards) {
+        const deadCard = state.board[rc.lane][rc.side].find((c) => c.uid === rc.uid);
+        if (!deadCard) continue;
+        const deathRes = applyOnDeathEffects(triggerBoard, rc.side, rc.lane, deadCard);
+        triggerBoard = deathRes.board;
+        log = pushTriggerLogs(log, state.turn, deathRes);
+      }
+      // 2. UMBRAL: check all umbral triggers on the resulting board.
+      const umbralRes = checkUmbralTriggers(triggerBoard);
+      triggerBoard = umbralRes.board;
+      log = pushTriggerLogs(log, state.turn, umbralRes);
+
       set({
-        board: res.board,
+        board: triggerBoard,
         hand: res.hand,
         energy: res.remainingEnergy,
         laneTraps: newLaneTraps,
@@ -571,6 +610,24 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     // Re-read state after the async waits
     const freshState = get();
 
+    // ====== TRIGGER: END_TURN (player) ======
+    // Player just pressed "Pasar" — fire their end_turn effects before AI plays.
+    const playerEndRes = applyEndTurnEffects(freshState.board, "player");
+    let triggerBoard = playerEndRes.board;
+    let triggerLogs: LogEntry[] = pushTriggerLogs(freshState.log, freshState.turn, playerEndRes);
+    // UMBRAL check after player's end_turn effects
+    const playerEndUmbral = checkUmbralTriggers(triggerBoard);
+    triggerBoard = playerEndUmbral.board;
+    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, playerEndUmbral);
+
+    // ====== TRIGGER: START_TURN (enemy) ======
+    const enemyStartRes = applyStartTurnEffects(triggerBoard, "enemy");
+    triggerBoard = enemyStartRes.board;
+    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, enemyStartRes);
+    const enemyStartUmbral = checkUmbralTriggers(triggerBoard);
+    triggerBoard = enemyStartUmbral.board;
+    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, enemyStartUmbral);
+
     // 2. Build the enemy hand: draw 3 random cards from a fresh shuffled pile.
     const resolvedDeck = resolveDeck(freshState);
     const enemyEnergy = freshState.maxEnergy;
@@ -583,23 +640,24 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }
 
     // 3. Plan and execute the AI plays on the actual board, respecting lane
-    //    bonuses AND lane traps.
+    //    bonuses AND lane traps. Use the post-trigger board as starting point.
     const plan = planEnemyTurn(
-      freshState.board,
+      triggerBoard,
       enemyHand,
       enemyEnergy,
       freshState.laneBonuses,
       freshState.laneTraps
     );
-    let workBoard = freshState.board;
+    let workBoard = triggerBoard;
     let workEnemyHand = [...enemyHand];
     let workEnergy = enemyEnergy;
     let workTraps: LaneTraps = { ...freshState.laneTraps };
-    let log = freshState.log;
+    let log = triggerLogs;
     let gameStats: GameStats = { ...freshState.gameStats };
 
     for (const play of plan) {
       try {
+        const prePlayBoard = workBoard;
         const res = playCard(
           workBoard,
           workEnemyHand,
@@ -687,10 +745,35 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             "info"
           );
         }
+
+        // ====== TRIGGER DISPATCH (enemy play) ======
+        // ON_DEATH: for each card destroyed by the enemy's play.
+        // Look up the dying card in the PRE-play board (prePlayBoard) because
+        // workBoard (= res.board) has already had removedCards filtered out.
+        for (const rc of res.removedCards) {
+          const deadCard = prePlayBoard[rc.lane][rc.side].find((c) => c.uid === rc.uid);
+          if (!deadCard) continue;
+          const deathRes = applyOnDeathEffects(workBoard, rc.side, rc.lane, deadCard);
+          workBoard = deathRes.board;
+          log = pushTriggerLogs(log, freshState.turn, deathRes);
+        }
+        // UMBRAL: check after each enemy play.
+        const enemyUmbralRes = checkUmbralTriggers(workBoard);
+        workBoard = enemyUmbralRes.board;
+        log = pushTriggerLogs(log, freshState.turn, enemyUmbralRes);
       } catch {
         // ignore failed plays
       }
     }
+
+    // ====== TRIGGER: END_TURN (enemy) ======
+    // Enemy just finished playing — fire their end_turn effects before turn advances.
+    const enemyEndRes = applyEndTurnEffects(workBoard, "enemy");
+    workBoard = enemyEndRes.board;
+    log = pushTriggerLogs(log, freshState.turn, enemyEndRes);
+    const enemyEndUmbral = checkUmbralTriggers(workBoard);
+    workBoard = enemyEndUmbral.board;
+    log = pushTriggerLogs(log, freshState.turn, enemyEndUmbral);
 
     // 4. Advance turn, apply Sobrecarga energy penalty
     const newTurn = freshState.turn + 1;
@@ -740,6 +823,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       `Turno ${newTurn} — Energía ${newEnergy}/${newMaxEnergy}${freshState.nextTurnEnergyPenalty ? ` (penalización ${freshState.nextTurnEnergyPenalty})` : ""}.`,
       "info"
     );
+
+    // ====== TRIGGER: START_TURN (player) ======
+    // Player's new turn begins — fire their start_turn effects before they play.
+    const playerStartRes = applyStartTurnEffects(workBoard, "player");
+    workBoard = playerStartRes.board;
+    log = pushTriggerLogs(log, newTurn, playerStartRes);
+    const playerStartUmbral = checkUmbralTriggers(workBoard);
+    workBoard = playerStartUmbral.board;
+    log = pushTriggerLogs(log, newTurn, playerStartUmbral);
 
     set({
       board: workBoard,

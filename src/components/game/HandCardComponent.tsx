@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Info } from "lucide-react";
 import type { HandCard } from "@/lib/game/types";
-import { CATEGORY_META, RARITY_META, LANE_META } from "@/lib/game/types";
+import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META } from "@/lib/game/types";
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
@@ -55,6 +55,8 @@ export function HandCardComponent({
 }: HandCardComponentProps) {
   const cat = CATEGORY_META[card.category];
   const rar = RARITY_META[card.rarity];
+  const trigger = card.trigger ?? "on_play";
+  const triggerMeta = TRIGGER_META[trigger];
   const artUrl = `/cards/${card.id}.png`;
   const effectivePower = card.power + (card.handBonus || 0);
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
@@ -263,6 +265,20 @@ export function HandCardComponent({
         {/* Card name */}
         <div className="text-center text-[9px] font-black uppercase tracking-wider text-amber-300 [text-shadow:1px_1px_0_#000,0_0_4px_rgba(0,0,0,0.85)] leading-tight">
           {card.name}
+        </div>
+
+        {/* Trigger type chip — small pill below the name showing when the effect fires */}
+        <div className="flex justify-center">
+          <span
+            title={triggerMeta.description}
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[6px] font-bold uppercase tracking-wider backdrop-blur-sm",
+              triggerMeta.color
+            )}
+          >
+            <span>{triggerMeta.emoji}</span>
+            {triggerMeta.short}
+          </span>
         </div>
 
         {/* "Toca para ver efecto" (left) parallel to rarity letter (right) — visual hint only, the whole card is tappable */}

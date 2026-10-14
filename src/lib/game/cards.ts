@@ -519,6 +519,76 @@ export const TACTICAL_CARDS: CardDef[] = [
     effectId: "trono_hierro",
     rarity: "legendary",
   },
+  // --- 5 new TRIGGER showcase cards ---
+  // Each demonstrates one of the new trigger types introduced alongside the
+  // existing on_play cards. All re-use existing effectIds but interpret them
+  // through their trigger's lifecycle (see engine.ts dispatchers).
+  {
+    // PASSIVE — continuous aura while on the board
+    id: "baluarte_pasivo",
+    name: "Baluarte Eterno",
+    category: "Ítem",
+    subtypes: ["proteccion", "armas"],
+    cost: 4,
+    power: 8,
+    text: "Aura continua: +1 a tus cartas de Ítem en este carril mientras esté en mesa.",
+    effectId: "muro_escudos",
+    rarity: "epic",
+    trigger: "passive",
+  },
+  {
+    // START_TURN — fires at the start of each of the 6 turns
+    id: "acumulador",
+    name: "Acumulador Arcano",
+    category: "Acción",
+    subtypes: ["furia"],
+    cost: 2,
+    power: 4,
+    text: "Inicio de cada turno: +2 a tus demás cartas en este carril.",
+    effectId: "golpe_heroico",
+    rarity: "epic",
+    trigger: "start_turn",
+  },
+  {
+    // END_TURN — fires at the end of the play phase
+    id: "renovacion",
+    name: "Renovación Vital",
+    category: "Ítem",
+    subtypes: ["proteccion", "furia"],
+    cost: 3,
+    power: 7,
+    text: "Fin de cada turno: +1 a todas tus cartas de Ítem en este carril.",
+    effectId: "pocion_vida",
+    rarity: "epic",
+    trigger: "end_turn",
+  },
+  {
+    // ON_DEATH — fires when this card is destroyed or sacrificed
+    id: "ultimo_aliento",
+    name: "Último Aliento",
+    category: "Ataque",
+    subtypes: ["armas", "furia"],
+    cost: 3,
+    power: 9,
+    text: "Al morir: -3 al enemigo más fuerte de este carril.",
+    effectId: "seccionar",
+    rarity: "epic",
+    trigger: "on_death",
+  },
+  {
+    // UMBRAL — fires once per game when this card's power reaches the threshold
+    id: "despertar_furias",
+    name: "Despertar de las Furias",
+    category: "Acción",
+    subtypes: ["furia"],
+    cost: 3,
+    power: 7,
+    text: "Despertar (una vez por partida): cuando esta carta alcance 12 de poder, +5 permanente.",
+    effectId: "grito_batalla",
+    rarity: "legendary",
+    trigger: "umbral",
+    umbralCondition: { powerThreshold: 12 },
+  },
 ];
 
 // ---------------------------------------------------------------------------
