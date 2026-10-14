@@ -276,21 +276,19 @@ function FullArtCardMini({ card, onClick, selected, showSlotNumber, dimmed }: {
           {card.name}
         </div>
 
-        {/* Trigger + keyword chips */}
-        <div className="flex justify-center gap-0.5">
-          <span title={triggerMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", triggerMeta.color)}>
-            <span>{triggerMeta.emoji}</span>{triggerMeta.short}
-          </span>
-          {keyword !== "none" && (
-            <span title={keywordMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", keywordMeta.color)}>
-              <span>{keywordMeta.emoji}</span>{keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
+        {/* Trigger + keyword chips parallel to rarity letter (same row) */}
+        <div className="flex items-end justify-between gap-0.5">
+          <div className="flex gap-0.5">
+            <span title={triggerMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", triggerMeta.color)}>
+              <span>{triggerMeta.emoji}</span>{triggerMeta.short}
             </span>
-          )}
-        </div>
-
-        {/* Rarity letter (bottom-right) */}
-        <div className="flex items-end justify-end">
-          <span title={rar.label} className={cn("flex h-4 w-4 items-center justify-center rounded-full border border-white/80 text-[6px] font-black shadow-md", RARITY_SOLID_BG[card.rarity])}>
+            {keyword !== "none" && (
+              <span title={keywordMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", keywordMeta.color)}>
+                <span>{keywordMeta.emoji}</span>{keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
+              </span>
+            )}
+          </div>
+          <span title={rar.label} className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/80 text-[6px] font-black shadow-md", RARITY_SOLID_BG[card.rarity])}>
             {RARITY_LETTER[card.rarity]}
           </span>
         </div>
