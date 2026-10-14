@@ -284,3 +284,65 @@ Stage Summary:
 - Lint clean; `tsc --noEmit` only shows pre-existing errors in unrelated dirs.
 - `next build` compiles successfully (10.2s).
 - Pushed to GitHub: `feat(triggers): add 6 trigger types...` commit (force-push to overwrite diverged auto-commit).
+
+---
+Task ID: keywords-system-1
+Agent: main (super-z)
+Task: Implement the 25 OFFICIAL KEYWORDS per user spec — add keyword type + UI display + 19 new EffectIds + effect logic + 25 example cards.
+
+Work Log:
+- `src/lib/game/types.ts`:
+  - Added `Keyword` type: union of 25 names (sacrificio, remate, celeridad, sobrecarga, mimetismo, eco, refuerzo, ventaja, vanguardia, aislado, trampa, reagrupar, ultimo_aliento, baluarte, sigilo, vinculo, muro, retorno, despertar, reciclar, doble_golpe, refugio, emboscada, transferencia, renovacion, none).
+  - Added `KEYWORD_META` map with `label`, `short`, `description`, `emoji`, `color`, `trigger` (default trigger for that keyword), `hasValue` (whether the keyword takes an X parameter).
+  - Added `keyword?: Keyword` + `keywordValue?: number` fields to `CardDef`.
+  - Added same fields + `sigiloActive?: boolean` to `BoardCard` (for Sigilo first-turn immunity tracking).
+  - Added 19 new `EffectId`s for the keyword-specific effect implementations.
+- `src/lib/game/engine.ts`:
+  - `applyEffectLogic`: added `case` for each of the 19 new effectIds. Each reads `(ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? default` for the X parameter.
+  - `getEffectLabel`: added label mappings for all 19 new effectIds.
+  - `playCard`: copies `keyword`, `keywordValue`, `sigiloActive` to the new BoardCard.
+  - `applyEndTurnEffects`: added `case "renovacion"` (logs intent to discard 1 + draw X).
+  - `applyPassiveEffects`: added cases for `baluarte` (+1 to allies each tick as absorb proxy), `vinculo` (same-category ally → both +X), `muro_keyword` (logs intent), `refugio` (+1 to weakest ally as absorb proxy), `sigilo` (logs presence if sigiloActive).
+  - `applyOnDeathEffects`: added cases for `ultimo_aliento` (+X to weakest ally), `reciclar` (logs energy recovery), `retorno` (logs return-to-hand intent if cost ≤ X).
+- `src/lib/game/cards.ts`:
+  - Added 25 keyword showcase cards (one per keyword), each with `keyword` + `keywordValue` fields set and the appropriate `effectId` for engine dispatch:
+    - Ofrenda de Sangre (Sacrificio [3])
+    - Carnicería (Remate [5])
+    - Paso Ligero (Celeridad)
+    - Sobrecarga Salvaje (Sobrecarga [1])
+    - Cambiaformas (Mimetismo)
+    - Resonancia Arcana (Eco [2])
+    - Apoyo Táctico (Refuerzo [3])
+    - Revolverse (Ventaja [4])
+    - Iniciativa del Campeón (Vanguardia [3])
+    - Lobo Solitario (Aislado [5])
+    - Emboscada Preparada (Trampa [3])
+    - Repliegue (Reagrupar)
+    - Eco del Caído (Último Aliento [3], on_death)
+    - Baluarte Sagrado (Baluarte, passive)
+    - Sombra Velada (Sigilo, passive)
+    - Pacto Gemelo (Vínculo [2], passive)
+    - Fortaleza Inquebrantable (Muro, passive)
+    - Ciclo Eterno (Retorno [2], on_death)
+    - Despertar del Ancestro (Despertar [12], umbral)
+    - Recicladora Etérea (Reciclar [2], on_death)
+    - Asalto Doble (Doble Golpe [3])
+    - Refugio del Guardián (Refugio [2], passive)
+    - Celada Mortal (Emboscada [5])
+    - Canal Vital (Transferencia [3])
+    - Ciclo Lunar (Renovación [1], end_turn)
+- `src/components/game/HandCardComponent.tsx`:
+  - Imported `KEYWORD_META`.
+  - Compute `keyword` + `keywordMeta` from `card.keyword ?? "none"`.
+  - Added keyword chip next to the trigger chip below the card name (small pill with `{emoji} {short}[{X}]` if hasValue).
+- `src/components/game/CardPreviewModal.tsx`:
+  - Same imports + computation.
+  - Added larger keyword chip next to the trigger chip with full label + value.
+
+Stage Summary:
+- 25 OFFICIAL KEYWORDS implemented per user spec, each with a dedicated EffectId (19 new) or re-using existing effectIds (6 already exist as sobrecarga, mimetismo, trampa_eterea, empuje_tactico).
+- Each card now displays BOTH a trigger chip (when the effect fires) AND a keyword chip (which keyword + optional X value) on the hand card AND in the preview modal.
+- 25 example cards added to cards.ts demonstrating each keyword with realistic stats and text.
+- The 4 keyword categories (Activación Directa, Sinergia, Tablero y Triggers, Umbrales y Recursos, Nuevas Tácticas) are all represented.
+- Lint clean; `tsc --noEmit` only pre-existing errors in unrelated dirs; `next build` compiles successfully.
+- Pushed to GitHub: `feat(keywords): add 25 official keywords with effect logic + example cards` (068d1a7).
