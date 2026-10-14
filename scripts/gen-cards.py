@@ -315,8 +315,9 @@ def gen_card(card_tuple):
     lines.append(f"    subtypes: [{', '.join(f'\"{s}\"' for s in subtypes)}],")
     lines.append(f"    cost: {cost},")
     # Format power (strip trailing .0 for ints)
-    pwr_str = str(power).rstrip("0").rstrip(".") if "." in str(power) else str(power)
-    lines.append(f"    power: {pwr_str},")
+    # Round power to integer (TCG power values are always whole numbers)
+    pwr_int = round(power)
+    lines.append(f"    power: {pwr_int},")
     # Escape text quotes
     escaped_text = text.replace('"', '\\"')
     lines.append(f"    text: \"{escaped_text}\",")
@@ -385,6 +386,38 @@ def main():
     output.append("// Default deck for new games — use the first deck (Furia de Sangre)")
     output.append("// ============================================================================")
     output.append("export const WARRIOR_DECK: CardDef[] = FURIA_DE_SANGRE;")
+    output.append("")
+    # PRESET_DECKS metadata for the DeckEditor selector
+    output.append("// ============================================================================")
+    output.append("// PRESET_DECKS — 7 mazos predeterminados para el selector del DeckEditor")
+    output.append("// ============================================================================")
+    output.append("export interface PresetDeck {")
+    output.append("  id: string;")
+    output.append("  name: string;")
+    output.append("  emoji: string;")
+    output.append("  description: string;")
+    output.append("  cards: CardDef[];")
+    output.append("}")
+    output.append("")
+    preset_data = [
+        ("furia_de_sangre", "Furia de Sangre", "🩸", "Agresión y Sacrificio"),
+        ("falange_inexpugnable", "Falange Inexpugnable", "🛡️", "Escudos y Control"),
+        ("maestros_de_la_forja", "Maestros de la Forja", "🔨", "Armas y Tempo"),
+        ("impulso_sangriento", "Impulso Sangriento", "⚔️", "Furia y Agresión Clásica"),
+        ("bastion_inquebrantable", "Bastión Inquebrantable", "🏰", "Control y Muro Clásico"),
+        ("legado_de_la_forja", "Legado de la Forja", "⚒️", "Armas y Tempo Clásico"),
+        ("malla_de_emboscada", "Malla de Emboscada", "🎯", "Control y Trampas"),
+    ]
+    output.append("export const PRESET_DECKS: PresetDeck[] = [")
+    for i, (pid, pname, pemoji, pdesc) in enumerate(preset_data):
+        output.append("  {")
+        output.append(f"    id: \"{pid}\",")
+        output.append(f"    name: \"{pname}\",")
+        output.append(f"    emoji: \"{pemoji}\",")
+        output.append(f"    description: \"{pdesc}\",")
+        output.append(f"    cards: {deck_const_names[i]},")
+        output.append("  },")
+    output.append("];")
     output.append("")
     output.append("// ============================================================================")
     output.append("// Card pools for the deck editor")
