@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Info } from "lucide-react";
 import type { HandCard } from "@/lib/game/types";
-import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META } from "@/lib/game/types";
+import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
@@ -57,6 +57,8 @@ export function HandCardComponent({
   const rar = RARITY_META[card.rarity];
   const trigger = card.trigger ?? "on_play";
   const triggerMeta = TRIGGER_META[trigger];
+  const keyword = card.keyword ?? "none";
+  const keywordMeta = KEYWORD_META[keyword];
   const artUrl = `/cards/${card.id}.png`;
   const effectivePower = card.power + (card.handBonus || 0);
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
@@ -267,8 +269,8 @@ export function HandCardComponent({
           {card.name}
         </div>
 
-        {/* Trigger type chip — small pill below the name showing when the effect fires */}
-        <div className="flex justify-center">
+        {/* Trigger + Keyword chip — small pill below the name showing when the effect fires + which keyword */}
+        <div className="flex justify-center gap-0.5">
           <span
             title={triggerMeta.description}
             className={cn(
@@ -279,6 +281,18 @@ export function HandCardComponent({
             <span>{triggerMeta.emoji}</span>
             {triggerMeta.short}
           </span>
+          {keyword !== "none" && (
+            <span
+              title={keywordMeta.description + (keywordMeta.hasValue && card.keywordValue ? ` (X=${card.keywordValue})` : "")}
+              className={cn(
+                "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[6px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                keywordMeta.color
+              )}
+            >
+              <span>{keywordMeta.emoji}</span>
+              {keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
+            </span>
+          )}
         </div>
 
         {/* "Toca para ver efecto" (left) parallel to rarity letter (right) — visual hint only, the whole card is tappable */}

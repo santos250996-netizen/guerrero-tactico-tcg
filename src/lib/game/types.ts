@@ -25,7 +25,29 @@ export type EffectId =
   | "sobrecarga" | "purificacion" | "tormenta_rayos" | "trampa_eterea"
   | "reflejo_arcano" | "venganza" | "mimetismo" | "empuje_tactico"
   // --- 3 legendary effects ---
-  | "colera_titan" | "despertar_bélico" | "trono_hierro";
+  | "colera_titan" | "despertar_bélico" | "trono_hierro"
+  // --- 19 new keyword effects (keyword-aware re-implementations) ---
+  | "celeridad" // 03 Celeridad: -1 cost to next card this turn (min 1)
+  | "eco" // 06 Eco [X]: +X to hand cards sharing subtype or category
+  | "refuerzo" // 07 Refuerzo [X]: +X to ally card played immediately before
+  | "ventaja" // 08 Ventaja [X]: +X if your total power < enemy's
+  | "vanguardia" // 09 Vanguardia [X]: +X if first card played this turn
+  | "aislado" // 10 Aislado [X]: +X while only ally in lane
+  | "sacrificio_keyword" // 01 Sacrificio [X]: destroy ally with ≤X power to activate
+  | "remate_keyword" // 02 Remate [X]: destroy enemy card if power ≤ X
+  | "ultimo_aliento" // 13 Último Aliento [X]: On Death - transfer +X to ally
+  | "baluarte" // 14 Baluarte: Passive - allies here can't be debuffed
+  | "sigilo" // 15 Sigilo: first turn on board, immune to direct enemy effects
+  | "vinculo" // 16 Vínculo [X]: Passive - same-category card here → both +X
+  | "muro_keyword" // 17 Muro [X]: Passive - enemy must play here if not full
+  | "retorno" // 18 Retorno [X]: On Death - if cost ≤ X, return to hand
+  | "despertar_umbral" // 19 Despertar [X]: Umbral - board power ≥ X → activate
+  | "reciclar" // 20 Reciclar [X]: On Death - recover X energy
+  | "doble_golpe" // 21 Doble Golpe [X]: apply effect here AND adjacent lane
+  | "refugio" // 22 Refugio [X]: absorb up to X debuff points to ally here
+  | "emboscada" // 23 Emboscada [X]: +X if enemy lane is full
+  | "transferencia" // 24 Transferencia [X]: -X to ally here, +X to ally elsewhere
+  | "renovacion"; // 25 Renovación [X]: End Turn - discard 1 to draw X
 
 export type Rarity = "common" | "rare" | "epic" | "legendary";
 
@@ -98,6 +120,197 @@ export const TRIGGER_META: Record<
   },
 };
 
+// ---------------------------------------------------------------------------
+// 25 OFFICIAL KEYWORDS — semantic label for each card's effect, displayed in
+// the UI as a colored chip below the card name. The actual effect behavior is
+// still driven by `effectId` (in engine.ts) — the `keyword` field is just for
+// display + future keyword-aware logic (e.g. AI scoring by keyword type).
+// ---------------------------------------------------------------------------
+
+export type Keyword =
+  // 1. ACTIVACIÓN DIRECTA (ON PLAY)
+  | "sacrificio" // 01: destroy ally with ≤X power to activate
+  | "remate" // 02: destroy enemy if power ≤ X
+  | "celeridad" // 03: -1 cost to next card this turn
+  | "sobrecarga" // 04: -1 cost this card, -X energy next turn (re-uses existing sobrecarga effectId)
+  | "mimetismo" // 05: copy strongest ally's effect
+  // 2. SINERGIA DE MANO Y POSICIÓN
+  | "eco" // 06: +X to hand cards sharing subtype/category
+  | "refuerzo" // 07: +X to ally played immediately before
+  | "ventaja" // 08: +X if your total < enemy's
+  | "vanguardia" // 09: +X if first card this turn
+  | "aislado" // 10: +X while only ally in lane
+  // 3. TABLERO Y TRIGGERS ESPECIALES
+  | "trampa" // 11: mark lane, next enemy card here gets -X
+  | "reagrupar" // 12: move weakest ally from another lane to here
+  | "ultimo_aliento" // 13: ON_DEATH — transfer +X to ally
+  | "baluarte" // 14: PASSIVE — allies here can't be debuffed
+  | "sigilo" // 15: first turn on board, immune to direct enemy effects
+  | "vinculo" // 16: PASSIVE — same-category card here → both +X
+  | "muro" // 17: PASSIVE — enemy must play here if not full
+  | "retorno" // 18: ON_DEATH — if cost ≤ X, return to hand
+  // 4. UMBRALES Y RECURSOS
+  | "despertar" // 19: UMBRAL — board power ≥ X → activate
+  | "reciclar" // 20: ON_DEATH — recover X energy
+  // 5. NUEVAS KEYWORDS TÁCTICAS
+  | "doble_golpe" // 21: apply effect here AND adjacent lane
+  | "refugio" // 22: absorb up to X debuff points
+  | "emboscada" // 23: +X if enemy lane is full (4 cards)
+  | "transferencia" // 24: -X to ally here, +X to ally elsewhere
+  | "renovacion" // 25: END_TURN — discard 1 to draw X
+  | "none"; // for cards without an official keyword (basic cards)
+
+export const KEYWORD_META: Record<
+  Keyword,
+  {
+    label: string;
+    short: string;
+    description: string;
+    emoji: string;
+    color: string;
+    /** Default trigger for this keyword (used when `card.trigger` is omitted). */
+    trigger: Trigger;
+    /** True if the keyword takes an [X] parameter. */
+    hasValue: boolean;
+  }
+> = {
+  // 1. ACTIVACIÓN DIRECTA
+  sacrificio: {
+    label: "Sacrificio", short: "SACR", emoji: "🗡️", color: "text-rose-300",
+    description: "Destruye a tu aliado con X o menos de poder para activar un efecto adicional.",
+    trigger: "on_play", hasValue: true,
+  },
+  remate: {
+    label: "Remate", short: "REMAT", emoji: "💀", color: "text-rose-300",
+    description: "Destruye a una carta enemiga si su poder actual es X o menor.",
+    trigger: "on_play", hasValue: true,
+  },
+  celeridad: {
+    label: "Celeridad", short: "CELER", emoji: "💨", color: "text-sky-300",
+    description: "Reduce en 1 el coste de energía de la próxima carta que juegues durante este turno (mín. 1).",
+    trigger: "on_play", hasValue: false,
+  },
+  sobrecarga: {
+    label: "Sobrecarga", short: "SOBR", emoji: "⚡", color: "text-amber-300",
+    description: "Reduce el coste de esta carta en 1, pero resta X de energía en tu próximo turno.",
+    trigger: "on_play", hasValue: true,
+  },
+  mimetismo: {
+    label: "Mimetismo", short: "MIMET", emoji: "🪞", color: "text-violet-300",
+    description: "Copia el efecto activo de la carta aliada con mayor poder.",
+    trigger: "on_play", hasValue: false,
+  },
+  // 2. SINERGIA DE MANO Y POSICIÓN
+  eco: {
+    label: "Eco", short: "ECO", emoji: "🔁", color: "text-emerald-300",
+    description: "Otorga +X de poder a todas las cartas en tu mano que compartan subtipo o categoría.",
+    trigger: "on_play", hasValue: true,
+  },
+  refuerzo: {
+    label: "Refuerzo", short: "REFUER", emoji: "🛡️", color: "text-emerald-300",
+    description: "Otorga +X de poder a la carta aliada jugada inmediatamente antes.",
+    trigger: "on_play", hasValue: true,
+  },
+  ventaja: {
+    label: "Ventaja", short: "VENT", emoji: "⚖️", color: "text-amber-300",
+    description: "Se activa solo si tu poder total es menor al del rival. Gana +X de poder.",
+    trigger: "on_play", hasValue: true,
+  },
+  vanguardia: {
+    label: "Vanguardia", short: "VANG", emoji: "🚩", color: "text-sky-300",
+    description: "Se activa solo si es la primera carta que juegas en tu turno. Gana +X de poder.",
+    trigger: "on_play", hasValue: true,
+  },
+  aislado: {
+    label: "Aislado", short: "AISL", emoji: "🪨", color: "text-zinc-300",
+    description: "Gana +X de poder mientras sea tu única carta aliada en el carril.",
+    trigger: "on_play", hasValue: true,
+  },
+  // 3. TABLERO Y TRIGGERS ESPECIALES
+  trampa: {
+    label: "Trampa", short: "TRAMP", emoji: "🪤", color: "text-amber-300",
+    description: "Deja una marca. La próxima carta enemiga jugada aquí recibe -X de poder.",
+    trigger: "on_play", hasValue: true,
+  },
+  reagrupar: {
+    label: "Reagrupar", short: "REAGR", emoji: "↪️", color: "text-emerald-300",
+    description: "Mueve a tu aliado con menor poder de otro carril a este carril (solo si hay espacio).",
+    trigger: "on_play", hasValue: false,
+  },
+  ultimo_aliento: {
+    label: "Último Aliento", short: "ALIENT", emoji: " exhale", color: "text-rose-300",
+    description: "(On Death) Se activa cuando esta carta es destruida o sacrificada. Transfiere +X de poder.",
+    trigger: "on_death", hasValue: true,
+  },
+  baluarte: {
+    label: "Baluarte", short: "BALU", emoji: "🏰", color: "text-emerald-300",
+    description: "(Pasivo) Tus demás aliados aquí no pueden sufrir reducciones de poder enemigas.",
+    trigger: "passive", hasValue: false,
+  },
+  sigilo: {
+    label: "Sigilo", short: "SIGIL", emoji: "👁️", color: "text-zinc-300",
+    description: "Durante su primer turno en mesa, no puede ser objetivo de efectos directos enemigos.",
+    trigger: "passive", hasValue: false,
+  },
+  vinculo: {
+    label: "Vínculo", short: "VIN", emoji: "🔗", color: "text-emerald-300",
+    description: "(Pasivo) Si hay otra carta de su misma categoría aquí, ambas ganan +X de poder.",
+    trigger: "passive", hasValue: true,
+  },
+  muro: {
+    label: "Muro", short: "MURO", emoji: "🧱", color: "text-amber-300",
+    description: "(Pasivo) El rival debe jugar sus cartas aquí si no ha alcanzado el límite.",
+    trigger: "passive", hasValue: false,
+  },
+  retorno: {
+    label: "Retorno", short: "RETN", emoji: "🔄", color: "text-emerald-300",
+    description: "(On Death) Al ser destruida o sacrificada, si su coste es X o menor, regresa a tu mano.",
+    trigger: "on_death", hasValue: true,
+  },
+  // 4. UMBRALES Y RECURSOS
+  despertar: {
+    label: "Despertar", short: "DESP", emoji: "🔥", color: "text-fuchsia-300",
+    description: "Al alcanzar o superar X puntos de poder en el tablero, activa su efecto especial.",
+    trigger: "umbral", hasValue: true,
+  },
+  reciclar: {
+    label: "Reciclar", short: "RECIC", emoji: "♻️", color: "text-emerald-300",
+    description: "(On Death) Al ser destruida o sacrificada, recuperas X de energía.",
+    trigger: "on_death", hasValue: true,
+  },
+  // 5. NUEVAS KEYWORDS TÁCTICAS
+  doble_golpe: {
+    label: "Doble Golpe", short: "DOBLE", emoji: "⚔️", color: "text-rose-300",
+    description: "Aplica su efecto o debuff de valor X aquí y en un carril adyacente.",
+    trigger: "on_play", hasValue: true,
+  },
+  refugio: {
+    label: "Refugio", short: "REFUG", emoji: "⛺", color: "text-emerald-300",
+    description: "Absorbe hasta X puntos de debuff o reducción de poder que vaya a sufrir un aliado aquí.",
+    trigger: "passive", hasValue: true,
+  },
+  emboscada: {
+    label: "Emboscada", short: "EMBOS", emoji: "🎯", color: "text-amber-300",
+    description: "Gana +X de poder si el rival ya tiene el carril lleno (4 cartas).",
+    trigger: "on_play", hasValue: true,
+  },
+  transferencia: {
+    label: "Transferencia", short: "TRANS", emoji: "➡️", color: "text-sky-300",
+    description: "Reduce X de poder a un aliado aquí y se lo otorga a un aliado en otro carril.",
+    trigger: "on_play", hasValue: true,
+  },
+  renovacion: {
+    label: "Renovación", short: "RENOV", emoji: "🌙", color: "text-violet-300",
+    description: "(End Turn) Si no jugaste ciertas categorías, descarta 1 carta para robar X.",
+    trigger: "end_turn", hasValue: true,
+  },
+  none: {
+    label: "—", short: "—", emoji: "•", color: "text-zinc-500",
+    description: "Sin keyword oficial.",
+    trigger: "on_play", hasValue: false,
+  },
+};
+
 export interface CardDef {
   id: string;
   name: string;
@@ -112,6 +325,10 @@ export interface CardDef {
   trigger?: Trigger;
   /** Optional condition for `umbral` triggers. Ignored for other triggers. */
   umbralCondition?: UmbralCondition;
+  /** Official keyword label for UI display (e.g. "Sacrificio", "Celeridad"). */
+  keyword?: Keyword;
+  /** Optional X parameter for keywords that take a value (e.g. Sacrificio [3] → keywordValue=3). */
+  keywordValue?: number;
 }
 
 export interface BoardCard {
@@ -132,6 +349,12 @@ export interface BoardCard {
   umbralCondition?: UmbralCondition;
   /** True once an umbral trigger has fired for this board card (prevents re-firing). */
   umbralTriggered?: boolean;
+  /** Official keyword label (copied from CardDef). */
+  keyword?: Keyword;
+  /** X parameter for keywords that take a value. */
+  keywordValue?: number;
+  /** Sigilo protection: true during the card's first turn on the board (immune to direct enemy effects). */
+  sigiloActive?: boolean;
 }
 
 export interface HandCard extends CardDef {

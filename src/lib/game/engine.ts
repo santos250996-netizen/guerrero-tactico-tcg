@@ -523,6 +523,212 @@ function applyEffectLogic(
       break;
     }
 
+    // ----- 19 new keyword effects -----
+    // These re-implement the 25 official keywords with their own effectId so
+    // they can have keyword-specific logic (vs. re-using existing effects).
+    // The `keyword` field on CardDef drives UI display; the `effectId` here
+    // drives the actual effect behavior.
+
+    case "sacrificio_keyword": {
+      // 01 Sacrificio [X]: destroy ally with ≤X power, gain +X*2 self bonus
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
+      const target = allyLane.find((c) => c.currentPower <= x);
+      if (target) {
+        accum.removedCards.push({ side, lane, uid: target.uid, reason: "sacrificio" });
+        accum.bonusPower += x * 2;
+      }
+      break;
+    }
+
+    case "remate_keyword": {
+      // 02 Remate [X]: destroy enemy card if power ≤ X
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 5;
+      const target = enemyLane.find((c) => c.currentPower <= x);
+      if (target) {
+        accum.removedCards.push({ side: enemySide, lane, uid: target.uid, reason: "remate" });
+      }
+      break;
+    }
+
+    case "celeridad": {
+      // 03 Celeridad: -1 cost to next card this turn (engine records a flag;
+      // gameStore applies the discount on the next play).
+      // We model this as a positive energyNextTurnDelta for the same turn
+      // (handled by gameStore when reading this card's effectId).
+      // For now, just give +0 bonus (the cost reduction is handled elsewhere).
+      break;
+    }
+
+    case "eco": {
+      // 06 Eco [X]: +X to all hand cards sharing subtype OR category
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 2;
+      for (const hc of ctx.hand) {
+        const sharesSubtype = hc.subtypes.some((s) => ctx.card.subtypes.includes(s));
+        const sharesCategory = hc.category === ctx.card.category;
+        if (sharesSubtype || sharesCategory) {
+          accum.handMutations.push({ uid: hc.uid, powerDelta: x });
+        }
+      }
+      break;
+    }
+
+    case "refuerzo": {
+      // 07 Refuerzo [X]: +X to ally card played immediately before (last in lane)
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
+      if (allyLane.length > 0) {
+        const lastAlly = allyLane[allyLane.length - 1];
+        accum.mutations.push({ side, lane, uid: lastAlly.uid, powerDelta: x });
+      }
+      break;
+    }
+
+    case "ventaja": {
+      // 08 Ventaja [X]: +X if your total power < enemy's
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 4;
+      const allyTotal = calcLanePower(allyLane);
+      const enemyTotal = calcLanePower(enemyLane);
+      if (allyTotal < enemyTotal) accum.bonusPower += x;
+      break;
+    }
+
+    case "vanguardia": {
+      // 09 Vanguardia [X]: +X if first card played this turn.
+      // Engine can't track turn history; gameStore could pass a flag via ctx,
+      // but for simplicity we approximate: +X if no allies in this lane yet
+      // (proxy for "first card this turn" since most plays add to lane).
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
+      if (allyLane.length === 0) accum.bonusPower += x;
+      break;
+    }
+
+    case "aislado": {
+      // 10 Aislado [X]: +X while only ally in lane (i.e., no allies yet → will be first)
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 5;
+      if (allyLane.length === 0) accum.bonusPower += x;
+      break;
+    }
+
+    case "ultimo_aliento": {
+      // 13 Último Aliento [X]: (On Death) transfer +X to ally.
+      // On-play: no-op. The actual logic fires in applyOnDeathEffects when
+      // the card is destroyed.
+      break;
+    }
+
+    case "baluarte": {
+      // 14 Baluarte: (Passive) allies here can't be debuffed.
+      // On-play: no-op. Passive dispatch in applyPassiveEffects handles this.
+      break;
+    }
+
+    case "sigilo": {
+      // 15 Sigilo: first turn on board, immune to direct enemy effects.
+      // On-play: mark self with sigiloActive=true (BoardCard.sigiloActive field).
+      // gameStore clears sigiloActive at start of the owner's NEXT turn.
+      // (Self-marker is set on the new card after computeEffect returns.)
+      break;
+    }
+
+    case "vinculo": {
+      // 16 Vínculo [X]: (Passive) if another same-category card here, both +X
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 2;
+      const sameCategoryAlly = allyLane.find((c) => c.category === ctx.card.category);
+      if (sameCategoryAlly) {
+        accum.mutations.push({ side, lane, uid: sameCategoryAlly.uid, powerDelta: x });
+        accum.bonusPower += x;
+      }
+      break;
+    }
+
+    case "muro_keyword": {
+      // 17 Muro [X]: (Passive) enemy must play here if not full.
+      // On-play: no-op. The "must play here" enforcement would need to be
+      // integrated into planEnemyTurn (which we don't do yet — the passive
+      // marker just shows on the card; future work).
+      break;
+    }
+
+    case "retorno": {
+      // 18 Retorno [X]: (On Death) if cost ≤ X, return to hand.
+      // On-play: no-op. The actual logic fires in applyOnDeathEffects.
+      break;
+    }
+
+    case "despertar_umbral": {
+      // 19 Despertar [X]: (Umbral) when board power ≥ X, activate.
+      // On-play: no-op. checkUmbralTriggers dispatches this.
+      break;
+    }
+
+    case "reciclar": {
+      // 20 Reciclar [X]: (On Death) recover X energy.
+      // On-play: no-op. applyOnDeathEffects dispatches this.
+      break;
+    }
+
+    case "doble_golpe": {
+      // 21 Doble Golpe [X]: apply -X debuff to strongest enemy here AND in adjacent lane
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 2;
+      const targetHere = highestPowerCard(enemyLane);
+      if (targetHere) {
+        accum.mutations.push({ side: enemySide, lane, uid: targetHere.uid, powerDelta: -x });
+      }
+      // Adjacent lane: pick the next lane (wrap around)
+      const laneIdx = LANE_IDS.indexOf(lane);
+      const adjacentLane = LANE_IDS[(laneIdx + 1) % LANE_IDS.length];
+      const adjacentEnemy = highestPowerCard(board[adjacentLane][enemySide]);
+      if (adjacentEnemy) {
+        accum.mutations.push({ side: enemySide, lane: adjacentLane, uid: adjacentEnemy.uid, powerDelta: -x });
+      }
+      break;
+    }
+
+    case "refugio": {
+      // 22 Refugio [X]: (Passive) absorb up to X debuff points to ally here.
+      // On-play: no-op. Passive dispatch handles this (not yet implemented as
+      // a damage-absorption mechanic — future work).
+      break;
+    }
+
+    case "emboscada": {
+      // 23 Emboscada [X]: +X if enemy lane is full (4 cards)
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 5;
+      const maxCards = getLaneMaxCards(ctx.laneBonus);
+      if (enemyLane.length >= maxCards) accum.bonusPower += x;
+      break;
+    }
+
+    case "transferencia": {
+      // 24 Transferencia [X]: -X to ally here, +X to ally in another lane
+      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
+      const weakestAlly = lowestPowerCard(allyLane);
+      if (weakestAlly) {
+        accum.mutations.push({ side, lane, uid: weakestAlly.uid, powerDelta: -x });
+      }
+      // Find ally in another lane (prefer weakest)
+      let target2: BoardCard | null = null;
+      let target2Lane: LaneId | null = null;
+      for (const ln of LANE_IDS) {
+        if (ln === lane) continue;
+        for (const c of board[ln][side]) {
+          if (!target2 || c.currentPower < target2.currentPower) {
+            target2 = c;
+            target2Lane = ln;
+          }
+        }
+      }
+      if (target2 && target2Lane) {
+        accum.mutations.push({ side, lane: target2Lane, uid: target2.uid, powerDelta: x });
+      }
+      break;
+    }
+
+    case "renovacion": {
+      // 25 Renovación [X]: (End Turn) discard 1 to draw X.
+      // On-play: no-op. applyEndTurnEffects dispatches this.
+      break;
+    }
+
     case "none":
     default:
       break;
@@ -743,6 +949,12 @@ export function playCard(
     trigger: handCard.trigger ?? "on_play",
     umbralCondition: handCard.umbralCondition,
     umbralTriggered: false,
+    // Carry over keyword metadata for UI display + keyword-aware logic.
+    keyword: handCard.keyword,
+    keywordValue: handCard.keywordValue,
+    // Sigilo: mark active for the first turn on the board (cleared at the
+    // start of the owner's NEXT turn by gameStore).
+    sigiloActive: handCard.effectId === "sigilo" || handCard.keyword === "sigilo",
   };
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
 
@@ -1110,6 +1322,49 @@ export function getEffectLabel(effectId: EffectId): string {
       return "Despertar Bélico";
     case "trono_hierro":
       return "Trono de Hierro";
+    // --- 19 new keyword effects ---
+    case "sacrificio_keyword":
+      return "Sacrificio";
+    case "remate_keyword":
+      return "Remate";
+    case "celeridad":
+      return "Celeridad";
+    case "eco":
+      return "Eco";
+    case "refuerzo":
+      return "Refuerzo";
+    case "ventaja":
+      return "Ventaja";
+    case "vanguardia":
+      return "Vanguardia";
+    case "aislado":
+      return "Aislado";
+    case "ultimo_aliento":
+      return "Último Aliento";
+    case "baluarte":
+      return "Baluarte";
+    case "sigilo":
+      return "Sigilo";
+    case "vinculo":
+      return "Vínculo";
+    case "muro_keyword":
+      return "Muro";
+    case "retorno":
+      return "Retorno";
+    case "despertar_umbral":
+      return "Despertar";
+    case "reciclar":
+      return "Reciclar";
+    case "doble_golpe":
+      return "Doble Golpe";
+    case "refugio":
+      return "Refugio";
+    case "emboscada":
+      return "Emboscada";
+    case "transferencia":
+      return "Transferencia";
+    case "renovacion":
+      return "Renovación";
     default:
       return "—";
   }
@@ -1239,6 +1494,17 @@ export function applyEndTurnEffects(board: Board, side: "player" | "enemy"): Tri
           });
           break;
         }
+        case "renovacion": {
+          // 25 Renovación [X]: (End Turn) - discard 1 to draw X.
+          // Engine can't draw cards (no hand/deck context here); gameStore
+          // handles the actual draw. We just log the intent here.
+          const x = card.keywordValue ?? 1;
+          logs.push({
+            side,
+            text: `🌙 ${card.name} (Renovación): descarta 1, robaría ${x} (End Turn)`,
+          });
+          break;
+        }
         default:
           break;
       }
@@ -1306,6 +1572,80 @@ export function applyPassiveEffects(board: Board): TriggerResult {
             }
             break;
           }
+          case "baluarte": {
+            // 14 Baluarte: passive - allies here can't be debuffed.
+            // Implementation: +1 buff to allies here each passive tick (proxy
+            // for the protection mechanic — proper implementation would track
+            // debuff sources and block them).
+            let buffed = 0;
+            for (const ally of newBoard[lane][side]) {
+              if (ally.uid === card.uid) continue;
+              applyPowerDelta(newBoard, side, lane, ally.uid, 1);
+              buffed++;
+            }
+            if (buffed > 0) {
+              logs.push({
+                side,
+                text: `🏰 ${card.name} (Baluarte): +1 a ${buffed} aliado(s) del carril ${lane}`,
+              });
+            }
+            break;
+          }
+          case "vinculo": {
+            // 16 Vínculo [X]: passive - if another same-category card here, both +X
+            const x = card.keywordValue ?? 2;
+            const sameCategoryAlly = newBoard[lane][side].find(
+              (c) => c.uid !== card.uid && c.category === card.category
+            );
+            if (sameCategoryAlly) {
+              applyPowerDelta(newBoard, side, lane, sameCategoryAlly.uid, x);
+              applyPowerDelta(newBoard, side, lane, card.uid, x);
+              logs.push({
+                side,
+                text: `🔗 ${card.name} (Vínculo): +${x} a sí mismo y a ${sameCategoryAlly.name}`,
+              });
+            }
+            break;
+          }
+          case "muro_keyword": {
+            // 17 Muro: passive - enemy must play here if not full.
+            // We can't enforce this from the engine's passive dispatcher (it
+            // would need to be integrated into planEnemyTurn). Just log the
+            // presence of the Muro aura.
+            logs.push({
+              side,
+              text: `🧱 ${card.name} (Muro): el rival debería jugar aquí`,
+            });
+            break;
+          }
+          case "refugio": {
+            // 22 Refugio [X]: passive - absorb up to X debuff points to ally here.
+            // Implementation: +1 buff to weakest ally here (proxy for the
+            // absorb mechanic — proper implementation would intercept debuffs).
+            const x = card.keywordValue ?? 2;
+            const weakest = lowestPowerCard(newBoard[lane][side].filter((c) => c.uid !== card.uid));
+            if (weakest) {
+              applyPowerDelta(newBoard, side, lane, weakest.uid, Math.min(x, 2));
+              logs.push({
+                side,
+                text: `⛺ ${card.name} (Refugio): +${Math.min(x, 2)} a ${weakest.name}`,
+              });
+            }
+            break;
+          }
+          case "sigilo": {
+            // 15 Sigilo: passive - first turn on board, immune to direct enemy effects.
+            // The `sigiloActive` flag is set when the card is played and cleared
+            // at the start of the owner's NEXT turn (gameStore handles that).
+            // Here we just log presence during the first turn.
+            if (card.sigiloActive) {
+              logs.push({
+                side,
+                text: `👁️ ${card.name} (Sigilo): inmune a efectos enemigos directos este turno`,
+              });
+            }
+            break;
+          }
           default:
             break;
         }
@@ -1362,6 +1702,42 @@ export function applyOnDeathEffects(
         logs.push({
           side,
           text: `💀 ${deadCard.name}: -1 a ${debuffed} enemigo(s) en mesa (Último Aliento)`,
+        });
+      }
+      break;
+    }
+    case "ultimo_aliento": {
+      // 13 Último Aliento [X]: On Death - transfer +X to weakest ally in this lane
+      const x = deadCard.keywordValue ?? 3;
+      const target = lowestPowerCard(newBoard[lane][side]);
+      if (target) {
+        applyPowerDelta(newBoard, side, lane, target.uid, x);
+        logs.push({
+          side,
+          text: `💀 ${deadCard.name}: +${x} a ${target.name} (Último Aliento)`,
+        });
+      }
+      break;
+    }
+    case "reciclar": {
+      // 20 Reciclar [X]: On Death - recover X energy.
+      // gameStore handles the actual energy refund (we can't `set` energy from
+      // the engine). Log the intent.
+      const x = deadCard.keywordValue ?? 2;
+      logs.push({
+        side,
+        text: `♻️ ${deadCard.name}: recupera ${x} de energía (Reciclar)`,
+      });
+      break;
+    }
+    case "retorno": {
+      // 18 Retorno [X]: On Death - if cost ≤ X, return to hand.
+      // gameStore handles the actual hand insertion. Log the intent.
+      const x = deadCard.keywordValue ?? deadCard.cost;
+      if (deadCard.cost <= x) {
+        logs.push({
+          side,
+          text: `🔄 ${deadCard.name} regresa a la mano (Retorno: coste ${deadCard.cost} ≤ ${x})`,
         });
       }
       break;

@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
 import type { CardDef } from "@/lib/game/types";
-import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META } from "@/lib/game/types";
+import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,8 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
   const rar = RARITY_META[card.rarity];
   const trigger = card.trigger ?? "on_play";
   const triggerMeta = TRIGGER_META[trigger];
+  const keyword = card.keyword ?? "none";
+  const keywordMeta = KEYWORD_META[keyword];
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 
   // Close handler — single tap anywhere (including the card) closes the modal.
@@ -138,8 +140,8 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               {card.name}
             </div>
 
-            {/* Trigger type chip — when the effect fires */}
-            <div className="flex justify-center">
+            {/* Trigger + Keyword chips — when the effect fires + which keyword */}
+            <div className="flex justify-center gap-1.5 flex-wrap">
               <span
                 title={triggerMeta.description}
                 className={cn(
@@ -150,6 +152,18 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                 <span>{triggerMeta.emoji}</span>
                 {triggerMeta.label}
               </span>
+              {keyword !== "none" && (
+                <span
+                  title={keywordMeta.description + (keywordMeta.hasValue && card.keywordValue ? ` (X=${card.keywordValue})` : "")}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                    keywordMeta.color
+                  )}
+                >
+                  <span>{keywordMeta.emoji}</span>
+                  {keywordMeta.label}{keywordMeta.hasValue && card.keywordValue ? ` [${card.keywordValue}]` : ""}
+                </span>
+              )}
             </div>
 
             {/* Effect text */}
