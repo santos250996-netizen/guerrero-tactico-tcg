@@ -1,10 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library, Info, Sparkles } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
-import { CATEGORY_META, RARITY_META } from "@/lib/game/types";
+import { CATEGORY_META, RARITY_META, TRIGGER_META, KEYWORD_META, LANE_META } from "@/lib/game/types";
 import type { CardDef, CardCategory, LaneId, Rarity } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { CardPreviewModal } from "./CardPreviewModal";
@@ -138,13 +138,15 @@ export function DeckEditor() {
         <section className="rounded-md border border-amber-800/40 bg-amber-950/20 p-2">
           <div className="mb-2 flex items-center justify-between"><div><h2 className="text-[11px] font-bold uppercase tracking-wider text-amber-300">Tu Mazo · 12</h2><p className="text-[8px] text-zinc-400">{deckLocked ? "Bloqueado — clic para ver" : selectedSlot === null ? "Toca una carta del mazo para seleccionarla." : `Slot ${selectedSlot + 1} — elige disponible`}</p></div>{selectedSlot !== null && !deckLocked && <Button size="sm" variant="ghost" className="h-6 text-[9px] text-zinc-400" onClick={() => setSelectedSlot(null)}>Cancelar</Button>}</div>
           <div className="grid grid-cols-3 gap-1.5">
-            {deckCards.map((card, idx) => { const cat = CATEGORY_META[card.category]; const rar = RARITY_META[card.rarity]; return (
-              <motion.button key={`${card.id}-${idx}`} layout whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} onClick={() => { if (deckLocked) { setPreviewCard(card); return; } setSelectedSlot(selectedSlot === idx ? null : idx); }} className={cn("relative flex flex-col overflow-hidden rounded border-2 bg-zinc-900 text-left", deckLocked ? "cursor-pointer" : selectedSlot === idx ? "border-yellow-400 ring-2 ring-yellow-400/50" : rar.borderClass)}>
-                <div className="absolute left-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded bg-black/70 text-[7px] font-bold text-zinc-300">{idx + 1}</div>
-                <div className="relative h-16 w-full overflow-hidden bg-zinc-950"><img src={`/cards/${card.id}.png`} alt={card.name} className="h-full w-full object-cover" loading="lazy" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /><div className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border border-white/80 bg-sky-600 text-[7px] font-bold text-white">{card.cost}</div><div className="absolute bottom-0.5 right-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border border-white/80 bg-rose-600 text-[7px] font-bold text-white">{card.power}</div></div>
-                <div className="px-1 py-0.5"><div className={cn("truncate text-[8px] font-bold", cat.textClass)}>{card.name}</div><div className="truncate text-[7px] uppercase text-zinc-500">{cat.label}</div></div>
-              </motion.button>
-            ); })}
+            {deckCards.map((card, idx) => (
+              <FullArtCardMini
+                key={`${card.id}-${idx}`}
+                card={card}
+                onClick={() => { if (deckLocked) { setPreviewCard(card); return; } setSelectedSlot(selectedSlot === idx ? null : idx); }}
+                selected={selectedSlot === idx && !deckLocked}
+                showSlotNumber={idx}
+              />
+            ))}
           </div>
         </section>
 
@@ -157,17 +159,144 @@ export function DeckEditor() {
           </div>
           {availableCards.length === 0 ? <div className="rounded border border-dashed border-zinc-800 bg-zinc-900/40 p-4 text-center text-[10px] text-zinc-500">No hay cartas con este filtro.</div> :
           <div className="grid grid-cols-3 gap-1.5">
-            {availableCards.map((card) => { const cat = CATEGORY_META[card.category]; const rar = RARITY_META[card.rarity]; return (
-              <motion.button key={card.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handlePoolCardClick(card.id)} className={cn("relative flex flex-col overflow-hidden rounded border-2 bg-zinc-900 text-left", selectedSlot === null ? "border-zinc-800 opacity-70" : cn(rar.borderClass, "cursor-pointer"))}>
-                <div className="relative h-16 w-full overflow-hidden bg-zinc-950"><img src={`/cards/${card.id}.png`} alt={card.name} className="h-full w-full object-cover" loading="lazy" draggable={false} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /><div className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border border-white/80 bg-sky-600 text-[7px] font-bold text-white">{card.cost}</div><div className="absolute bottom-0.5 right-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border border-white/80 bg-rose-600 text-[7px] font-bold text-white">{card.power}</div></div>
-                <div className="px-1 py-0.5"><div className={cn("truncate text-[8px] font-bold", cat.textClass)}>{card.name}</div><div className="truncate text-[7px] uppercase text-zinc-500">{cat.label}</div></div>
-              </motion.button>
-            ); })}
+            {availableCards.map((card) => (
+              <FullArtCardMini
+                key={card.id}
+                card={card}
+                onClick={() => handlePoolCardClick(card.id)}
+                dimmed={selectedSlot === null}
+              />
+            ))}
           </div>}
         </section>
       </main>
       <CardPreviewModal card={previewCard} open={previewCard !== null} onOpenChange={(o) => { if (!o) setPreviewCard(null); }} />
     </div>
+  );
+}
+
+// Rarity letters — all uppercase (C / R / E / L)
+const RARITY_LETTER: Record<string, string> = { common: "C", rare: "R", epic: "E", legendary: "L" };
+const RARITY_SOLID_BG: Record<string, string> = {
+  common: "bg-gradient-to-b from-zinc-400 to-zinc-700 text-zinc-950",
+  rare: "bg-gradient-to-b from-sky-400 to-sky-700 text-white",
+  epic: "bg-gradient-to-b from-violet-400 to-violet-700 text-white",
+  legendary: "bg-gradient-to-b from-amber-300 to-amber-600 text-zinc-950",
+};
+
+// Full-art card for the deck editor — same visual design as the hand cards
+// but rendered at mini scale (3-col grid on mobile).
+function FullArtCardMini({ card, onClick, selected, showSlotNumber, dimmed }: {
+  card: CardDef;
+  onClick: () => void;
+  selected?: boolean;
+  showSlotNumber?: number;
+  dimmed?: boolean;
+}) {
+  const cat = CATEGORY_META[card.category];
+  const rar = RARITY_META[card.rarity];
+  const trigger = card.trigger ?? "on_play";
+  const triggerMeta = TRIGGER_META[trigger];
+  const keyword = card.keyword ?? "none";
+  const keywordMeta = KEYWORD_META[keyword];
+  const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
+
+  return (
+    <motion.button
+      layout
+      whileHover={{ y: -2, scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      className={cn(
+        "relative flex aspect-[3/4] flex-col overflow-hidden rounded-lg border-2 text-left",
+        "bg-zinc-950",
+        selected ? "border-yellow-400 ring-2 ring-yellow-400/60" : rar.borderClass,
+        dimmed && "opacity-60"
+      )}
+      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.6)" }}
+    >
+      {/* Full-bleed art */}
+      <img
+        src={`/cards/${card.id}.png`}
+        alt={card.name}
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+        draggable={false}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+      />
+
+      {/* Dark gradient at the bottom */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
+
+      {/* Slot number badge (top-left, deck cards only) */}
+      {showSlotNumber !== undefined && (
+        <div className="absolute left-0.5 top-0.5 z-30 flex h-4 w-4 items-center justify-center rounded bg-black/70 text-[7px] font-bold text-zinc-300">{showSlotNumber + 1}</div>
+      )}
+
+      {/* Cost badge (top-left or top-right depending on slot) */}
+      <div
+        className={cn("absolute z-30 flex h-5 w-5 items-center justify-center rounded-full border border-white/90 bg-gradient-to-b from-sky-400 to-sky-700 text-[8px] font-black text-white shadow-md", showSlotNumber !== undefined ? "right-1 top-1" : "left-1 top-1")}
+        style={{ boxShadow: "0 0 4px rgba(56,189,248,0.55)" }}
+      >
+        {card.cost}
+      </div>
+
+      {/* Power badge (bottom-right) */}
+      <div
+        className={cn(
+          "absolute right-1 top-1 z-30 flex h-5 w-5 items-center justify-center rounded-full border border-white/90 text-[8px] font-black text-white shadow-md",
+          showSlotNumber !== undefined && "left-1 top-1 opacity-0"
+        )}
+        style={{ boxShadow: "0 0 4px rgba(244,63,94,0.55)" }}
+      >
+        <span className={cn(
+          "flex h-5 w-5 items-center justify-center rounded-full border border-white/90 text-[8px] font-black text-white shadow-md bg-gradient-to-b from-rose-500 to-rose-800"
+        )}>
+          {card.power}
+        </span>
+      </div>
+
+      {/* Bottom info panel */}
+      <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-0.5 px-1 py-1">
+        {/* Type + subtypes row */}
+        <div className="flex items-center justify-between gap-0.5">
+          <span className={cn("rounded border px-1 py-0 text-[6px] font-bold uppercase tracking-wider backdrop-blur-sm", cat.bgClass, cat.textClass, cat.borderClass)}>
+            {cat.label}
+          </span>
+          <div className="flex items-center gap-0.5">
+            {subtypeMetas.map((lm) => (
+              <span key={lm.title} title={lm.title} className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[7px] leading-none backdrop-blur-sm">
+                {lm.emoji}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Card name */}
+        <div className="text-center text-[7px] font-black uppercase tracking-wider text-amber-300 [text-shadow:1px_1px_0_#000,0_0_3px_rgba(0,0,0,0.8)] leading-tight">
+          {card.name}
+        </div>
+
+        {/* Trigger + keyword chips */}
+        <div className="flex justify-center gap-0.5">
+          <span title={triggerMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", triggerMeta.color)}>
+            <span>{triggerMeta.emoji}</span>{triggerMeta.short}
+          </span>
+          {keyword !== "none" && (
+            <span title={keywordMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", keywordMeta.color)}>
+              <span>{keywordMeta.emoji}</span>{keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
+            </span>
+          )}
+        </div>
+
+        {/* Rarity letter (bottom-right) */}
+        <div className="flex items-end justify-end">
+          <span title={rar.label} className={cn("flex h-4 w-4 items-center justify-center rounded-full border border-white/80 text-[6px] font-black shadow-md", RARITY_SOLID_BG[card.rarity])}>
+            {RARITY_LETTER[card.rarity]}
+          </span>
+        </div>
+      </div>
+    </motion.button>
   );
 }
 
