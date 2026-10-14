@@ -412,3 +412,41 @@ Stage Summary:
 - Designers can now visually identify which cards need rebalancing at a glance.
 - Lint clean; `tsc --noEmit` only pre-existing errors in unrelated dirs; `next build` compiles successfully.
 - Pushed to GitHub: `feat(balance): add PTP mathematical balance formula + UI badges` (b2266e7).
+
+---
+Task ID: balance-designer-tool-1
+Agent: main (super-z)
+Task: Refactor balance system to be a designer-only tool (not visible to players). Remove the player-facing UI from DeckEditor + CardPreviewModal. Create a standalone CLI audit script that designers can run to check all cards' balance.
+
+Work Log:
+- `src/components/game/DeckEditor.tsx` (revert):
+  - Removed the "Balance PTP" summary section (was a stacked bar showing balanced/marginal/unbalanced counts + avgDelta header).
+  - Removed per-card balance badges from BOTH the deck cards AND the available pool cards.
+  - Removed the `Scale` lucide-react icon import (no longer used).
+  - Removed the `getBalanceInfo` + `getDeckBalanceSummary` imports from `@/lib/game/balance`.
+  - Removed the `balanceSummary` useMemo hook.
+  - Card tiles now show only the original layout (name + category, no balance badge).
+- `src/components/game/CardPreviewModal.tsx` (revert):
+  - Removed the balance badge that appeared below the rarity text (showed PTP current/target + delta + status label).
+  - Removed the `getBalanceInfo` import.
+  - Removed the `bal`, `balColorClass`, `balSign` computed variables.
+- `src/lib/game/balance.ts` (KEPT — no changes): The full PTP balance library stays available for designers. All exports are intact: getTargetPTP, getPTPRange, getTriggerModifier, getKeywordBaseValue, calculateEffectPoints, getCurrentPTP, getBalanceInfo, isCardBalanced, getBalanceStatusLabel, getDeckBalanceSummary.
+- `scripts/check-balance.ts` (NEW — designer CLI tool):
+  - Run with `bun run scripts/check-balance.ts` from project root.
+  - Audits all 75 cards (WARRIOR_DECK=12, BASIC_CARDS=19, TACTICAL_CARDS=44) against the PTP formula.
+  - Prints aggregate summary at top: X/total balanced (with %), marginal, unbalanced, avg delta.
+  - Then a per-card table sorted by |delta| (most unbalanced first), showing: index | status symbol | name (truncated to 24 chars) | cost/power | PTP current/target | delta (signed) | keyword + value | trigger.
+  - ANSI color-coded output: green=balanced (✓), yellow=marginal (~), red=unbalanced (✗).
+  - Supports CLI flags:
+    * `--unbalanced`: show only unbalanced cards
+    * `--marginal`: show only marginal cards
+    * `--group cost`: group cards by energy cost with subtotals per cost bucket (shows PTP objetivo per cost)
+  - First audit result: 14/75 (18.7%) balanced, 1/75 (1.3%) marginal, 60/75 (80%) unbalanced, avg delta = -3.33 (most cards are too weak). Designers can use this report to identify which cards need power bumps.
+
+Stage Summary:
+- Balance is now invisible to players — no UI badges, no summary section, no preview modal badge.
+- `balance.ts` library kept intact as a designer utility — designers can import its functions from scripts or a future dev-only page.
+- New CLI script `scripts/check-balance.ts` provides a fast, color-coded audit of all cards — designers run it whenever they create/modify a card to verify the PTP formula is satisfied.
+- The current audit reveals that 60/75 cards are unbalanced (mostly too weak), which gives the user a clear priority list of which cards to buff.
+- Lint clean; `tsc --noEmit` only pre-existing errors in unrelated dirs.
+- Pushed to GitHub: `refactor(balance): remove player-facing balance UI, add designer CLI tool` (110e37d).
