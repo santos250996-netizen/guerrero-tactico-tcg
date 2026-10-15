@@ -42,7 +42,7 @@ import {
   type TrapState,
   type TriggerResult,
 } from "@/lib/game/engine";
-import { buildDrawPileFrom, WARRIOR_DECK } from "@/lib/game/cards";
+import { ALL_CARDS, buildDrawPileFrom, WARRIOR_DECK } from "@/lib/game/cards";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -1027,16 +1027,23 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   loadDeckAndPool: async () => {
     set({ deckLoading: true });
     try {
-      const [cardsRes, deckRes] = await Promise.all([
-        fetch("/api/cards").then((r) => r.json()),
-        fetch("/api/deck").then((r) => r.json()),
-      ]);
-      const cardPool: CardDef[] = Array.isArray(cardsRes?.cards)
-        ? cardsRes.cards
-        : [];
-      const deckCardIds: string[] = Array.isArray(deckRes?.deck?.cardIds)
-        ? deckRes.deck.cardIds
-        : [];
+      // Use ALL_CARDS directly from cards.ts (no API route needed — works in static export / APK)
+      const cardPool: CardDef[] = ALL_CARDS;
+      
+      // Load deck from localStorage (fallback to WARRIOR_DECK ids)
+      let deckCardIds: string[] = WARRIOR_DECK.map((c) => c.id);
+      try {
+        const saved = localStorage.getItem("guerrero-tactico-deck");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed?.cardIds) && parsed.cardIds.length === 12) {
+            deckCardIds = parsed.cardIds;
+          }
+        }
+      } catch {
+        // localStorage not available — use default deck
+      }
+      
       set({
         cardPool,
         deckCardIds,
@@ -1066,17 +1073,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (deckCardIds.length !== 12) return;
     set({ deckSaveStatus: "saving" });
     try {
-      const res = await fetch("/api/deck", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardIds: deckCardIds }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? "No se pudo guardar el mazo.");
-      }
+      // Save to localStorage (no API route needed — works in static export / APK)
+      localStorage.setItem("guerrero-tactico-deck", JSON.stringify({ cardIds: deckCardIds }));
       set({ deckSaveStatus: "ok", deckDirty: false });
-      // Clear the "ok" indicator after a couple seconds
       setTimeout(() => {
         if (get().deckSaveStatus === "ok") set({ deckSaveStatus: "idle" });
       }, 2000);
@@ -1089,9 +1088,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   resetDeck: async () => {
     set({ deckSaveStatus: "saving" });
     try {
-      const res = await fetch("/api/deck", { method: "DELETE" });
-      if (!res.ok) throw new Error("No se pudo resetear el mazo.");
-      // Reload pool + deck
+      // Clear localStorage and reload default deck
+      localStorage.removeItem("guerrero-tactico-deck");
       await get().loadDeckAndPool();
       set({ deckSaveStatus: "idle", deckDirty: false });
     } catch (e) {
