@@ -166,23 +166,26 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               )}
             </div>
 
-            {/* Effect — compact: trigger label + keyword label + value only.
-                The full description is available in the keyword chip tooltip.
-                This teaches players to learn keyword meanings by repetition. */}
+            {/* Effect explanation — shows what the TRIGGER and KEYWORD mean.
+                This teaches players the keyword definitions by repetition. */}
             <div className="rounded-md border border-amber-200/30 bg-gradient-to-b from-amber-50/95 to-amber-100/95 px-2 py-1.5 text-[11px] leading-snug text-zinc-900 shadow-inner backdrop-blur-sm" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
-              <span className="font-bold">{triggerMeta.label}</span>
+              <div>
+                <span className="font-bold">{triggerMeta.emoji} {triggerMeta.label}:</span>{" "}
+                <span>{triggerMeta.description}</span>
+              </div>
               {keyword !== "none" && (
-                <>
-                  <span className="opacity-50"> · </span>
-                  <span className="font-bold">{keywordMeta.label}</span>
+                <div className="mt-1">
+                  <span className="font-bold">{keywordMeta.emoji} {keywordMeta.label}</span>
                   {keywordMeta.hasValue && card.keywordValue ? ` [${card.keywordValue}]` : ""}
-                </>
+                  <span className="font-bold">:</span>{" "}
+                  <span>{keywordMeta.description}</span>
+                </div>
               )}
               {card.umbralCondition && (
-                <>
-                  <span className="opacity-50"> · </span>
-                  <span className="font-bold">Umbral {card.umbralCondition.powerThreshold}</span>
-                </>
+                <div className="mt-1">
+                  <span className="font-bold">🔥 Umbral:</span>{" "}
+                  <span>Se activa al alcanzar o superar {card.umbralCondition.powerThreshold} puntos de poder.</span>
+                </div>
               )}
             </div>
 
