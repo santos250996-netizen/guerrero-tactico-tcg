@@ -12,6 +12,20 @@
 - Sin texto en la imagen
 - La ilustración refleja el nombre de la carta mediante la acción/escena
 
+## ⚠️ VARIEDAD VISUAL CRÍTICA
+NO todo debe ser armadura de acero pulido estilo cruzado. VARIAR:
+- **Armaduras desgastadas/sucias** con abolladuras, óxido, barro
+- **Armaduras destruidas** con piezas rotas, grietas, tela rasgada
+- **Ropa vikinga/bárbara** de cuero, pieles, trenzados, tatuajes tribales
+- **Escudos de MADERA** con bandas de hierro, no solo metal
+- **Equipo improvisado** con huesos, cuerdas, cuero crudo
+- **Estilo bárbaro/furia** con músculos expuestos, pintura de guerra, NO plate
+- **Tribu/jungla** con plumas, huesos, máscaras
+- **Nigromante/dark** con túnicas, calaveras, energías oscuras
+- **Ingeniero/goblin** con chatarra, engranajes, vapor
+- **Místico/elfo** con sedas, runas, energía arcana
+CADA carta debe sentirse ÚNICA visualmente, no genérica.
+
 ## CARTAS DE ATAQUE (3 enfoques posibles)
 - 1ª persona: Solo el arma ejecutando el ataque contra algo/alguien
 - 3ª persona: Una raza ejecutando el ataque contra otra criatura u objeto
