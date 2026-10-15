@@ -62,13 +62,10 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
           exit={{ scale: 0.7, opacity: 0 }}
           transition={{ type: "spring", stiffness: 280, damping: 22 }}
           onClick={(e) => {
-            // Stop the click from bubbling up to the dialog content (which would close).
-            // BUT — we WANT the card click to close, so we still call `close()` here.
             e.stopPropagation();
             close();
           }}
           className={cn(
-            // Same full-art hand-card design, just larger
             "relative mx-auto flex h-[28rem] w-56 cursor-pointer flex-col overflow-hidden rounded-2xl border-2 shadow-2xl shadow-black/90",
             "bg-zinc-950",
             card.rarity === "common" ? "border-zinc-500"
@@ -81,6 +78,29 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 8px rgba(0,0,0,0.6), 0 18px 40px rgba(0,0,0,0.8)",
           }}
         >
+          {/* Wrapper for outside chips: positive RIGHT, negative LEFT */}
+          <div className="pointer-events-none absolute inset-0 z-40">
+            {/* Positive chips — RIGHT side, outside card border */}
+            {("powerLog" in card) && (card as any).powerLog && ((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta > 0).length > 0 && (
+              <div className="absolute left-full top-12 flex flex-col gap-1 pl-1">
+                {((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta > 0).map((entry: PowerLogEntry, i: number) => (
+                  <div key={i} className="flex items-center gap-0.5 rounded-md border border-emerald-400/50 bg-emerald-950/90 px-1.5 py-0.5 text-[8px] font-bold text-emerald-300 shadow-md backdrop-blur-sm whitespace-nowrap">
+                    {entry.source} +{entry.delta}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Negative chips — LEFT side, outside card border */}
+            {("powerLog" in card) && (card as any).powerLog && ((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta < 0).length > 0 && (
+              <div className="absolute right-full top-12 flex flex-col items-end gap-1 pr-1">
+                {((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta < 0).map((entry: PowerLogEntry, i: number) => (
+                  <div key={i} className="flex items-center gap-0.5 rounded-md border border-rose-400/50 bg-rose-950/90 px-1.5 py-0.5 text-[8px] font-bold text-rose-300 shadow-md backdrop-blur-sm whitespace-nowrap">
+                    {entry.source} {entry.delta}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           {/* Full-bleed art */}
           <img
             src={`/cards/${card.id}.png`}
@@ -191,21 +211,6 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               )}
             </div>
 
-            {/* Floating effect chips on right side (replaces Registro button) */}
-            {("powerLog" in card) && (card as any).powerLog && ((card as any).powerLog as PowerLogEntry[]).length > 0 && (
-              <div className="absolute right-1 top-12 z-30 flex flex-col gap-0.5">
-                {((card as any).powerLog as PowerLogEntry[]).map((entry, i) => (
-                  <div key={i} className={cn(
-                    "flex items-center gap-0.5 rounded border px-1 py-0.5 text-[7px] font-bold uppercase tracking-wider backdrop-blur-sm shadow-md",
-                    entry.delta > 0
-                      ? "border-emerald-400/40 bg-emerald-950/80 text-emerald-300"
-                      : "border-rose-400/40 bg-rose-950/80 text-rose-300"
-                  )}>
-                    {entry.delta > 0 ? "+" : ""}{entry.delta}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </motion.div>
       </DialogContent>

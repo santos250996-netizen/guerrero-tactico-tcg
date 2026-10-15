@@ -12,6 +12,7 @@ import type {
   LaneId,
   PowerLogEntry,
 } from "@/lib/game/types";
+import { KEYWORD_META } from "@/lib/game/types";
 import {
   MAX_HAND_SIZE,
   MAX_TURNS,
@@ -560,10 +561,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         ?? triggerBoard[lane]["enemy" as "player" | "enemy"].find(c => c.uid === playedUid);
       if (_playedOnBoard) {
         const pLog: PowerLogEntry[] = [];
-        if (card.handBonus) pLog.push({ source: "Bonificador en mano", delta: card.handBonus, kind: "hand" });
-        if (card.subtypes.includes(lane)) pLog.push({ source: "Sinergia de subtipo", delta: 2, kind: "synergy" });
+        if (card.handBonus) pLog.push({ source: card.keyword ? KEYWORD_META[card.keyword].label : "Bonificador en mano", delta: card.handBonus, kind: "hand" });
+        if (card.subtypes.includes(lane)) pLog.push({ source: "Sinergia", delta: 2, kind: "synergy" });
         const lbGain = getLaneBonusPower(card.category, laneBonus);
-        if (lbGain > 0) pLog.push({ source: `Campo: ${laneBonus?.label ?? ""}`, delta: lbGain, kind: "field" });
+        if (lbGain > 0) pLog.push({ source: laneBonus?.label ?? "Campo", delta: lbGain, kind: "field" });
         const effBonus = res.playedCard.currentPower - card.power - card.handBonus - (card.subtypes.includes(lane) ? 2 : 0) - lbGain;
         if (effBonus !== 0) pLog.push({ source: "Efecto propio", delta: effBonus, kind: "effect" });
         if (res.trapTriggered && activeTrap) pLog.push({ source: "Trampa enemiga", delta: -activeTrap.value, kind: "trap" });

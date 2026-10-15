@@ -371,6 +371,8 @@ export interface BoardCard {
 export interface HandCard extends CardDef {
   uid: string;
   handBonus: number; // accumulated bonus from in-hand effects (e.g. Grito de Batalla)
+  /** Per-source breakdown of hand bonuses (e.g. [{source:"Eco",delta:3}]). */
+  handBonusSources?: { source: string; delta: number }[];
 }
 
 export interface LaneState {
