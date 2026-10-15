@@ -5,6 +5,7 @@ import type { CardDef } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CostBadge, PowerBadge } from "./CardBadges";
 
 // Rarity letters — all uppercase per user spec (C / R / E / L)
 const RARITY_LETTER: Record<string, string> = {
@@ -89,20 +90,14 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
           {/* Dark gradient at the bottom for legibility */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
 
-          {/* Cost badge (top-left) */}
-          <div
-            className="absolute left-2 top-2 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-sky-400 to-sky-700 text-base font-black text-white shadow-lg"
-            style={{ boxShadow: "0 0 10px rgba(56,189,248,0.55)" }}
-          >
-            {card.cost}
+          {/* Cost badge (top-left) — crystal */}
+          <div className="absolute left-2 top-2 z-30">
+            <CostBadge cost={card.cost} size="lg" />
           </div>
 
-          {/* Power badge (top-right) */}
-          <div
-            className="absolute right-2 top-2 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/90 bg-gradient-to-b from-rose-500 to-rose-800 text-base font-black text-white shadow-lg"
-            style={{ boxShadow: "0 0 10px rgba(244,63,94,0.55)" }}
-          >
-            {card.power}
+          {/* Power badge (top-right) — shield */}
+          <div className="absolute right-2 top-2 z-30">
+            <PowerBadge power={card.power} size="lg" />
           </div>
 
           {/* Bottom info panel overlay */}

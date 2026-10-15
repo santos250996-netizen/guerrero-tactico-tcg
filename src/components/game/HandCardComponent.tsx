@@ -7,6 +7,7 @@ import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } fro
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import { CostBadge, PowerBadge } from "./CardBadges";
 import { createPortal } from "react-dom";
 import { sfx } from "@/lib/sound";
 
@@ -211,29 +212,14 @@ export function HandCardComponent({
       {/* Dark gradient at the bottom for badge legibility */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
 
-      {/* Cost badge (top-left) */}
-      <div
-        className="absolute left-1 top-1 z-30 flex h-6 w-6 items-center justify-center rounded-full border border-white/90 bg-gradient-to-b from-sky-400 to-sky-700 text-[10px] font-black text-white shadow-md"
-        style={{ boxShadow: "0 0 6px rgba(56,189,248,0.55)" }}
-      >
-        {card.cost}
+      {/* Cost badge (top-left) — crystal */}
+      <div className="absolute left-1 top-1 z-30">
+        <CostBadge cost={card.cost} size="sm" />
       </div>
 
-      {/* Power badge (top-right) */}
-      <div
-        className={cn(
-          "absolute right-1 top-1 z-30 flex h-6 w-6 items-center justify-center rounded-full border border-white/90 text-[10px] font-black text-white shadow-md",
-          card.handBonus
-            ? "bg-gradient-to-b from-emerald-400 to-emerald-700 ring-1 ring-emerald-300/60"
-            : "bg-gradient-to-b from-rose-500 to-rose-800"
-        )}
-        style={{
-          boxShadow: card.handBonus
-            ? "0 0 6px rgba(16,185,129,0.55)"
-            : "0 0 6px rgba(244,63,94,0.55)",
-        }}
-      >
-        {effectivePower}
+      {/* Power badge (top-right) — shield */}
+      <div className="absolute right-1 top-1 z-30">
+        <PowerBadge power={effectivePower} size="sm" />
       </div>
 
       {/* Hand-bonus floating chip */}
