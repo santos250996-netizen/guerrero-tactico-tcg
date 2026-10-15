@@ -1,0 +1,261 @@
+================================================================================
+GUERRERO TÁCTICO TCG — COMPENDIO DE KEYWORDS (33 TOTALES)
+================================================================================
+
+Las Keywords definen la acción técnica que se ejecuta y el Alcance
+(Scope) sobre el cual impacta. Cada keyword puede ser disparada por
+cualquier trigger via fireKeywordEffects().
+
+NOTA: despertar y ofrenda son TRIGGERS, no keywords.
+      Ver triggers-y-scopes.txt para detalles.
+
+================================================================================
+KEYWORDS CORE Y NUEVAS (01 - 09) — Defensivas, counter y buffs
+================================================================================
+
+01. 🩸 Sangrado [X]
+    Trigger: start_turn | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Aplica -X de reducción de poder progresiva al enemigo
+    más fuerte del carril, cada turno. Persistente mientras la carta
+    esté en mesa.
+    Implementación: fireKeywordEffects → applyDebuff(-X) al strongest enemy
+
+02. 🌀 Frenesí [X]
+    Trigger: start_turn (o cualquier) | Scope: PROPIO (×1.0)
+    Efecto: Gana +X de poder cada vez que se cumple la condición de
+    su trigger. Acumulativo (el bonus se suma permanentemente).
+    Implementación: triggerFrenesiIfApplicable() en todos los dispatchers
+
+03. 😡 Enrabia [X]
+    Trigger: reaction | Scope: PROPIO (×1.0)
+    Efecto: Activa un bono de +X de poder la PRIMERA vez que sufre
+    una reducción de poder enemiga. One-shot (flag enrabiadUsed).
+    Implementación: applyReactionEffects → debuff_applied event
+
+04. 🌵 Espinas [X]
+    Trigger: reaction | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Aplica -X de reducción de poder a la carta enemiga que
+    aplique una reducción a esta carta (counter-attack).
+    Implementación: applyReactionEffects → debuff_applied event
+
+05. 🛡️ Cúpula [X]
+    Trigger: passive | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Cancela hasta X puntos de reducciones de poder enemigas
+    dirigidas a esta carta o al carril. Pool renovado al inicio de
+    cada turno (cupulaRemaining, refresh en applyStartTurnEffects).
+    Implementación: applyDebuff Step 3 — absorbe greedy por mayor pool
+
+06. 🪖 Guardián
+    Trigger: passive | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Redirige hacia esta carta las reducciones de poder
+    enemigas dirigidas a sus aliados locales.
+    Implementación: applyDebuff Step 1 — redirige recursivo
+
+07. 🎯 Perforación [X]
+    Trigger: on_play | Scope: PROPIO (×1.0)
+    Efecto: Ignora hasta X puntos de Prevención (Cúpula/Baluarte)
+    del objetivo al reducir su poder. Pool one-shot
+    (perforacionRemaining, se consume al usar).
+    Implementación: applyDebuff Steps 2-3 — reduce capacidad de absorción
+
+08. 🛠️ Desarme [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Reduce en X el valor de las keywords/habilidades de la
+    carta enemiga más fuerte del carril. Mutación directa de
+    keywordValue (clamped a 0). NO es power delta.
+    Implementación: fireKeywordEffects → mutate enemy.keywordValue
+
+09. ⭐ Mejora [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Otorga +X de poder permanente al aliado más débil del
+    carril (no se pierde si la fuente muere).
+    Implementación: fireKeywordEffects → applyPowerDelta(+X) to weakest ally
+
+================================================================================
+KEYWORDS CLÁSICAS Y DE POSICIÓN (10 - 33)
+================================================================================
+
+10. 🗡️ Sacrificio [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Destruye un aliado con trigger "ofrenda" o al aliado de
+    MENOR COSTE del carril. Ganas +X de poder a sí misma.
+    Implementación: effectId switch "sacrificio_keyword" → removedCards
+    + fireKeywordEffects "sacrificio" → applyPowerDelta(+X) to self
+
+11. 💀 Remate [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Destruye una carta enemiga en este carril si su poder
+    actual es X o menor.
+    Implementación: effectId switch "remate_keyword" → removedCards
+    + fireKeywordEffects "remate" → applyPowerDelta(-currentPower) to destroy
+
+12. 💨 Celeridad [X]
+    Trigger: on_play | Scope: MANO (×1.2)
+    Efecto: Reduce en X el coste de UNA carta ALEATORIA en tu mano
+    hasta que sea jugada. Persiste en costReduction field.
+    Implementación: fireKeywordEffects → mutate random hand card's costReduction
+    + gameStore getFinalCost usa max(1, cost - costReduction)
+
+13. ⚡ Sobrecarga [X]
+    Trigger: on_play | Scope: MANO (×1.2)
+    Efecto: Esta carta cuesta X menos de energía (mín 1), pero
+    reduce en X tu energía del próximo turno.
+    Implementación: getFinalCost(cost - X) + accum.energyNextTurnDelta = -X
+
+14. 🪞 Mimetismo
+    Trigger: on_play | Scope: GLOBAL (×1.5)
+    Efecto: Copia la Keyword y su valor del aliado con mayor poder
+    en el tablero.
+    Implementación: fireKeywordEffects → copy strongest ally's keyword+keywordValue
+
+15. 🔁 Eco [X]
+    Trigger: on_play | Scope: MANO (×1.2)
+    Efecto: Otorga +X de poder a 1 carta ALEATORIA en tu mano que
+    comparta tipo o subtipo.
+    Implementación: fireKeywordEffects → pick 1 random matching hand card, +handBonus
+
+16. 🛡️ Refuerzo [X]
+    Trigger: on_play (default) o start_turn | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Otorga +X de poder a la carta aliada jugada inmediatamente
+    antes en este carril. Si trigger=start_turn, marca al aliado al
+    jugar (refuerzoTargetUid) y le da +X cada turno.
+    Implementación: playCard sets refuerzoTargetUid = last ally uid
+    + fireKeywordEffects → applyPowerDelta(+X) to marked ally
+
+17. ⚖️ Ventaja [X]
+    Trigger: on_play (default) o passive | Scope: PROPIO (×1.0)
+    Efecto: Gana +X de poder mientras tu poder total EN ESTE CARRIL
+    sea menor al del rival en este carril.
+    Implementación: fireKeywordEffects → calcLanePower per-lane check
+    NOTA: solo dispara en on_play/despertar (recurring=true lo salta
+    para evitar apilamiento infinito)
+
+18. 🚩 Vanguardia [X]
+    Trigger: on_play | Scope: PROPIO (×1.0)
+    Efecto: Gana +X de poder si es la primera carta que juegas en
+    tu turno. (Simplificación: chequea "primera en el carril")
+    Implementación: fireKeywordEffects → others.length === 0
+    NOTA: solo dispara en on_play/despertar (recurring skip)
+
+19. 🪨 Aislado [X]
+    Trigger: on_play | Scope: PROPIO (×1.0)
+    Efecto: Gana +X de poder mientras sea tu única carta aliada en
+    el carril.
+    Implementación: fireKeywordEffects → others.length === 0
+    NOTA: solo dispara en on_play/despertar (recurring skip)
+
+20. 🪤 Trampa [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Deja una marca en el carril. La próxima carta enemiga
+    jugada aquí recibe -X de poder.
+    Implementación: effectId switch "trampa" → accum.newTrap = { value: X }
+    + gameStore stores in laneTraps, applies -X when enemy plays here
+
+21. ↪️ Reagrupar
+    Trigger: on_play | Scope: GLOBAL (×1.5)
+    Efecto: Mueve a tu aliado de menor poder de otro carril a este
+    carril (solo si hay espacio).
+    Implementación: effectId switch "reagrupar" → accum.movedCards
+
+22. 💨 Último Aliento [X]
+    Trigger: on_death | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Al ser destruida o sacrificada, transfiere +X de poder
+    a la aliada más débil de este carril.
+    Implementación: applyOnDeathEffects → applyPowerDelta(+X) to weakest ally
+
+23. 🏰 Baluarte
+    Trigger: passive | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Tus demás aliados en este carril son inmunes a reducciones
+    de poder enemigas. Check dinámico (no flag almacenado).
+    Implementación: applyDebuff Step 2 → arr.some(c => c.keyword === "baluarte")
+    Perforación puede bypass X puntos.
+
+24. 👁️ Sigilo
+    Trigger: passive | Scope: PROPIO (×1.0)
+    Efecto: Durante su primer turno en mesa, no puede ser objetivo
+    de efectos directos enemigos.
+    Implementación: sigiloActive flag (set at play, cleared at next start_turn)
+
+25. 🔗 Vínculo [X]
+    Trigger: passive | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Si hay otra carta de su misma categoría en este carril,
+    ambas ganan +X de poder.
+    Implementación: applyPassiveEffects → check same category, +X to both
+
+26. 🧱 Muro
+    Trigger: passive | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: El rival debe jugar sus cartas en este carril si no ha
+    alcanzado el límite.
+    Implementación: planEnemyTurn → restrict lanesToTry to muroLane
+
+27. 🔄 Retorno [X]
+    Trigger: on_death (destruction) o passive (power-drop) | Scope: MANO (×1.2)
+    Efecto: Si el poder de esta carta baja a ≤X, o si es destruida/
+    sacrificada, regresa a tu mano con coste 0.
+    Implementación: checkRetorno() → if currentPower ≤ keywordValue,
+    remove from board, add to hand with cost 0. Hooked after player
+    play and start_turn.
+    NOTA: power-drop implementado, on_death hand insertion = TODO
+
+28. ♻️ Reciclar [X]
+    Trigger: on_death | Scope: PROPIO (×1.0)
+    Efecto: Al ser destruida o sacrificada, recuperas X de energía.
+    Implementación: applyOnDeathEffects → log intent
+    NOTA: gameStore energy refund = TODO
+
+29. ⚔️ Doble Golpe [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL + ADYACENTE (×1.4)
+    Efecto: Aplica su efecto o debuff de valor X en este carril y
+    en un carril adyacente.
+    Implementación: applyToLaneAndAdjacent() helper
+
+30. ⛺ Refugio [X]
+    Trigger: passive | Scope: CARRIL_LOCAL (×1.2)
+    Efecto: Absorbe hasta X puntos de reducción de poder que vaya
+    a sufrir un aliado en este carril. Pool one-shot (keywordValue
+    se decrementa al absorber).
+    Implementación: applyDebuff Step 3b — after Cúpula, absorb remaining
+
+31. 🎯 Emboscada [X]
+    Trigger: on_play | Scope: PROPIO (×1.0)
+    Efecto: Gana +X de poder si el rival ya tiene el carril lleno
+    (4 cartas).
+    Implementación: fireKeywordEffects → enemyLane.length >= 4
+    NOTA: solo dispara en on_play/despertar (recurring skip)
+
+32. ➡️ Transferencia [X]
+    Trigger: on_play | Scope: GLOBAL (×1.5)
+    Efecto: Resta X de poder a un aliado en este carril y se lo
+    otorga a un aliado en otro carril.
+    Implementación: fireKeywordEffects → applyPowerDelta(-X) weakest here,
+    applyPowerDelta(+X) strongest elsewhere
+
+33. 🌙 Renovación [X]
+    Trigger: end_turn | Scope: MANO (×1.2)
+    Efecto: Al final del turno, descarta 1 carta para robar X.
+    Implementación: gameStore endTurn → discard weakest from hand,
+    draw X from drawPile
+
+none. — Sin keyword oficial.
+    Para cartas básicas sin efecto.
+
+================================================================================
+SISTEMA fireKeywordEffects() — Cualquier keyword con cualquier trigger
+================================================================================
+
+La función fireKeywordEffects(board, side, lane, card, hand, logs, recurring)
+se llama desde TODOS los dispatchers de trigger:
+
+  • playCard (on_play)           → recurring=false, dispara TODO
+  • applyStartTurnEffects        → recurring=true, salta buffs condicionales
+  • applyEndTurnEffects          → recurring=true, salta buffs condicionales
+  • checkUmbralTriggers          → recurring=false, dispara TODO (despertar)
+  • Sacrificio case (ofrenda)    → recurring=false, dispara TODO
+  • applyReactionEffects         → inline (Espinas, Enrabia)
+
+Keywords SALTADAS cuando recurring=true (evitan apilamiento):
+  ventaja, aislado, emboscada, vanguardia, mimetismo
+
+Keywords que SÍ disparan cada turno (correcto, son per-turn):
+  sangrado, refuerzo, mejora, desarme, celeridad, eco,
+  transferencia, frenesi

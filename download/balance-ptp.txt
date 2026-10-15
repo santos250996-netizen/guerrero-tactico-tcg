@@ -1,0 +1,117 @@
+================================================================================
+GUERRERO TÁCTICO TCG — FÓRMULA DE BALANCE (PTP)
+================================================================================
+
+Para garantizar un equilibrio absoluto en la creación de las cartas,
+el Potencial Táctico Total (PTP) de cada carta debe cumplir:
+
+  PTP_Total = Poder_Base + Σ (Valor_Keyword × Mod_Trigger × Mod_Scope × Mod_Once)
+
+ECUACIÓN DE COSTE DE ENERGÍA:
+  PTP_Objetivo = (Coste_Energía × 4.0) + 1.5  [Tolerancia: ±0.5]
+
+TABLA DE REFERENCIA (Coste vs PTP):
+  • Coste 1: PTP = 5.5  (rango 5.0 - 6.0)
+  • Coste 2: PTP = 9.5  (rango 9.0 - 10.0)
+  • Coste 3: PTP = 13.5 (rango 13.0 - 14.0)
+  • Coste 4: PTP = 17.5 (rango 17.0 - 18.0)
+  • Coste 5: PTP = 21.5 (rango 21.0 - 22.0)
+
+================================================================================
+MODIFICADORES POR TRIGGER (Mod_Trigger)
+================================================================================
+
+  on_play      ×1.0  Efecto único instantáneo — valor pleno
+  passive      ×1.2  Permanente en mesa — bonus por duración
+  start_turn   ×1.3  Continuo turno a turno (6 veces máximo)
+  end_turn     ×1.2  Continuo turno a turno
+  on_death     ×0.8  Solo al morir — condicional, menos valioso
+  despertar    ×0.7  Requiere condición previa — menos confiable
+  reaction     ×1.2  Condicional a acción del rival
+  ofrenda      ×1.0  Flag — no aplica efecto, solo marca prioridad
+
+================================================================================
+MODIFICADORES POR ALCANCE (Mod_Scope)
+================================================================================
+
+  PROPIO                    ×1.0  Afecta solo a la propia carta
+  CARRIL_LOCAL              ×1.2  Afecta a cartas en su mismo carril
+  CARRIL_LOCAL + ADYACENTE   ×1.4  Afecta a su carril y al vecino
+  MANO                      ×1.2  Afecta a cartas en la mano
+  GLOBAL                    ×1.5  Afecta a cualquier carril o zona
+
+================================================================================
+MOD_ONCE (duración del efecto)
+================================================================================
+
+  MOD_ONCE_SINGLE     = 1.0  Efecto único (one-shot)
+  MOD_ONCE_PER_TURN   = 0.8  Efecto que se repite indefinidamente
+  Se deriva del trigger:
+    passive, start_turn, end_turn → 0.8
+    on_play, on_death, despertar, reaction, ofrenda → 1.0
+
+================================================================================
+VALOR_KEYWORD (Valor base por keyword, función de X)
+================================================================================
+
+--- KEYWORDS CON [X] (valor escala con X) ---
+
+  sacrificio     X     Bonus = X (aliado perdido compensa)
+  remate         X     Daño/destrucción = X
+  celeridad     1.5    Ahorro de 1 energía, valor fijo (no escala con X)
+  sobrecarga     X     Bonus = X (compensa penalización)
+  eco            X     Bonus a 1 carta aleatoria = X
+  refuerzo       X     Bonus a 1 aliada = X
+  ventaja        X×0.7 Condicional 50% se cumple
+  vanguardia     X×0.7 Condicional 50% se cumple
+  aislado        X×0.7 Condicional 50% se cumple
+  trampa         X     Debuff a próxima carta enemiga = X
+  ultimo_aliento X     Transfer +X al morir
+  vinculo        X     Bonus a self + aliada = X
+  retorno        X     Recursión = X
+  reciclar       X     Recuperar X energía
+  doble_golpe    2×X   Dos carriles
+  refugio        X     Absorbe X debuff
+  emboscada      X×0.5 Condicional 30% se cumple
+  transferencia  X     Neto 0, valor posicional = X
+  renovacion    max(0,X-1) Roba X-1 (descarta 1)
+  sangrado       X     Debuff progresivo por turno
+  frenesi        X     Bonus acumulativo por disparo
+  enrabia        X     One-shot +X la primera vez
+  espinas        X     Counter-debuff al atacante
+  cupula         X     Absorción de X puntos
+  perforacion    X     Bypass de X prevención
+  desarme        X     Reduce X del keywordValue enemigo
+  mejora         X     +X permanente a aliada
+
+--- KEYWORDS SIN [X] (valor fijo) ---
+
+  mimetismo    4.00   Copia efecto del aliado más fuerte (promedio)
+  reagrupar    3.00   Valor posicional (mover aliada)
+  baluarte     4.00   Aura valiosa (inmunidad a debuffs)
+  sigilo       3.00   Inmunidad primer turno
+  muro         3.00   Control posicional
+  guardian     4.00   Redirección (similar a baluarte)
+  ofrenda      0.00   Flag para sinergia con Sacrificio
+  none         0.00   Sin keyword
+
+================================================================================
+ESTADO ACTUAL DE BALANCE
+================================================================================
+
+  ✓ Balanceadas (|Δ| ≤ 0.5):    94/94 (100.0%)
+  ~ Marginales  (|Δ| ≤ 1):       0/94  (0.0%)
+  ✗ Desbalanceadas (|Δ| > 1):    0/94  (0.0%)
+  Δ absoluto promedio: 0.25 puntos
+
+================================================================================
+SCRIPTS DE BALANCE DISPONIBLES
+================================================================================
+
+  bun run scripts/audit-card-balance.ts             # lista completa
+  bun run scripts/audit-card-balance.ts --unbalanced # solo desbalanceadas
+  bun run scripts/audit-card-balance.ts --summary    # contadores finales
+  bun run scripts/auto-balance-cards.ts              # ajusta poder/coste automáticamente
+  bun run scripts/standardize-card-texts.ts          # estandariza prefijos a español
+  bun run scripts/update-card-texts.ts               # regenera textos desde templates
+  bun run scripts/find-missing-keyword-value.ts      # reporta cartas sin keywordValue
