@@ -166,9 +166,24 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               )}
             </div>
 
-            {/* Effect text */}
+            {/* Effect — compact: trigger label + keyword label + value only.
+                The full description is available in the keyword chip tooltip.
+                This teaches players to learn keyword meanings by repetition. */}
             <div className="rounded-md border border-amber-200/30 bg-gradient-to-b from-amber-50/95 to-amber-100/95 px-2 py-1.5 text-[11px] leading-snug text-zinc-900 shadow-inner backdrop-blur-sm" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
-              <span className="font-bold">Efecto:</span> {card.text}
+              <span className="font-bold">{triggerMeta.label}</span>
+              {keyword !== "none" && (
+                <>
+                  <span className="opacity-50"> · </span>
+                  <span className="font-bold">{keywordMeta.label}</span>
+                  {keywordMeta.hasValue && card.keywordValue ? ` [${card.keywordValue}]` : ""}
+                </>
+              )}
+              {card.umbralCondition && (
+                <>
+                  <span className="opacity-50"> · </span>
+                  <span className="font-bold">Umbral {card.umbralCondition.powerThreshold}</span>
+                </>
+              )}
             </div>
 
             {/* Rarity as TEXT at bottom center */}
