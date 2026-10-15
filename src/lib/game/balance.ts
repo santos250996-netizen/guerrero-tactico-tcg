@@ -7,10 +7,11 @@
 //   • PTP_Obetivo: Bolsa de puntos fija que otorga el coste de energía.
 //
 // PTP_Obetivo = (Coste_Energía * 4.0) + 1.5
-// Puntos_Efecto = SUMA(Valor_Keyword * Modificador_Trigger)
+// Puntos_Efecto = SUMA(Valor_Keyword × Mod_Trigger × Mod_Scope × Mod_Once)
 // ===========================================================================
 
 import type { CardDef, Keyword, Trigger } from "./types";
+import { KEYWORD_META, SCOPE_MODS, MOD_ONCE_PER_TURN, MOD_ONCE_SINGLE } from "./types";
 
 // ----- Core formula constants -----
 export const ENERGY_MULTIPLIER = 4.0;
@@ -53,7 +54,8 @@ export function getPTPRange(energyCost: number): { min: number; max: number; tar
  * • START_TURN  = 1.3  (Continuo turno a turno, suele dispararse 6 veces — máximo)
  * • END_TURN    = 1.2  (Continuo turno a turno, similar a start)
  * • ON_DEATH    = 0.8  (Solo al morir — condicional, menos valioso)
- * • UMBRAL      = 0.7  (Requiere condición previa — menos confiable)
+ * • DESPERTAR   = 0.7  (Requiere condición previa — menos confiable)
+ * • REACTION    = 1.2  (Condicional a acción del rival — bonus por reactividad)
  */
 export function getTriggerModifier(trigger: Trigger | undefined): number {
   switch (trigger ?? "on_play") {
@@ -67,8 +69,12 @@ export function getTriggerModifier(trigger: Trigger | undefined): number {
       return 1.2;
     case "on_death":
       return 0.8;
-    case "umbral":
+    case "despertar":
       return 0.7;
+    case "reaction":
+      return 1.2;
+    case "ofrenda":
+      return 1.0; // Flag — no aplica efecto, solo marca prioridad
     default:
       return 1.0;
   }
@@ -153,9 +159,8 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
       // (On Death) si coste ≤ X, regresa a mano. Valor de recursión = X.
       return X;
     // IV. UMBRALES Y RECURSOS
-    case "despertar":
-      // (Umbral) +5 permanente al alcanzar X de poder. Valor = 5 (el bonus).
-      return 5;
+    // NOTE: `despertar` is now a TRIGGER (spec 2026-10 amendment), not a keyword.
+    // Its modifier is in `getTriggerModifier` (case "despertar" → 0.7).
     case "reciclar":
       // (On Death) recupera X energía. Valor = X.
       return X;
@@ -176,6 +181,37 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
     case "renovacion":
       // (End Turn) descarta 1, roba X. Valor = X - 1 (la carta descartada).
       return Math.max(0, X - 1);
+
+    // ====== 10 NUEVAS KEYWORDS (spec 2026-10) ======
+    // Valor_Keyword asignado según especificación de balance. Para keywords con [X],
+    // el valor escala con X; para keywords sin [X], se usa un valor fijo.
+    case "sangrado":
+      // Reducción progresiva de X por turno (persistente). Valor = X (el debuff por turno).
+      return X;
+    case "frenesi":
+      // +X cada vez que se dispara su trigger (acumulativo). Valor = X por disparo.
+      return X;
+    case "enrabia":
+      // +X una vez al recibir primer debuff. Valor = X (one-shot).
+      return X;
+    case "espinas":
+      // -X al atacante que debuffea a esta carta. Valor = X (el counter-debuff).
+      return X;
+    case "cupula":
+      // Cancela hasta X puntos de reducción. Valor = X (puntos de debuff absorbidos).
+      return X;
+    case "guardian":
+      // Redirige debuffs a esta carta (sin [X]). Valor posicional = 4 (similar a Baluarte).
+      return 4;
+    case "perforacion":
+      // Ignora hasta X de Prevención (Cúpula/Baluarte). Valor = X (el bypass).
+      return X;
+    case "desarme":
+      // Reduce en X el keywordValue de carta enemiga. Valor = X (la reducción).
+      return X;
+    case "mejora":
+      // +X permanente a aliada (no se pierde si la fuente muere). Valor = X.
+      return X;
     case "none":
     default:
       return 0;
@@ -184,21 +220,28 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
 
 /**
  * Calcula el total de "Puntos de Efecto" de una carta, sumando el valor base
- * de su keyword × el modificador del trigger correspondiente.
+ * de su keyword × el modificador del trigger × el modificador del scope × el modificador once.
  *
- * Nota: actualmente cada carta tiene una sola keyword. Si en el futuro se
- * soportan múltiples keywords por carta, esta función debería iterar sobre
- * la lista.
+ * Fórmula completa (spec 2026-10):
+ *   effectPoints = Valor_Keyword × Mod_Trigger × Mod_Scope × Mod_Once
+ *
+ * Mod_Once se deriva del trigger: passive/start_turn/end_turn = 0.8 (repite), otros = 1.0 (one-shot).
+ * Mod_Scope se obtiene de SCOPE_MODS, defaulteando al scope del keyword si la carta no override.
  */
 export function calculateEffectPoints(card: CardDef): number {
   const keyword = card.keyword ?? "none";
   if (keyword === "none") return 0;
 
   const baseValue = getKeywordBaseValue(keyword, card.keywordValue);
-  // Usamos el trigger declarado en la carta (que debería coincidir con el
-  // trigger por defecto del keyword, pero el diseñador puede overridden).
+  // Trigger modifier (cuándo se dispara).
   const triggerMod = getTriggerModifier(card.trigger);
-  return baseValue * triggerMod;
+  // Scope modifier (dónde impacta). Defaulteamos al scope del keyword.
+  const scope = card.scope ?? KEYWORD_META[keyword].scope ?? "PROPIO";
+  const scopeMod = SCOPE_MODS[scope];
+  // Once modifier (si el efecto se repite indefinidamente). Lo derivamos del trigger.
+  const isRepeating = card.trigger === "passive" || card.trigger === "start_turn" || card.trigger === "end_turn";
+  const onceMod = isRepeating ? MOD_ONCE_PER_TURN : MOD_ONCE_SINGLE;
+  return baseValue * triggerMod * scopeMod * onceMod;
 }
 
 /**

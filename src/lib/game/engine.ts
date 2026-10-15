@@ -1,5 +1,6 @@
 import type {
   BoardCard,
+  CardCategory,
   CardDef,
   EffectId,
   FinalResult,
@@ -9,6 +10,8 @@ import type {
   LaneId,
   LaneOutcome,
   LaneState,
+  PowerLogEntry,
+  Subtype,
 } from "./types";
 import { LANE_BONUS_POOL } from "./types";
 import { v4 as uuidv4 } from "uuid";
@@ -84,11 +87,13 @@ export function getEffectiveCost(baseCost: number, bonus: LaneBonus | null): num
 export function getFinalCost(
   baseCost: number,
   bonus: LaneBonus | null,
-  effectId: EffectId
+  effectId: EffectId,
+  keywordValue?: number,
 ): number {
   let cost = getEffectiveCost(baseCost, bonus);
   if (effectId === "sobrecarga") {
-    cost = Math.max(1, cost - 1);
+    const x = keywordValue ?? 1;
+    cost = Math.max(1, cost - x);
   }
   return cost;
 }
@@ -238,7 +243,7 @@ function applyEffectLogic(
   enemySide: "player" | "enemy",
   accum: EffectAccumulator
 ): void {
-  const { board, side, lane } = ctx;
+  const { board, side, lane, card, hand } = ctx;
 
   switch (effectId) {
     // ----- existing 12 base effects (preserved verbatim) -----
@@ -385,9 +390,11 @@ function applyEffectLogic(
     }
 
     case "sobrecarga": {
-      // Cost reduction handled in playCard; here we record the energy penalty
-      // that will be applied on the next turn of the side that played this.
-      accum.energyNextTurnDelta = -1;
+      // Cost reduction handled in getFinalCost (uses keywordValue); here we record
+      // the energy penalty that will be applied on the next turn of the side that
+      // played this. The penalty is -X (the keywordValue), not -1.
+      const x = card.keywordValue ?? 1;
+      accum.energyNextTurnDelta = -x;
       break;
     }
 
@@ -530,12 +537,35 @@ function applyEffectLogic(
     // drives the actual effect behavior.
 
     case "sacrificio_keyword": {
-      // 01 Sacrificio [X]: destroy ally with ≤X power, gain +X*2 self bonus
+      // 10 Sacrificio [X]: destroy ally with Ofrenda flag OR with the LOWEST COST,
+      // gain +X self bonus. (Spec 2026-10 amendment: target by lowest COST, not lowest power.)
       const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
-      const target = allyLane.find((c) => c.currentPower <= x);
+      // Priority 1: ally with isOfrenda=true (regardless of cost)
+      let target = allyLane.find((c) => c.isOfrenda);
+      // Priority 2: ally with the LOWEST COST (fall back if no Ofrenda ally)
+      if (!target) {
+        // Find the lowest-cost ally (excluding the sacrificed card itself, which is `ctx.card`).
+        // If multiple allies share the lowest cost, pick the first one.
+        let lowestCost = Infinity;
+        for (const c of allyLane) {
+          if (c.cost < lowestCost) {
+            lowestCost = c.cost;
+            target = c;
+          }
+        }
+      }
       if (target) {
+        // ====== OFRENDA TRIGGER: fire the sacrificed card's keyword effects ======
+        // When a card with trigger="ofrenda" is SACRIFICED (not destroyed), its
+        // keyword effects fire before it's removed. E.g. a card with trigger=ofrenda
+        // + keyword=celeridad would reduce a random hand card's cost when sacrificed.
+        if (target.trigger === "ofrenda") {
+          fireKeywordEffects(ctx.board, side, lane, target, ctx.hand, []);
+        }
         accum.removedCards.push({ side, lane, uid: target.uid, reason: "sacrificio" });
-        accum.bonusPower += x * 2;
+        // Bonus is +X (the keyword value), per spec — NOT +X*2 (legacy double-bonus).
+        // The +X*2 was overcompensating and made auto-balance impossible.
+        accum.bonusPower += x;
       }
       break;
     }
@@ -583,7 +613,13 @@ function applyEffectLogic(
     }
 
     case "ventaja": {
-      // 08 Ventaja [X]: +X if your total power < enemy's
+      // 17 Ventaja [X]: +X si tu poder total EN ESTE CARRIL es menor que el del rival en este carril.
+      // (Spec 2026-10 amendment: per-LANE power check, not global.)
+      // NOTE: this check runs at ON_PLAY time. For passive ventaja (e.g. Grito de
+      // Desafío with trigger=passive), the bonus is baked in at play time and does
+      // NOT recompute if lane power changes later. To support dynamic recompute,
+      // applyPassiveEffects would need to be called after each board mutation and
+      // re-evaluate the condition — left as future work.
       const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 4;
       const allyTotal = calcLanePower(allyLane);
       const enemyTotal = calcLanePower(enemyLane);
@@ -646,12 +682,17 @@ function applyEffectLogic(
     }
 
     case "retorno": {
-      // 18 Retorno [X]: (On Death) if cost ≤ X, return to hand.
-      // On-play: no-op. The actual logic fires in applyOnDeathEffects.
+      // 18 Retorno [X] (spec 2026-10 amendment):
+      //   - POWER-DROP trigger: si el poder de esta carta baja a ≤ X, retorna a la mano con coste 0.
+      //   - DESTRUCTION trigger: si es destruida/sacrificada, retorna a la mano con coste 0.
+      // Currently only the DESTRUCTION case is logged here (the actual hand insertion
+      // is handled by gameStore — TODO). The POWER-DROP case requires a hook in
+      // applyDebuff/applyPowerDelta to check after each mutation — left as future work.
+      // On-play: no-op. applyOnDeathEffects dispatches the destruction case.
       break;
     }
 
-    case "despertar_umbral": {
+    case "despertar": {
       // 19 Despertar [X]: (Umbral) when board power ≥ X, activate.
       // On-play: no-op. checkUmbralTriggers dispatches this.
       break;
@@ -730,6 +771,11 @@ function applyEffectLogic(
     default:
       break;
   }
+  // ====== Keyword-driven effects are now handled by fireKeywordEffects() ======
+  // Previously, Mejora/Desarme/Celeridad had inline checks here. They've been
+  // moved to fireKeywordEffects() (called from playCard AFTER the card is placed
+  // on the board) so that ANY keyword can fire with ANY trigger without duplication.
+  // See the fireKeywordEffects function definition above applyStartTurnEffects.
 }
 
 /**
@@ -762,6 +808,20 @@ export function computeEffect(ctx: EffectContext): EffectResult {
   applyEffectLogic(card.effectId, ctx, allyLane, enemyLane, enemySide, accum);
 
   finalPower += accum.bonusPower;
+
+  // 4. Etapa 3: Frenesí [X] — if the card has trigger=on_play AND keyword=frenesi,
+  // it gains +X to its own power at play time (this is the "trigger fires" moment
+  // for on_play cards). For other triggers (start_turn/end_turn/umbral), the
+  // Frenesí bonus is applied by `triggerFrenesiIfApplicable` in the respective
+  // dispatcher. We don't need to log here — the bonus is part of the card's
+  // initial on-board power, so it shows up in the Registro as part of the base.
+  if (
+    card.keyword === "frenesi" &&
+    card.keywordValue &&
+    (card.trigger ?? "on_play") === "on_play"
+  ) {
+    finalPower += card.keywordValue;
+  }
 
   return {
     finalPower,
@@ -841,14 +901,14 @@ export function playCard(
   }
 
   // 2. Effective cost — combine lane bonus + Sobrecarga card-specific discount
-  const effectiveCost = getFinalCost(handCard.cost, laneBonus, handCard.effectId);
+  const effectiveCost = getFinalCost(handCard.cost, laneBonus, handCard.effectId, handCard.keywordValue);
   if (effectiveCost > energy) {
     throw new Error(
       `Sin energía suficiente (necesita ${effectiveCost}, tiene ${energy})` +
         (laneBonus?.kind === "cost_neg" || laneBonus?.kind === "cost_pos"
           ? ` (ajustado por bono del carril)`
           : "") +
-        (handCard.effectId === "sobrecarga" ? ` (Sobrecarga: -1)` : "")
+        (handCard.effectId === "sobrecarga" ? ` (Sobrecarga: -${handCard.keywordValue ?? 1})` : "")
     );
   }
 
@@ -929,6 +989,9 @@ export function playCard(
   }
 
   // Place the new card
+  // Derive allyLane from the (possibly mutated) board so Refuerzo can mark
+  // the last ally played before this card in the lane.
+  const allyLane = newBoard[lane][side];
   const newCard: BoardCard = {
     uid: uuidv4(),
     defId: handCard.id,
@@ -952,6 +1015,21 @@ export function playCard(
     // Sigilo: mark active for the first turn on the board (cleared at the
     // start of the owner's NEXT turn by gameStore).
     sigiloActive: handCard.effectId === "sigilo" || handCard.keyword === "sigilo",
+
+    // ====== Etapa 2 fields — defensive / counter keywords (spec 2026-10) ======
+    // Initialize the per-card state for the new keywords. The actual effect
+    // logic is handled by `applyDebuff` (Cúpula/Guardián/Perforación/Espinas/
+    // Enrabia) and `applyStartTurnEffects` (refresh cupulaRemaining each turn).
+    cupulaRemaining: handCard.keyword === "cupula" ? (handCard.keywordValue ?? 0) : undefined,
+    isGuardian: handCard.keyword === "guardian",
+    perforacionRemaining: handCard.keyword === "perforacion" ? (handCard.keywordValue ?? 0) : undefined,
+    enrabiadUsed: false,
+    isOfrenda: handCard.trigger === "ofrenda",
+    // Refuerzo: mark the last ally played in this lane (before this card) as the
+    // target for future start_turn +X buffs. If no prior ally, leave undefined
+    // (the card will have no one to buff until an ally is played after it — but
+    // that's the spec: "otorga +X a la carta aliada jugada inmediatamente antes").
+    refuerzoTargetUid: allyLane.length > 0 ? allyLane[allyLane.length - 1].uid : undefined,
   };
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
 
@@ -965,6 +1043,13 @@ export function playCard(
       }
       return { ...c };
     });
+
+  // ====== FIRE KEYWORD EFFECTS (on_play) ======
+  // After the card is placed on the board AND the new hand is built,
+  // fire the card's keyword effects via the generic dispatcher.
+  // This works for ANY keyword — celeridad (picks from newHand), mejora
+  // (targets weakest ally), ventaja (checks per-lane power), etc.
+  fireKeywordEffects(newBoard, side, lane, newCard, newHand);
 
   return {
     board: newBoard,
@@ -1014,7 +1099,7 @@ export function scoreAIPlay(
   // Respect lane bonus restrictions: cost_only_X filter
   if (!isCardCostAllowed(card.cost, laneBonus)) return -Infinity;
 
-  const effectiveCost = getFinalCost(card.cost, laneBonus, card.effectId);
+  const effectiveCost = getFinalCost(card.cost, laneBonus, card.effectId, card.keywordValue);
   if (effectiveCost > energy) return -Infinity;
 
   const maxCards = getLaneMaxCards(laneBonus);
@@ -1151,13 +1236,25 @@ export function planEnemyTurn(
   for (let iter = 0; iter < 3; iter++) {
     if (workEnergy < 1 || workHand.length === 0) break;
 
+    // ====== MURO: check if the player has a Muro card on the board ======
+    // If yes, the enemy MUST play in that lane (if not full).
+    let muroLane: LaneId | null = null;
+    for (const ln of LANE_IDS) {
+      const hasMuro = workBoard[ln].player.some((c) => c.keyword === "muro");
+      if (hasMuro && workBoard[ln].enemy.length < getLaneMaxCards(laneBonuses[ln])) {
+        muroLane = ln;
+        break;
+      }
+    }
+    const lanesToTry: LaneId[] = muroLane ? [muroLane] : LANE_IDS;
+
     let best: AIPlay | null = null;
     for (const card of workHand) {
-      for (const lane of LANE_IDS) {
+      for (const lane of lanesToTry) {
         const laneBonus = laneBonuses[lane];
         // Quick filter before scoring
         if (!isCardCostAllowed(card.cost, laneBonus)) continue;
-        const effectiveCost = getFinalCost(card.cost, laneBonus, card.effectId);
+        const effectiveCost = getFinalCost(card.cost, laneBonus, card.effectId, card.keywordValue);
         if (effectiveCost > workEnergy) continue;
         if (workBoard[lane].enemy.length >= getLaneMaxCards(laneBonus)) continue;
         const s = scoreAIPlay(
@@ -1348,7 +1445,7 @@ export function getEffectLabel(effectId: EffectId): string {
       return "Muro";
     case "retorno":
       return "Retorno";
-    case "despertar_umbral":
+    case "despertar":
       return "Despertar";
     case "reciclar":
       return "Reciclar";
@@ -1395,14 +1492,895 @@ function cloneBoard(board: Board): Board {
   };
 }
 
-function applyPowerDelta(board: Board, side: "player" | "enemy", lane: LaneId, uid: string, delta: number) {
+function applyPowerDelta(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  uid: string,
+  delta: number,
+  /** Optional source card name — when provided together with `kind`, the change is appended to the target's `powerLog` so the preview modal can show it in the Registro de Modificadores. */
+  source?: string,
+  /** Optional kind label — "start_turn" | "end_turn" | "passive" | "on_death" | "despertar" | etc. */
+  kind?: PowerLogEntry["kind"],
+) {
   const arr = board[lane][side];
   const idx = arr.findIndex((c) => c.uid === uid);
   if (idx < 0) return;
-  arr[idx] = {
-    ...arr[idx],
-    currentPower: Math.max(0, arr[idx].currentPower + delta),
+  const cur = arr[idx];
+  const newPower = Math.max(0, cur.currentPower + delta);
+  // Append to powerLog only when both source and kind are provided — this way
+  // internal callers that don't want to surface the change in the UI can still
+  // call applyPowerDelta with just (board, side, lane, uid, delta).
+  const newLog = source && kind
+    ? [...(cur.powerLog ?? []), { source, delta, kind }]
+    : cur.powerLog;
+  arr[idx] = { ...cur, currentPower: newPower, powerLog: newLog };
+}
+
+// ===========================================================================
+// SCOPE HELPERS — aplican un delta a un conjunto de cartas según su Scope
+// (PROPIO / CARRIL_LOCAL / CARRIL_LOCAL+ADYACENTE / MANO / GLOBAL).
+// Cada helper usa internamente `applyPowerDelta` con el source/kind correcto,
+// de modo que el `powerLog` de cada carta objetivo recibe una entrada.
+//
+// Estos helpers son la capa de abstracción que pide la spec 2026-10:
+// > "ALCANCES: PROPIO (×1.0), CARRIL LOCAL (×1.2), CARRIL LOCAL+ADYACENTE (×1.4),
+// >  MANO (×1.2), GLOBAL (×1.5)"
+// La abstracción permite que las keywords nuevas (Etapa 2-3) se implementen
+// en 1-2 líneas cada una, en lugar de duplicar bucles for por todas partes.
+// ===========================================================================
+
+/**
+ * PROPIO (×1.0) — Aplica el delta solo a la carta fuente.
+ */
+export function applyToSelf(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  sourceUid: string,
+  delta: number,
+  source: string,
+  kind: PowerLogEntry["kind"],
+): void {
+  applyPowerDelta(board, side, lane, sourceUid, delta, source, kind);
+}
+
+/**
+ * CARRIL_LOCAL (×1.2) — Aplica el delta a todos los aliados en el carril dado,
+ * opcionalmente excluyendo a la carta fuente (para auras como Baluarte, Muro).
+ */
+export function applyToLane(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  delta: number,
+  source: string,
+  kind: PowerLogEntry["kind"],
+  excludeUid?: string,
+): void {
+  for (const ally of board[lane][side]) {
+    if (excludeUid && ally.uid === excludeUid) continue;
+    applyPowerDelta(board, side, lane, ally.uid, delta, source, kind);
+  }
+}
+
+/**
+ * CARRIL_LOCAL + ADYACENTE (×1.4) — Aplica el delta a los aliados del carril
+ * dado y a los de los dos carriles adyacentes (en orden: armas ↔ proteccion ↔ furia).
+ */
+export function applyToLaneAndAdjacent(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  delta: number,
+  source: string,
+  kind: PowerLogEntry["kind"],
+  excludeUid?: string,
+): void {
+  // Lanes adyacentes: armas↔proteccion, proteccion↔furia (furia↔armas? no cíclico)
+  const adjacent: LaneId[] =
+    lane === "armas" ? ["proteccion"]
+    : lane === "proteccion" ? ["armas", "furia"]
+    : ["proteccion"]; // furia → proteccion
+
+  // Apply to the source lane first
+  applyToLane(board, side, lane, delta, source, kind, excludeUid);
+
+  // Then to each adjacent lane
+  for (const ln of adjacent) {
+    applyToLane(board, side, ln, delta, source, kind, excludeUid);
+  }
+}
+
+/**
+ * MANO (×1.2) — Aplica el delta a todas las cartas en la mano del bando.
+ * Modifica `handBonus` y `handBonusSources` de cada HandCard (no se usa
+ * applyPowerDelta porque las cartas en mano no tienen `currentPower`).
+ *
+ * Devuelve una nueva referencia al array `hand` para que React detecte el cambio.
+ */
+export function applyToHand(
+  hand: HandCard[],
+  delta: number,
+  source: string,
+  filterFn?: (card: HandCard) => boolean,
+): HandCard[] {
+  return hand.map((c) => {
+    if (filterFn && !filterFn(c)) return c;
+    const newBonus = (c.handBonus ?? 0) + delta;
+    const newSources = [...(c.handBonusSources ?? []), { source, delta }];
+    return {
+      ...c,
+      handBonus: newBonus,
+      handBonusSources: newSources,
+    };
+  });
+}
+
+/**
+ * GLOBAL (×1.5) — Aplica el delta a todos los aliados en el tablero, sin
+ * importar el carril. Opcionalmente excluye a la carta fuente.
+ */
+export function applyToBoard(
+  board: Board,
+  side: "player" | "enemy",
+  delta: number,
+  source: string,
+  kind: PowerLogEntry["kind"],
+  excludeUid?: string,
+): void {
+  for (const ln of LANE_IDS) {
+    applyToLane(board, side, ln, delta, source, kind, excludeUid);
+  }
+}
+
+// ===========================================================================
+// DEBUFF PIPELINE — Etapa 2 (spec 2026-10)
+// ===========================================================================
+// Toda reducción de poder (delta < 0) DEBE pasar por `applyDebuff` en lugar de
+// `applyPowerDelta` directo. Esto activa la cadena defensiva:
+//
+//   1. GUARDIÁN  → redirige el debuff a esta carta (si está en el mismo carril
+//                  que el objetivo original y no es el objetivo mismo)
+//   2. BALUARTE  → si hay un aliado con Baluarte en el carril, los aliados
+//                  están marcados `immuneToDebuff`. La inmunidad se respeta
+//                  salvo que la fuente tenga Perforación restante.
+//   3. CÚPULA    → cada carta con `cupulaRemaining > 0` absorbe puntos del
+//                  debuff. Perforación reduce la capacidad de absorción.
+//   4. applyPowerDelta  → aplica el delta restante al objetivo final.
+//   5. REACTIONS → Espinas (contraataca -X al atacante) y Enrabia (+X a sí
+//                  misma la primera vez) se disparan si el objetivo las tiene.
+//
+// Para buffs (delta >= 0) la función es equivalente a `applyPowerDelta`.
+// ===========================================================================
+
+export interface DebuffContext {
+  /** UID of the card applying the debuff (used for Espinas reaction + Perforación bypass). */
+  sourceUid?: string;
+  /** Lane where the source card lives (for Espinas counter-attack target search). */
+  sourceLane?: LaneId;
+  /** Side of the source card. If different from `side` parameter, the debuff is "enemy". */
+  sourceSide?: "player" | "enemy";
+  /** Perforación bypass pool the source has remaining (overwrites source card's perforacionRemaining). */
+  perforacionBypass?: number;
+}
+
+export interface DebuffResult {
+  /** Final delta that was actually applied to the target (post-absorption, post-redirect). */
+  appliedDelta: number;
+  /** Points absorbed by Cúpula (sum across all Cúpula cards in the lane). */
+  absorbedByCupula: number;
+  /** UID of the card that ended up receiving the debuff (after potential Guardián redirect). */
+  finalTargetUid: string;
+  /** Lane where the debuff finally landed. */
+  finalLane: LaneId;
+  /** True if Baluarte blocked the debuff entirely (no delta applied). */
+  blockedByBaluarte: boolean;
+  /** UID of the Guardián that redirected the debuff, if any. */
+  redirectedByGuardian?: string;
+  /** True if Espinas reaction fired. */
+  espinasFired?: boolean;
+  /** True if Enrabia reaction fired. */
+  enrabiaFired?: boolean;
+}
+
+/**
+ * Apply a debuff (or buff) through the defensive pipeline.
+ *
+ * For buffs (delta >= 0) this is equivalent to `applyPowerDelta` (no pipeline).
+ * For debuffs (delta < 0) it consults Guardián, Baluarte, Cúpula, Perforación,
+ * and fires Espinas/Enrabia reactions on the target.
+ *
+ * Returns a `DebuffResult` describing what actually happened — useful for tests
+ * and for the game log.
+ */
+export function applyDebuff(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  uid: string,
+  delta: number,
+  source: string,
+  kind: PowerLogEntry["kind"],
+  ctx?: DebuffContext,
+): DebuffResult {
+  // ====== BUFFS (delta >= 0) — bypass pipeline ======
+  if (delta >= 0) {
+    applyPowerDelta(board, side, lane, uid, delta, source, kind);
+    return {
+      appliedDelta: delta,
+      absorbedByCupula: 0,
+      finalTargetUid: uid,
+      finalLane: lane,
+      blockedByBaluarte: false,
+    };
+  }
+
+  // ====== DEBUFF PIPELINE (delta < 0) ======
+  const arr = board[lane][side];
+  const idx = arr.findIndex((c) => c.uid === uid);
+  if (idx < 0) {
+    return {
+      appliedDelta: 0,
+      absorbedByCupula: 0,
+      finalTargetUid: uid,
+      finalLane: lane,
+      blockedByBaluarte: false,
+    };
+  }
+  const target = arr[idx];
+  const sourceSide = ctx?.sourceSide ?? side;
+  const isEnemyDebuff = sourceSide !== side;
+  const mag = Math.abs(delta);
+
+  // ----- STEP 1: GUARDIÁN redirect -----
+  // If any ally in this lane (other than the target) is a Guardián, redirect the
+  // debuff to it. The Guardián then runs through the rest of the pipeline
+  // (Baluarte / Cúpula / applyPowerDelta / reactions) on itself.
+  if (!target.isGuardian) {
+    const guardian = arr.find((c) => c.uid !== uid && c.isGuardian);
+    if (guardian) {
+      const sub = applyDebuff(board, side, lane, guardian.uid, delta, source, kind, ctx);
+      return {
+        ...sub,
+        redirectedByGuardian: guardian.uid,
+      };
+    }
+  }
+
+  // ----- STEP 2: BALUARTE immunity (dynamic check) -----
+  // If any ally in this lane (other than the target itself) has keyword "baluarte",
+  // the target is immune to enemy debuffs. Perforación leaks up to `bypass` points
+  // through this immunity (Baluarte is modeled as "infinite Cúpula").
+  let effectiveDelta = delta; // negative
+  let absorbedByCupula = 0;
+  let blockedByBaluarte = false;
+  let perforacionBypass = ctx?.perforacionBypass ?? 0;
+
+  // Pull perforacionRemaining from the source card if not explicitly provided.
+  if (ctx?.sourceUid && ctx.sourceSide !== undefined && perforacionBypass === 0) {
+    const sArr = board[ctx.sourceLane ?? lane]?.[ctx.sourceSide];
+    const sCard = sArr?.find((c) => c.uid === ctx.sourceUid);
+    if (sCard?.perforacionRemaining) {
+      perforacionBypass = sCard.perforacionRemaining;
+    }
+  }
+
+  const hasBaluarte = arr.some((c) => c.uid !== target.uid && c.keyword === "baluarte");
+  if (hasBaluarte && isEnemyDebuff) {
+    // Baluarte: infinite absorption, but Perforación leaks up to `bypass` points.
+    const leak = Math.min(mag, perforacionBypass);
+    if (leak < mag) {
+      // Blocked entirely (or partially — but Baluarte is "infinite", so any
+      // un-leaked amount is fully blocked).
+      blockedByBaluarte = true;
+      // Still log the leak as a residual debuff.
+      effectiveDelta = leak > 0 ? -leak : 0;
+      absorbedByCupula = mag - leak; // counts as absorbed by Baluarte
+      // Consume perforacionRemaining on the source if it leaked.
+      if (leak > 0 && ctx?.sourceUid && ctx.sourceSide !== undefined) {
+        const sArr2 = board[ctx.sourceLane ?? lane]?.[ctx.sourceSide];
+        const sIdx = sArr2?.findIndex((c) => c.uid === ctx.sourceUid);
+        if (sArr2 && sIdx !== undefined && sIdx >= 0) {
+          sArr2[sIdx] = {
+            ...sArr2[sIdx],
+            perforacionRemaining: Math.max(0, (sArr2[sIdx].perforacionRemaining ?? 0) - leak),
+          };
+        }
+      }
+    } else {
+      // Perforación fully bypasses Baluarte — apply the full debuff.
+      effectiveDelta = delta;
+      // Consume all perforacionRemaining on the source.
+      if (ctx?.sourceUid && ctx.sourceSide !== undefined) {
+        const sArr2 = board[ctx.sourceLane ?? lane]?.[ctx.sourceSide];
+        const sIdx = sArr2?.findIndex((c) => c.uid === ctx.sourceUid);
+        if (sArr2 && sIdx !== undefined && sIdx >= 0) {
+          sArr2[sIdx] = {
+            ...sArr2[sIdx],
+            perforacionRemaining: 0,
+          };
+        }
+      }
+    }
+  } else {
+    // ----- STEP 3: CÚPULA absorption -----
+    // Each ally in the lane with `cupulaRemaining > 0` absorbs points from the
+    // debuff. Perforación reduces the absorption capacity: for a Cúpula with
+    // pool P, the effective capacity is max(0, P - perforacionBypass).
+    //
+    // We absorb from the Cúpula with the largest remaining pool first (greedy).
+    // Each absorbed point decrements that Cúpula's pool.
+    // Perforación bypass is consumed across all Cúpula cards it touches.
+    let remaining = mag;
+    let bypassLeft = perforacionBypass;
+
+    // Collect Cúpula cards in this lane (target included — Cúpula is PROPIO+CARRIL_LOCAL per spec).
+    const cupulaCards = arr
+      .filter((c) => (c.cupulaRemaining ?? 0) > 0)
+      .sort((a, b) => (b.cupulaRemaining ?? 0) - (a.cupulaRemaining ?? 0));
+
+    for (const cup of cupulaCards) {
+      if (remaining <= 0) break;
+      const cupIdx = arr.findIndex((c) => c.uid === cup.uid);
+      if (cupIdx < 0) continue;
+      const pool = cup.cupulaRemaining ?? 0;
+      // Perforación reduces this Cúpula's effective capacity.
+      const bypassHere = Math.min(bypassLeft, pool);
+      const effectiveCapacity = Math.max(0, pool - bypassHere);
+      const absorb = Math.min(remaining, effectiveCapacity);
+      if (absorb > 0) {
+        arr[cupIdx] = {
+          ...cup,
+          cupulaRemaining: Math.max(0, pool - absorb),
+        };
+        absorbedByCupula += absorb;
+        remaining -= absorb;
+      }
+      // Consume the bypass used here (regardless of whether absorb happened).
+      bypassLeft -= bypassHere;
+    }
+
+    // ----- STEP 3b: REFUGIO absorption -----
+    // Allies with keyword=refugio absorb up to keywordValue remaining debuff points
+    // directed at OTHER allies in this lane (not the Refugio card itself).
+    // Uses keywordValue as a one-shot pool (decrements when used, not refreshed).
+    if (remaining > 0) {
+      const refugioCards = arr
+        .filter((c) => c.uid !== target.uid && c.keyword === "refugio" && (c.keywordValue ?? 0) > 0)
+        .sort((a, b) => (b.keywordValue ?? 0) - (a.keywordValue ?? 0));
+      for (const ref of refugioCards) {
+        if (remaining <= 0) break;
+        const refIdx = arr.findIndex((c) => c.uid === ref.uid);
+        if (refIdx < 0) continue;
+        const pool = ref.keywordValue ?? 0;
+        const absorb = Math.min(remaining, pool);
+        if (absorb > 0) {
+          arr[refIdx] = {
+            ...ref,
+            keywordValue: Math.max(0, pool - absorb),
+            powerLog: [
+              ...(ref.powerLog ?? []),
+              { source: `${ref.name} (Refugio)`, delta: absorb, kind: "passive" },
+            ],
+          };
+          absorbedByCupula += absorb;
+          remaining -= absorb;
+        }
+      }
+    }
+
+    effectiveDelta = -remaining;
+    // Consume perforacionRemaining on the source proportional to bypassLeft used.
+    const bypassUsed = perforacionBypass - bypassLeft;
+    if (bypassUsed > 0 && ctx?.sourceUid && ctx.sourceSide !== undefined) {
+      const sArr2 = board[ctx.sourceLane ?? lane]?.[ctx.sourceSide];
+      const sIdx = sArr2?.findIndex((c) => c.uid === ctx.sourceUid);
+      if (sArr2 && sIdx !== undefined && sIdx >= 0) {
+        sArr2[sIdx] = {
+          ...sArr2[sIdx],
+          perforacionRemaining: Math.max(0, (sArr2[sIdx].perforacionRemaining ?? 0) - bypassUsed),
+        };
+      }
+    }
+  }
+
+  // ----- STEP 4: apply residual delta -----
+  if (effectiveDelta !== 0) {
+    applyPowerDelta(board, side, lane, target.uid, effectiveDelta, source, kind);
+  }
+
+  // ----- STEP 5: REACTIONS via event system (Etapa 4) -----
+  // Espinas/Enrabia used to be inline here; they're now dispatched by
+  // `applyReactionEffects` after the engine emits a `debuff_applied` event.
+  // Only fires if the target actually took damage (effectiveDelta < 0) and the
+  // source is identifiable (ctx.sourceUid known — on_death debuffs have no
+  // source on the board, so they skip reactions but Cúpula/Guardián/Baluarte
+  // still applied in Steps 2-3).
+  let espinasFired = false;
+  let enrabiaFired = false;
+
+  if (effectiveDelta < 0 && isEnemyDebuff && ctx?.sourceUid && ctx.sourceSide !== undefined) {
+    const reactionEvent: DebuffAppliedEvent = {
+      type: "debuff_applied",
+      sourceSide: ctx.sourceSide,
+      sourceUid: ctx.sourceUid,
+      sourceName: source,
+      sourceLane: ctx.sourceLane ?? lane,
+      targetSide: side,
+      targetUid: target.uid,
+      targetName: target.name,
+      targetLane: lane,
+      delta: effectiveDelta,
+    };
+    const rxnRes = applyReactionEffects(board, side, reactionEvent);
+    espinasFired = rxnRes.espinasFired;
+    enrabiaFired = rxnRes.enrabiaFired;
+  }
+
+  return {
+    appliedDelta: effectiveDelta,
+    absorbedByCupula,
+    finalTargetUid: target.uid,
+    finalLane: lane,
+    blockedByBaluarte,
+    espinasFired,
+    enrabiaFired,
   };
+}
+
+// ===========================================================================
+// ETAPA 4 — REACTION TRIGGER EVENT SYSTEM (spec 2026-10)
+// ===========================================================================
+// Top-level game events that REACTION-trigger cards can respond to. The engine
+// emits these events; `applyReactionEffects` dispatches them to all reaction
+// cards on the reacting side.
+//
+// Currently only Espinas and Enrabia have REACTION trigger, and both respond
+// to `debuff_applied` events. Future REACTION keywords can react to
+// `card_played` or `card_destroyed` events.
+// ===========================================================================
+
+/** Event emitted when a card is played to the board. */
+export interface CardPlayedEvent {
+  type: "card_played";
+  /** Side that PLAYED the card (the rival of the reacting side). */
+  side: "player" | "enemy";
+  lane: LaneId;
+  cardUid: string;
+  cardName: string;
+  cardCategory: CardCategory;
+  cardSubtypes: Subtype[];
+}
+
+/** Event emitted when a debuff lands on a target (post-prevention). */
+export interface DebuffAppliedEvent {
+  type: "debuff_applied";
+  /** Side of the source card that applied the debuff. */
+  sourceSide: "player" | "enemy";
+  sourceUid: string;
+  sourceName: string;
+  sourceLane: LaneId;
+  /** Side of the target card that received the debuff. */
+  targetSide: "player" | "enemy";
+  targetUid: string;
+  targetName: string;
+  targetLane: LaneId;
+  /** Actual delta applied (negative). */
+  delta: number;
+}
+
+/** Event emitted when a card is destroyed (sacrificed, remated, etc.). */
+export interface CardDestroyedEvent {
+  type: "card_destroyed";
+  /** Side whose card was destroyed. */
+  side: "player" | "enemy";
+  lane: LaneId;
+  cardUid: string;
+  cardName: string;
+  cardCategory: CardCategory;
+  /** Why it was destroyed: "sacrificio" | "remate" | ... */
+  reason: string;
+}
+
+/** Union of all top-level game events REACTION cards can respond to. */
+export type GameEvent = CardPlayedEvent | DebuffAppliedEvent | CardDestroyedEvent;
+
+export interface ReactionResult {
+  espinasFired?: boolean;
+  enrabiaFired?: boolean;
+  logs: TriggerResult["logs"];
+}
+
+/**
+ * Dispatch a game event to all REACTION-trigger cards on `reactingSide`.
+ * Iterates over every card on the reacting side with `trigger === "reaction"`
+ * and invokes the keyword-specific handler if the event matches.
+ *
+ * Returns logs + flags indicating which reactions fired (useful for tests and
+ * for the game log).
+ *
+ * NOTE: Reactions that apply debuffs (e.g. Espinas counter-attack) use
+ * `applyPowerDelta` directly — NOT `applyDebuff` — to avoid infinite recursion
+ * (a counter-debuff would otherwise emit another `debuff_applied` event).
+ */
+export function applyReactionEffects(
+  board: Board,
+  reactingSide: "player" | "enemy",
+  event: GameEvent,
+): ReactionResult {
+  const logs: TriggerResult["logs"] = [];
+  let espinasFired = false;
+  let enrabiaFired = false;
+
+  for (const lane of LANE_IDS) {
+    const arr = board[lane][reactingSide];
+    for (let i = 0; i < arr.length; i++) {
+      const card = arr[i];
+      if (card.trigger !== "reaction") continue;
+
+      // ----- ESPINAS [X]: reacts to debuff_applied where target is self -----
+      if (
+        card.keyword === "espinas" &&
+        card.keywordValue &&
+        event.type === "debuff_applied" &&
+        event.targetSide === reactingSide &&
+        event.targetUid === card.uid
+      ) {
+        const x = card.keywordValue;
+        // Counter-attack: -X to the source card (applyPowerDelta, NOT applyDebuff,
+        // to avoid infinite recursion).
+        const sArr = board[event.sourceLane]?.[event.sourceSide];
+        const sIdx = sArr?.findIndex((c) => c.uid === event.sourceUid);
+        if (sArr && sIdx !== undefined && sIdx >= 0) {
+          applyPowerDelta(
+            board,
+            event.sourceSide,
+            event.sourceLane,
+            event.sourceUid,
+            -x,
+            `${card.name} (Espinas)`,
+            "debuff",
+          );
+          espinasFired = true;
+          logs.push({
+            side: reactingSide,
+            text: `🌵 ${card.name} (Espinas): -${x} a ${event.sourceName} (contraataque)`,
+          });
+        }
+      }
+
+      // ----- ENRABIA [X]: one-shot +X to self when debuffed -----
+      if (
+        card.keyword === "enrabia" &&
+        card.keywordValue &&
+        !card.enrabiadUsed &&
+        event.type === "debuff_applied" &&
+        event.targetSide === reactingSide &&
+        event.targetUid === card.uid
+      ) {
+        const x = card.keywordValue;
+        // Re-fetch the card from the array (applyPowerDelta may have replaced
+        // the array element via spread).
+        const tIdx = board[lane][reactingSide].findIndex((c) => c.uid === card.uid);
+        if (tIdx >= 0) {
+          board[lane][reactingSide][tIdx] = {
+            ...board[lane][reactingSide][tIdx],
+            enrabiadUsed: true,
+          };
+          applyPowerDelta(
+            board,
+            reactingSide,
+            lane,
+            card.uid,
+            x,
+            `${card.name} (Enrabia)`,
+            "buff",
+          );
+          enrabiaFired = true;
+          logs.push({
+            side: reactingSide,
+            text: `😡 ${card.name} (Enrabia): +${x} (primera reducción sufrida)`,
+          });
+        }
+      }
+
+      // ----- Future REACTION keywords can hook here -----
+      // e.g. a "Centinela" keyword reacting to `card_played` events where
+      // event.side !== reactingSide (rival played a card) and event.cardCategory
+      // matches some condition.
+    }
+  }
+
+  return { espinasFired, enrabiaFired, logs };
+}
+
+/**
+ * ETAPA 3 — Frenesí [X] helper.
+ * Frenesí grants +X to the card itself every time its trigger fires. This helper
+ * is invoked from EVERY trigger dispatcher (start_turn / end_turn / on_death /
+ * umbral) AFTER the main effect runs, so the cumulative +X composes with the
+ * card's normal effect.
+ *
+ * On ON_DEATH the helper is a no-op (the card is leaving the board, so a +X
+ * bonus would be wasted).
+ *
+ * The +X is logged via `logs` so the game log shows the Frenesí stack.
+ */
+function triggerFrenesiIfApplicable(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  cardUid: string,
+  cardName: string,
+  triggerLabel: string,
+  logs: TriggerResult["logs"],
+): void {
+  const arr = board[lane][side];
+  const idx = arr.findIndex((c) => c.uid === cardUid);
+  if (idx < 0) return;
+  const card = arr[idx];
+  if (card.keyword !== "frenesi" || !card.keywordValue) return;
+  const x = card.keywordValue;
+  applyPowerDelta(board, side, lane, cardUid, x, `${cardName} (Frenesí)`, "buff");
+  logs.push({
+    side,
+    text: `🌀 ${cardName} (Frenesí): +${x} por disparar ${triggerLabel}`,
+  });
+}
+
+// ===========================================================================
+// FIRE KEYWORD EFFECTS — dispatcher genérico (spec 2026-10 amendment)
+// ===========================================================================
+// Llamado desde TODOS los dispatchers de trigger (on_play, start_turn, end_turn,
+// despertar, y el caso Sacrificio para ofrenda). Esto permite que CUALQUIER
+// keyword dispare con CUALQUIER trigger sin causar confusión.
+//
+// Solo maneja keywords que tienen sentido como EFECTOS one-shot o per-turn
+// (no passive auras como Baluarte/Sigilo/Cúpula/Guardián que se chequean
+// dinámicamente, ni keywords que requieren removedCards/energy/deck como
+// Sacrificio/Remate/Reagrupar/Trampa/Retorno/Reciclar/Renovación).
+// ===========================================================================
+
+function fireKeywordEffects(
+  board: Board,
+  side: "player" | "enemy",
+  lane: LaneId,
+  card: BoardCard,
+  hand: HandCard[] = [],
+  logs: TriggerResult["logs"] = [],
+): void {
+  if (!card.keyword || card.keyword === "none") return;
+  const x = card.keywordValue ?? 0;
+  const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
+
+  switch (card.keyword) {
+    // ---- CELERIDAD: reduce coste de carta ALEATORIA en mano ----
+    case "celeridad": {
+      if (x > 0 && hand.length > 0) {
+        const randomIdx = Math.floor(Math.random() * hand.length);
+        const target = hand[randomIdx];
+        const tIdx = hand.findIndex((c) => c.uid === target.uid);
+        if (tIdx >= 0) {
+          hand[tIdx] = {
+            ...target,
+            costReduction: (target.costReduction ?? 0) + x,
+            costReductionSources: [
+              ...(target.costReductionSources ?? []),
+              { source: card.name, delta: x },
+            ],
+          };
+          logs.push({ side, text: `💨 ${card.name} (Celeridad): -${x} al coste de ${target.name}` });
+        }
+      }
+      break;
+    }
+
+    // ---- MEJORA: +X al aliado más débil del carril ----
+    case "mejora": {
+      if (x > 0) {
+        const candidates = board[lane][side].filter((c) => c.uid !== card.uid);
+        const target = lowestPowerCard(candidates);
+        if (target) {
+          applyPowerDelta(board, side, lane, target.uid, x, `${card.name} (Mejora)`, "buff");
+          logs.push({ side, text: `⭐ ${card.name} (Mejora): +${x} a ${target.name}` });
+        }
+      }
+      break;
+    }
+
+    // ---- DESARME: reduce keywordValue del enemigo más fuerte ----
+    case "desarme": {
+      if (x > 0) {
+        const target = highestPowerCard(board[lane][enemySide]);
+        if (target && target.keywordValue !== undefined && target.keywordValue > 0) {
+          const idx = board[lane][enemySide].findIndex((c) => c.uid === target.uid);
+          if (idx >= 0) {
+            const newValue = Math.max(0, target.keywordValue - x);
+            board[lane][enemySide][idx] = {
+              ...target,
+              keywordValue: newValue,
+              powerLog: [
+                ...(target.powerLog ?? []),
+                { source: card.name, delta: -x, kind: "debuff" },
+              ],
+            };
+            logs.push({ side, text: `🛠️ ${card.name} (Desarme): ${target.keywordValue} → ${newValue} en ${target.name}` });
+          }
+        }
+      }
+      break;
+    }
+
+    // ---- REFUERZO: +X al aliado marcado (refuerzoTargetUid) o al último aliado ----
+    case "refuerzo": {
+      if (x > 0) {
+        // Priority 1: marked ally (refuerzoTargetUid)
+        let targetUid = card.refuerzoTargetUid;
+        // Priority 2: last ally in lane (if no marked ally or marked ally is gone)
+        if (!targetUid || !board[lane][side].find((c) => c.uid === targetUid)) {
+          const others = board[lane][side].filter((c) => c.uid !== card.uid);
+          if (others.length > 0) targetUid = others[others.length - 1].uid;
+        }
+        if (targetUid) {
+          const target = board[lane][side].find((c) => c.uid === targetUid);
+          if (target) {
+            applyPowerDelta(board, side, lane, targetUid, x, `${card.name} (Refuerzo)`, "buff");
+            logs.push({ side, text: `🛡️ ${card.name} (Refuerzo): +${x} a ${target.name}` });
+          }
+        }
+      }
+      break;
+    }
+
+    // ---- SANGRADO: -X al enemigo más fuerte del carril (via applyDebuff) ----
+    case "sangrado": {
+      if (x > 0) {
+        const target = highestPowerCard(board[lane][enemySide]);
+        if (target) {
+          const res = applyDebuff(board, enemySide, lane, target.uid, -x, card.name, "start_turn", {
+            sourceUid: card.uid, sourceSide: side, sourceLane: lane,
+          });
+          if (res.blockedByBaluarte || res.appliedDelta === 0) {
+            logs.push({ side, text: `🩸 ${card.name} (Sangrado): BLOQUEADO por Baluarte` });
+          } else {
+            logs.push({ side, text: `🩸 ${card.name} (Sangrado): ${res.appliedDelta} a ${target.name}` });
+          }
+        }
+      }
+      break;
+    }
+
+    // ---- VENTAJA: +X si ally power < enemy power (per-lane) ----
+    case "ventaja": {
+      if (x > 0) {
+        const allyTotal = calcLanePower(board[lane][side]);
+        const enemyTotal = calcLanePower(board[lane][enemySide]);
+        if (allyTotal < enemyTotal) {
+          applyPowerDelta(board, side, lane, card.uid, x, `${card.name} (Ventaja)`, "buff");
+          logs.push({ side, text: `⚖️ ${card.name} (Ventaja): +${x} (poder ${allyTotal} < ${enemyTotal})` });
+        }
+      }
+      break;
+    }
+
+    // ---- AISLADO: +X si es la única aliada en el carril ----
+    case "aislado": {
+      if (x > 0) {
+        const others = board[lane][side].filter((c) => c.uid !== card.uid);
+        if (others.length === 0) {
+          applyPowerDelta(board, side, lane, card.uid, x, `${card.name} (Aislado)`, "buff");
+          logs.push({ side, text: `🪨 ${card.name} (Aislado): +${x} (única aliada)` });
+        }
+      }
+      break;
+    }
+
+    // ---- EMBOSCADA: +X si el carril enemigo está lleno (4 cartas) ----
+    case "emboscada": {
+      if (x > 0) {
+        const enemyCount = board[lane][enemySide].length;
+        if (enemyCount >= 4) {
+          applyPowerDelta(board, side, lane, card.uid, x, `${card.name} (Emboscada)`, "buff");
+          logs.push({ side, text: `🎯 ${card.name} (Emboscada): +${x} (carril enemigo lleno)` });
+        }
+      }
+      break;
+    }
+
+    // ---- ECO: +X a cartas en mano que compartan subtipo o categoría ----
+    case "eco": {
+      if (x > 0 && hand.length > 0) {
+        let buffed = 0;
+        for (let i = 0; i < hand.length; i++) {
+          const hc = hand[i];
+          const sharesSubtype = hc.subtypes.some((s) => card.subtypes.includes(s));
+          const sharesCategory = hc.category === card.category;
+          if (sharesSubtype || sharesCategory) {
+            hand[i] = {
+              ...hc,
+              handBonus: (hc.handBonus ?? 0) + x,
+              handBonusSources: [
+                ...(hc.handBonusSources ?? []),
+                { source: `${card.name} (Eco)`, delta: x },
+              ],
+            };
+            buffed++;
+          }
+        }
+        if (buffed > 0) {
+          logs.push({ side, text: `🔁 ${card.name} (Eco): +${x} a ${buffed} carta(s) en mano` });
+        }
+      }
+      break;
+    }
+
+    // ---- TRANSFERENCIA: -X a aliado aquí, +X a aliado en otro carril ----
+    case "transferencia": {
+      if (x > 0) {
+        // Find weakest ally here (excluding self)
+        const candidates = board[lane][side].filter((c) => c.uid !== card.uid);
+        const weakest = lowestPowerCard(candidates);
+        // Find strongest ally in another lane
+        let strongestElsewhere: BoardCard | null = null;
+        let strongestLane: LaneId = lane;
+        for (const ln of LANE_IDS) {
+          if (ln === lane) continue;
+          for (const c of board[ln][side]) {
+            if (!strongestElsewhere || c.currentPower > strongestElsewhere.currentPower) {
+              strongestElsewhere = c;
+              strongestLane = ln;
+            }
+          }
+        }
+        if (weakest && strongestElsewhere) {
+          applyPowerDelta(board, side, lane, weakest.uid, -x, `${card.name} (Transferencia)`, "debuff");
+          applyPowerDelta(board, side, strongestLane, strongestElsewhere.uid, x, `${card.name} (Transferencia)`, "buff");
+          logs.push({ side, text: `➡️ ${card.name} (Transferencia): -${x} a ${weakest.name}, +${x} a ${strongestElsewhere.name}` });
+        }
+      }
+      break;
+    }
+
+    // ---- MIMETISMO: copia keyword+valor del aliado más fuerte ----
+    case "mimetismo": {
+      const candidates = board[lane][side].filter((c) => c.uid !== card.uid);
+      const strongest = highestPowerCard(candidates);
+      if (strongest && strongest.keyword && strongest.keyword !== "none") {
+        // Copy the strongest ally's keyword + keywordValue to self
+        const idx = board[lane][side].findIndex((c) => c.uid === card.uid);
+        if (idx >= 0) {
+          board[lane][side][idx] = {
+            ...board[lane][side][idx],
+            keyword: strongest.keyword,
+            keywordValue: strongest.keywordValue,
+          };
+          logs.push({ side, text: `🪞 ${card.name} (Mimetismo): copió ${strongest.keyword}[${strongest.keywordValue ?? "?"}] de ${strongest.name}` });
+        }
+      }
+      break;
+    }
+
+    // ---- VANGUARDIA: +X si es la primera carta del carril ----
+    case "vanguardia": {
+      if (x > 0) {
+        // Simplified: "first card in lane" = only ally in this lane.
+        // True "first card played this turn" would need gameStore turn tracking.
+        const others = board[lane][side].filter((c) => c.uid !== card.uid);
+        if (others.length === 0) {
+          applyPowerDelta(board, side, lane, card.uid, x, `${card.name} (Vanguardia)`, "buff");
+          logs.push({ side, text: `🚩 ${card.name} (Vanguardia): +${x} (primera carta del carril)` });
+        }
+      }
+      break;
+    }
+
+    // ---- PASSIVE/FLAG KEYWORDS: no effect to fire (checked dynamically) ----
+    // baluarte, sigilo, vinculo, muro, refugio, cupula, guardian, perforacion, enrabia, espinas
+    // These are handled by their respective systems (applyDebuff pipeline, applyReactionEffects, etc.)
+    default:
+      break;
+  }
 }
 
 /**
@@ -1411,9 +2389,32 @@ function applyPowerDelta(board: Board, side: "player" | "enemy", lane: LaneId, u
  * (e.g. grito_batalla giving +2 to hand-Furia cards each turn start, avatar_titan
  * gaining +1 per board card). Effect dispatch is filtered by `trigger === "start_turn"`.
  */
-export function applyStartTurnEffects(board: Board, side: "player" | "enemy"): TriggerResult {
+export function applyStartTurnEffects(board: Board, side: "player" | "enemy", hand: HandCard[] = []): TriggerResult {
   const newBoard = cloneBoard(board);
   const logs: TriggerResult["logs"] = [];
+
+  // ====== Etapa 2: refresh Cúpula pools at the start of each of the owner's turns.
+  // Cúpula is a PASSIVE keyword per spec, but its absorption pool refreshes each
+  // turn so it stays useful. We iterate over ALL cards on this side (not just
+  // those with trigger=start_turn) because Cúpula cards have trigger=passive.
+  // This must run BEFORE the trigger=start_turn dispatcher so a freshly refreshed
+  // Cúpula can absorb debuffs from start_turn effects that fire this tick.
+  for (const ln of LANE_IDS) {
+    const arr = newBoard[ln][side];
+    for (let i = 0; i < arr.length; i++) {
+      const c = arr[i];
+      if (c.keyword === "cupula" && c.keywordValue !== undefined) {
+        const before = c.cupulaRemaining ?? 0;
+        if (before !== c.keywordValue) {
+          arr[i] = { ...c, cupulaRemaining: c.keywordValue };
+          logs.push({
+            side,
+            text: `🛡️ ${c.name} (Cúpula): pool renovado a ${c.keywordValue} (era ${before})`,
+          });
+        }
+      }
+    }
+  }
 
   for (const lane of LANE_IDS) {
     for (const card of newBoard[lane][side]) {
@@ -1424,7 +2425,7 @@ export function applyStartTurnEffects(board: Board, side: "player" | "enemy"): T
           // +2 to other allies in this lane each turn
           for (const ally of newBoard[lane][side]) {
             if (ally.uid === card.uid) continue;
-            applyPowerDelta(newBoard, side, lane, ally.uid, 2);
+            applyPowerDelta(newBoard, side, lane, ally.uid, 2, card.name, "start_turn");
           }
           logs.push({
             side,
@@ -1440,7 +2441,7 @@ export function applyStartTurnEffects(board: Board, side: "player" | "enemy"): T
           );
           const gain = Math.min(5, total);
           if (gain > 0) {
-            applyPowerDelta(newBoard, side, lane, card.uid, gain);
+            applyPowerDelta(newBoard, side, lane, card.uid, gain, card.name, "start_turn");
             logs.push({
               side,
               text: `🌅 ${card.name}: +${gain} (1 por carta en mesa, Inicio de Turno)`,
@@ -1448,9 +2449,17 @@ export function applyStartTurnEffects(board: Board, side: "player" | "enemy"): T
           }
           break;
         }
+        // NOTE: sangrado case removed — now handled by fireKeywordEffects() below.
+        // This avoids double-firing (effectId switch + fireKeywordEffects).
         default:
           break;
       }
+      // ====== FIRE KEYWORD EFFECTS (start_turn) ======
+      // Generic keyword dispatcher — fires ANY keyword's effect at start_turn.
+      // Replaces the old inline Refuerzo check (now handled by fireKeywordEffects).
+      fireKeywordEffects(newBoard, side, lane, card, hand, logs);
+      // Etapa 3: Frenesí fires after the main start_turn effect.
+      triggerFrenesiIfApplicable(newBoard, side, lane, card.uid, card.name, "Inicio de Turno", logs);
     }
   }
 
@@ -1461,7 +2470,7 @@ export function applyStartTurnEffects(board: Board, side: "player" | "enemy"): T
  * Fire all END_TURN effects on the board for the given side.
  * Fires just before scoring the lane. Examples: renewal, small heals, card draw.
  */
-export function applyEndTurnEffects(board: Board, side: "player" | "enemy"): TriggerResult {
+export function applyEndTurnEffects(board: Board, side: "player" | "enemy", hand: HandCard[] = []): TriggerResult {
   const newBoard = cloneBoard(board);
   const logs: TriggerResult["logs"] = [];
 
@@ -1473,7 +2482,7 @@ export function applyEndTurnEffects(board: Board, side: "player" | "enemy"): Tri
           // +1 to all ally Items in this lane at end of turn
           for (const ally of newBoard[lane][side]) {
             if (ally.category === "Ítem") {
-              applyPowerDelta(newBoard, side, lane, ally.uid, 1);
+              applyPowerDelta(newBoard, side, lane, ally.uid, 1, card.name, "end_turn");
             }
           }
           logs.push({
@@ -1484,7 +2493,7 @@ export function applyEndTurnEffects(board: Board, side: "player" | "enemy"): Tri
         }
         case "grito_batalla": {
           // +1 to self at end of turn (steady growth)
-          applyPowerDelta(newBoard, side, lane, card.uid, 1);
+          applyPowerDelta(newBoard, side, lane, card.uid, 1, card.name, "end_turn");
           logs.push({
             side,
             text: `🌇 ${card.name}: +1 a sí mismo (Fin de Turno)`,
@@ -1505,6 +2514,10 @@ export function applyEndTurnEffects(board: Board, side: "player" | "enemy"): Tri
         default:
           break;
       }
+      // ====== FIRE KEYWORD EFFECTS (end_turn) ======
+      fireKeywordEffects(newBoard, side, lane, card, hand, logs);
+      // Etapa 3: Frenesí fires after the main end_turn effect.
+      triggerFrenesiIfApplicable(newBoard, side, lane, card.uid, card.name, "Fin de Turno", logs);
     }
   }
 
@@ -1539,7 +2552,7 @@ export function applyPassiveEffects(board: Board): TriggerResult {
             for (const ally of newBoard[lane][side]) {
               if (ally.uid === card.uid) continue;
               if (ally.category === "Ítem") {
-                applyPowerDelta(newBoard, side, lane, ally.uid, 1);
+                applyPowerDelta(newBoard, side, lane, ally.uid, 1, card.name, "passive");
                 buffed++;
               }
             }
@@ -1557,7 +2570,7 @@ export function applyPassiveEffects(board: Board): TriggerResult {
             for (const ln of LANE_IDS) {
               for (const ally of newBoard[ln][side]) {
                 if (ally.uid === card.uid) continue;
-                applyPowerDelta(newBoard, side, ln, ally.uid, 1);
+                applyPowerDelta(newBoard, side, ln, ally.uid, 1, card.name, "passive");
                 buffed++;
               }
             }
@@ -1577,7 +2590,7 @@ export function applyPassiveEffects(board: Board): TriggerResult {
             let buffed = 0;
             for (const ally of newBoard[lane][side]) {
               if (ally.uid === card.uid) continue;
-              applyPowerDelta(newBoard, side, lane, ally.uid, 1);
+              applyPowerDelta(newBoard, side, lane, ally.uid, 1, card.name, "passive");
               buffed++;
             }
             if (buffed > 0) {
@@ -1596,7 +2609,7 @@ export function applyPassiveEffects(board: Board): TriggerResult {
             );
             if (itemAllies.length > 0) {
               const totalGain = x * itemAllies.length;
-              applyPowerDelta(newBoard, side, lane, card.uid, totalGain);
+              applyPowerDelta(newBoard, side, lane, card.uid, totalGain, card.name, "passive");
               logs.push({
                 side,
                 text: `🔗 ${card.name} (Vínculo): +${totalGain} (${x} × ${itemAllies.length} Ítem(s) en ${lane})`,
@@ -1622,7 +2635,7 @@ export function applyPassiveEffects(board: Board): TriggerResult {
             const x = card.keywordValue ?? 2;
             const weakest = lowestPowerCard(newBoard[lane][side].filter((c) => c.uid !== card.uid));
             if (weakest) {
-              applyPowerDelta(newBoard, side, lane, weakest.uid, Math.min(x, 2));
+              applyPowerDelta(newBoard, side, lane, weakest.uid, Math.min(x, 2), card.name, "passive");
               logs.push({
                 side,
                 text: `⛺ ${card.name} (Refugio): +${Math.min(x, 2)} a ${weakest.name}`,
@@ -1675,30 +2688,46 @@ export function applyOnDeathEffects(
 
   switch (deadCard.effectId) {
     case "seccionar": {
-      // -3 to strongest enemy in this lane on death
+      // -3 to strongest enemy in this lane on death (goes through the defensive pipeline:
+      // Guardián/Baluarte/Cúpula may reduce or redirect the debuff).
       const target = highestPowerCard(newBoard[lane][enemySide]);
       if (target) {
-        applyPowerDelta(newBoard, enemySide, lane, target.uid, -3);
-        logs.push({
-          side,
-          text: `💀 ${deadCard.name}: -3 al enemigo más fuerte del carril ${lane} (Último Aliento)`,
+        const res = applyDebuff(newBoard, enemySide, lane, target.uid, -3, deadCard.name, "on_death", {
+          // Source is the dying card — no UID/position on the board anymore,
+          // so reactions that need a source (Espinas) can't fire.
+          // But Cúpula/Baluarte/Guardián will still apply.
         });
+        if (res.blockedByBaluarte || res.appliedDelta === 0) {
+          logs.push({
+            side,
+            text: `💀 ${deadCard.name}: -3 a ${target.name} fue BLOQUEADO (Baluarte) en carril ${lane}`,
+          });
+        } else {
+          logs.push({
+            side,
+            text: `💀 ${deadCard.name}: ${res.appliedDelta} a ${target.name} en carril ${lane} (Último Aliento, post-prevención)`,
+          });
+        }
       }
       break;
     }
     case "filotormenta": {
-      // -1 to ALL enemies on board on death
+      // -1 to ALL enemies on board on death (each debuff goes through the pipeline)
       let debuffed = 0;
+      let blocked = 0;
       for (const ln of LANE_IDS) {
-        for (const e of newBoard[ln][enemySide]) {
-          applyPowerDelta(newBoard, enemySide, ln, e.uid, -1);
-          debuffed++;
+        // Snapshot the UIDs first since applyDebuff may mutate the array.
+        const enemyUids = newBoard[ln][enemySide].map((c) => c.uid);
+        for (const eUid of enemyUids) {
+          const res = applyDebuff(newBoard, enemySide, ln, eUid, -1, deadCard.name, "on_death", {});
+          if (res.blockedByBaluarte || res.appliedDelta === 0) blocked++;
+          else debuffed++;
         }
       }
-      if (debuffed > 0) {
+      if (debuffed > 0 || blocked > 0) {
         logs.push({
           side,
-          text: `💀 ${deadCard.name}: -1 a ${debuffed} enemigo(s) en mesa (Último Aliento)`,
+          text: `💀 ${deadCard.name}: -1 a ${debuffed} enemigo(s) en mesa${blocked > 0 ? `, ${blocked} bloqueado(s) por Baluarte` : ""} (Último Aliento)`,
         });
       }
       break;
@@ -1708,7 +2737,7 @@ export function applyOnDeathEffects(
       const x = deadCard.keywordValue ?? 3;
       const target = lowestPowerCard(newBoard[lane][side]);
       if (target) {
-        applyPowerDelta(newBoard, side, lane, target.uid, x);
+        applyPowerDelta(newBoard, side, lane, target.uid, x, deadCard.name, "on_death");
         logs.push({
           side,
           text: `💀 ${deadCard.name}: +${x} a ${target.name} (Último Aliento)`,
@@ -1747,11 +2776,49 @@ export function applyOnDeathEffects(
 }
 
 /**
+ * CHECK RETORNO — fire when a card's power drops to ≤ its retorno keywordValue.
+ * Removes the card from the board and adds it to the hand with cost 0.
+ * Called from gameStore after each major board mutation (play, end_turn, start_turn, AI play).
+ */
+export function checkRetorno(
+  board: Board,
+  hand: HandCard[],
+  side: "player" | "enemy",
+  logs: TriggerResult["logs"] = [],
+): { board: Board; hand: HandCard[] } {
+  const newBoard = cloneBoard(board);
+  const newHand = [...hand];
+
+  for (const lane of LANE_IDS) {
+    const arr = newBoard[lane][side];
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const card = arr[i];
+      if (card.keyword === "retorno" && card.keywordValue && card.currentPower <= card.keywordValue) {
+        // Return to hand with cost 0
+        arr.splice(i, 1);
+        newHand.push({
+          ...card,
+          uid: uuidv4(),
+          cost: 0,
+          handBonus: 0,
+          costReduction: undefined,
+          costReductionSources: undefined,
+          powerLog: [],
+        });
+        logs.push({ side, text: `🔄 ${card.name} (Retorno): poder ${card.currentPower} ≤ ${card.keywordValue}, regresa a mano con coste 0` });
+      }
+    }
+  }
+
+  return { board: newBoard, hand: newHand };
+}
+
+/**
  * Check UMBRAL triggers on the board. Fires each card whose `umbralCondition`
  * is now satisfied (and hasn't already fired). Marks the card so it doesn't
  * fire again. Returns the new board + log entries + list of fired cards.
  */
-export function checkUmbralTriggers(board: Board): TriggerResult {
+export function checkUmbralTriggers(board: Board, hand: HandCard[] = []): TriggerResult {
   const newBoard = cloneBoard(board);
   const logs: TriggerResult["logs"] = [];
   const umbralFired: TriggerResult["umbralFired"] = [];
@@ -1759,19 +2826,38 @@ export function checkUmbralTriggers(board: Board): TriggerResult {
   for (const lane of LANE_IDS) {
     for (const side of ["player", "enemy"] as const) {
       for (const card of newBoard[lane][side]) {
-        if (card.trigger !== "umbral") continue;
+        if (card.trigger !== "despertar") continue;
         if (card.umbralTriggered) continue;
         const threshold = card.umbralCondition?.powerThreshold;
         if (threshold === undefined) continue;
         if (card.currentPower >= threshold) {
           // Fire: +5 permanent bonus to self (one-shot)
-          applyPowerDelta(newBoard, side, lane, card.uid, 5);
-          card.umbralTriggered = true;
+          applyPowerDelta(newBoard, side, lane, card.uid, 5, card.name, "despertar");
+          // applyPowerDelta REPLACES the array element with a new object (via
+          // spread), so `card` now points to the OLD object. We must find the
+          // new array element by uid to set umbralTriggered on it, otherwise
+          // the trigger would re-fire every turn (pre-existing bug fixed here).
+          const arrAfter = newBoard[lane][side];
+          const idxAfter = arrAfter.findIndex((c) => c.uid === card.uid);
+          if (idxAfter >= 0) {
+            arrAfter[idxAfter] = { ...arrAfter[idxAfter], umbralTriggered: true };
+          }
           umbralFired.push({ side, lane, uid: card.uid });
           logs.push({
             side,
             text: `🔥 ${card.name} despierta! Superó ${threshold} de poder: +5 (Despertar)`,
           });
+          // Etapa 3: Frenesí fires after the umbral +5 bonus.
+          // Re-read the card from the array (applyPowerDelta replaced it).
+          const cardAfter = newBoard[lane][side].find((c) => c.uid === card.uid);
+          if (cardAfter) {
+            // ====== FIRE KEYWORD EFFECTS (despertar) ======
+            // Generic keyword dispatcher — fires ANY keyword's effect when despertar triggers.
+            // E.g. Tótem Sangriento (trigger=despertar, keyword=celeridad) will now
+            // fire Celeridity when its power threshold is met.
+            fireKeywordEffects(newBoard, side, lane, cardAfter, side === "player" ? hand : [], logs);
+            triggerFrenesiIfApplicable(newBoard, side, lane, cardAfter.uid, cardAfter.name, "Despertar", logs);
+          }
         }
       }
     }

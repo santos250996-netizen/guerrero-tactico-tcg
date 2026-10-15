@@ -25,6 +25,22 @@ const RARITY_TEXT_COLOR: Record<string, string> = {
   legendary: "text-amber-300",
 };
 
+// PowerLogEntry kind → emoji + label + color (for the Registro de Modificadores panel)
+const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { emoji: string; label: string; text: string; bg: string; border: string }> = {
+  synergy:   { emoji: "🔗", label: "Sinergia",       text: "text-sky-300",     bg: "bg-sky-950/70",     border: "border-sky-500/40" },
+  field:      { emoji: "🗺️", label: "Campo",          text: "text-amber-300",  bg: "bg-amber-950/70",   border: "border-amber-500/40" },
+  effect:     { emoji: "✨", label: "Efecto",         text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
+  buff:       { emoji: "⬆️", label: "Mejora",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+  debuff:     { emoji: "⬇️", label: "Reducción",      text: "text-rose-300",   bg: "bg-rose-950/70",    border: "border-rose-500/40" },
+  trap:       { emoji: "🪤", label: "Trampa",        text: "text-rose-400",   bg: "bg-rose-950/80",   border: "border-rose-400/50" },
+  despertar:  { emoji: "🔥", label: "Despertar",     text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
+  passive:    { emoji: "♾️", label: "Pasivo",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+  start_turn: { emoji: "🌅", label: "Inicio turno",   text: "text-amber-300",  bg: "bg-amber-950/70",  border: "border-amber-500/40" },
+  end_turn:   { emoji: "🌇", label: "Fin turno",      text: "text-violet-300", bg: "bg-violet-950/70", border: "border-violet-500/40" },
+  on_death:   { emoji: "💀", label: "Al morir",       text: "text-rose-300",   bg: "bg-rose-950/70",   border: "border-rose-500/40" },
+  hand:       { emoji: "✋", label: "En mano",        text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+};
+
 export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   if (!card) return null;
   const cat = CATEGORY_META[card.category];
@@ -34,6 +50,27 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
   const keyword = card.keyword ?? "none";
   const keywordMeta = KEYWORD_META[keyword];
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
+
+  // ====== POWER MODIFIERS COMPUTATION ======
+  // Effective power = currentPower (board) or power + handBonus (hand) or just power.
+  const basePower = card.basePower ?? card.power;
+  const effectivePower = card.currentPower ?? (card.power + (card.handBonus ?? 0));
+  const powerDelta = effectivePower - basePower;
+  const isBuffed = powerDelta > 0;
+  const isDebuffed = powerDelta < 0;
+
+  // Unified modifiers list — board cards use `powerLog`, hand cards use `handBonusSources`.
+  // Each entry: { source, delta, kind }
+  type ModEntry = { source: string; delta: number; kind: PowerLogEntry["kind"] };
+  const modifiers: ModEntry[] = [];
+  if (card.powerLog && card.powerLog.length > 0) {
+    for (const e of card.powerLog) modifiers.push({ source: e.source, delta: e.delta, kind: e.kind });
+  } else if (card.handBonusSources && card.handBonusSources.length > 0) {
+    for (const e of card.handBonusSources) modifiers.push({ source: e.source, delta: e.delta, kind: "hand" });
+  } else if (card.handBonus && card.handBonus !== 0) {
+    // Fallback if sources weren't broken down — show a single aggregate entry.
+    modifiers.push({ source: keyword !== "none" ? keywordMeta.label : "Bonificador en mano", delta: card.handBonus, kind: "hand" });
+  }
 
   // Close handler — single tap anywhere (including the card) closes the modal.
   const close = () => onOpenChange(false);
@@ -66,8 +103,10 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             close();
           }}
           className={cn(
-            "relative mx-auto flex h-[28rem] w-56 cursor-pointer flex-col overflow-hidden rounded-2xl border-2 shadow-2xl shadow-black/90",
+            "relative mx-auto flex w-56 cursor-pointer flex-col overflow-hidden rounded-2xl border-2 shadow-2xl shadow-black/90",
             "bg-zinc-950",
+            // Auto-grow height: base 28rem + extra for the Registro panel when there are modifiers.
+            modifiers.length > 0 ? "h-[34rem]" : "h-[28rem]",
             card.rarity === "common" ? "border-zinc-500"
             : card.rarity === "rare" ? "border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)]"
             : card.rarity === "epic" ? "border-violet-400 shadow-[0_0_18px_rgba(168,85,247,0.4)]"
@@ -78,29 +117,6 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 8px rgba(0,0,0,0.6), 0 18px 40px rgba(0,0,0,0.8)",
           }}
         >
-          {/* Wrapper for outside chips: positive RIGHT, negative LEFT */}
-          <div className="pointer-events-none absolute inset-0 z-40">
-            {/* Positive chips — RIGHT side, outside card border */}
-            {card.powerLog && card.powerLog.filter(e => e.delta > 0).length > 0 && (
-              <div className="absolute left-full top-12 flex flex-col gap-1 pl-1">
-                {card.powerLog.filter(e => e.delta > 0).map((entry, i) => (
-                  <div key={i} className="flex items-center gap-0.5 rounded-md border border-emerald-400/50 bg-emerald-950/90 px-1.5 py-0.5 text-[8px] font-bold text-emerald-300 shadow-md backdrop-blur-sm whitespace-nowrap">
-                    {entry.source} +{entry.delta}
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* Negative chips — LEFT side, outside card border */}
-            {card.powerLog && card.powerLog.filter(e => e.delta < 0).length > 0 && (
-              <div className="absolute right-full top-12 flex flex-col items-end gap-1 pr-1">
-                {card.powerLog.filter(e => e.delta < 0).map((entry, i) => (
-                  <div key={i} className="flex items-center gap-0.5 rounded-md border border-rose-400/50 bg-rose-950/90 px-1.5 py-0.5 text-[8px] font-bold text-rose-300 shadow-md backdrop-blur-sm whitespace-nowrap">
-                    {entry.source} {entry.delta}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
           {/* Full-bleed art */}
           <img
             src={`/cards/${card.id}.png`}
@@ -117,9 +133,20 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             <CostBadge cost={card.cost} size="lg" />
           </div>
 
-          {/* Power badge (top-right) — shield */}
-          <div className="absolute right-2 top-2 z-30">
-            <PowerBadge power={card.power} size="lg" />
+          {/* Power badge (top-right) — shield, shows EFFECTIVE power (currentPower on board, power+handBonus in hand). */}
+          <div className="absolute right-2 top-2 z-30 flex flex-col items-end gap-0.5">
+            <PowerBadge power={effectivePower} size="lg" />
+            {/* Delta chip — only when effective ≠ base */}
+            {powerDelta !== 0 && (
+              <div className={cn(
+                "rounded-full border px-1.5 py-0.5 text-[9px] font-black tabular-nums whitespace-nowrap backdrop-blur-sm shadow-md",
+                isBuffed
+                  ? "border-emerald-300/70 bg-emerald-900/80 text-emerald-200"
+                  : "border-rose-300/70 bg-rose-900/80 text-rose-200"
+              )}>
+                {isBuffed ? "+" : ""}{powerDelta}
+              </div>
+            )}
           </div>
 
           {/* Bottom info panel overlay */}
@@ -180,7 +207,13 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               )}
             </div>
 
-            {/* Effect explanation — blood-stained parchment style */}
+            {/* Effect explanation — blood-stained parchment style.
+                Content: the card's per-card `text` field (specific behavior description
+                in Spanish). The old generic TRIGGER_META/KEYWORD_META descriptions were
+                removed because the `text` field is more specific and already mentions
+                exact numbers and conditions. The umbralCondition line is kept because
+                it's dynamic (depends on the card's powerThreshold) and not always
+                encoded in the `text` field. */}
             <div
               className="rounded-md border border-red-900/40 px-2 py-1.5 text-[11px] leading-snug shadow-inner backdrop-blur-sm"
               style={{
@@ -191,17 +224,8 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                 backgroundImage: "linear-gradient(to bottom, rgba(245, 230, 210, 0.95) 0%, rgba(220, 200, 175, 0.95) 40%, rgba(200, 170, 140, 0.92) 100%), radial-gradient(ellipse at 20% 30%, rgba(120, 20, 20, 0.15) 0%, transparent 40%), radial-gradient(ellipse at 80% 70%, rgba(100, 15, 15, 0.12) 0%, transparent 35%)",
               }}
             >
-              <div>
-                <span className="font-bold">{triggerMeta.emoji} {triggerMeta.label}:</span>{" "}
-                <span>{triggerMeta.description}</span>
-              </div>
-              {keyword !== "none" && (
-                <div className="mt-1">
-                  <span className="font-bold">{keywordMeta.emoji} {keywordMeta.label}</span>
-                  {keywordMeta.hasValue && card.keywordValue ? ` [${card.keywordValue}]` : ""}
-                  <span className="font-bold">:</span>{" "}
-                  <span>{keywordMeta.description}</span>
-                </div>
+              {card.text && (
+                <div className="italic">{card.text}</div>
               )}
               {card.umbralCondition && (
                 <div className="mt-1">
@@ -210,6 +234,53 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                 </div>
               )}
             </div>
+
+            {/* ====== REGISTRO DE MODIFICADORES ====== */}
+            {modifiers.length > 0 && (
+              <div className="mt-1 rounded-md border border-amber-700/40 bg-black/80 px-1.5 py-1 backdrop-blur-sm">
+                {/* Minimal header: just emoji + count */}
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500">⚙️ {modifiers.length} modificadores</span>
+                </div>
+
+                {/* Thin power bar */}
+                <div className="mb-1 flex h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                  <div className="bg-zinc-600" style={{ width: `${basePower > 0 ? (basePower / Math.max(basePower, effectivePower, 1)) * 100 : 0}%` }} />
+                  {modifiers.filter(m => m.delta > 0).reduce((a, m) => a + m.delta, 0) > 0 && (
+                    <div className="bg-emerald-500" style={{ width: `${(modifiers.filter(m => m.delta > 0).reduce((a, m) => a + m.delta, 0) / Math.max(basePower, effectivePower, 1)) * 100}%` }} />
+                  )}
+                  {modifiers.filter(m => m.delta < 0).reduce((a, m) => a + Math.abs(m.delta), 0) > 0 && (
+                    <div className="bg-rose-600" style={{ width: `${(modifiers.filter(m => m.delta < 0).reduce((a, m) => a + Math.abs(m.delta), 0) / Math.max(basePower, effectivePower, 1)) * 100}%` }} />
+                  )}
+                </div>
+
+                {/* Clean modifier list — just emoji + source + delta, no kind label */}
+                <ul className="space-y-0.5">
+                  {modifiers.map((m, i) => {
+                    const km = KIND_META[m.kind] ?? KIND_META.effect;
+                    const positive = m.delta > 0;
+                    return (
+                      <li key={i} className="flex items-center gap-1 text-[10px] leading-none">
+                        <span className="shrink-0 text-[10px]">{km.emoji}</span>
+                        <span className="flex-1 truncate text-zinc-400">{m.source}</span>
+                        <span className={cn("shrink-0 font-bold tabular-nums", positive ? "text-emerald-400" : "text-rose-400")}>
+                          {positive ? "+" : ""}{m.delta}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {/* Minimal footer: just numbers */}
+                <div className="mt-1 flex items-center justify-end gap-1 border-t border-white/5 pt-0.5 text-[10px] font-bold tabular-nums">
+                  <span className="text-zinc-600">{basePower}</span>
+                  <span className="text-zinc-700">→</span>
+                  <span className={cn(isBuffed ? "text-emerald-400" : isDebuffed ? "text-rose-400" : "text-zinc-300")}>
+                    {effectivePower}
+                  </span>
+                </div>
+              </div>
+            )}
 
           </div>
         </motion.div>
