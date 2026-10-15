@@ -163,9 +163,17 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               )}
             </div>
 
-            {/* Effect explanation — shows what the TRIGGER and KEYWORD mean.
-                This teaches players the keyword definitions by repetition. */}
-            <div className="rounded-md border border-amber-200/30 bg-gradient-to-b from-amber-50/95 to-amber-100/95 px-2 py-1.5 text-[11px] leading-snug text-zinc-900 shadow-inner backdrop-blur-sm" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+            {/* Effect explanation — blood-stained parchment style */}
+            <div
+              className="rounded-md border border-red-900/40 px-2 py-1.5 text-[11px] leading-snug shadow-inner backdrop-blur-sm"
+              style={{
+                fontFamily: "Georgia, 'Times New Roman', serif",
+                background: "linear-gradient(to bottom, rgba(245, 230, 210, 0.95) 0%, rgba(220, 200, 175, 0.95) 40%, rgba(200, 170, 140, 0.92) 100%)",
+                color: "#3b0a0a",
+                boxShadow: "inset 0 0 12px rgba(120, 20, 20, 0.25), inset 0 0 3px rgba(80, 10, 10, 0.4)",
+                backgroundImage: "linear-gradient(to bottom, rgba(245, 230, 210, 0.95) 0%, rgba(220, 200, 175, 0.95) 40%, rgba(200, 170, 140, 0.92) 100%), radial-gradient(ellipse at 20% 30%, rgba(120, 20, 20, 0.15) 0%, transparent 40%), radial-gradient(ellipse at 80% 70%, rgba(100, 15, 15, 0.12) 0%, transparent 35%)",
+              }}
+            >
               <div>
                 <span className="font-bold">{triggerMeta.emoji} {triggerMeta.label}:</span>{" "}
                 <span>{triggerMeta.description}</span>
