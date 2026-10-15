@@ -1592,17 +1592,17 @@ export function applyPassiveEffects(board: Board): TriggerResult {
             break;
           }
           case "vinculo": {
-            // 16 Vínculo [X]: passive - if another same-category card here, both +X
+            // 16 Vínculo [X]: passive - gana +X por cada carta de Ítem en el carril
             const x = card.keywordValue ?? 2;
-            const sameCategoryAlly = newBoard[lane][side].find(
-              (c) => c.uid !== card.uid && c.category === card.category
+            const itemAllies = newBoard[lane][side].filter(
+              (c) => c.uid !== card.uid && c.category === "Ítem"
             );
-            if (sameCategoryAlly) {
-              applyPowerDelta(newBoard, side, lane, sameCategoryAlly.uid, x);
-              applyPowerDelta(newBoard, side, lane, card.uid, x);
+            if (itemAllies.length > 0) {
+              const totalGain = x * itemAllies.length;
+              applyPowerDelta(newBoard, side, lane, card.uid, totalGain);
               logs.push({
                 side,
-                text: `🔗 ${card.name} (Vínculo): +${x} a sí mismo y a ${sameCategoryAlly.name}`,
+                text: `🔗 ${card.name} (Vínculo): +${totalGain} (${x} × ${itemAllies.length} Ítem(s) en ${lane})`,
               });
             }
             break;

@@ -55,7 +55,7 @@ CATALOG = [
      "On Play: Trampa 3 (Si el rival juega una carta en este carril, le resta -3 de poder).",
      "trampa", 3, "trampa_eterea", "on_play", None),
     ("Orden de Cohesión", "Acción", "proteccion", 1, 2.0,
-     "Pasivo: Vínculo +3 (Gana +3 de poder por cada Ítem equipado en tus aliados).",
+     "Pasivo: Vínculo +3 (Gana +3 de poder por cada carta de Ítem en el carril).",
      "vinculo", 3, "vinculo", "passive", None),
     ("Embestida con Escudo", "Ataque", "proteccion,armas", 2, 5.5,
      "Pasivo: Muro (Obliga a los enemigos de este carril a atacarla antes que a tus otras cartas).",

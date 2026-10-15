@@ -209,7 +209,7 @@ const FALANGE_INEXPUGNABLE: CardDef[] = [
     subtypes: ["proteccion"],
     cost: 1,
     power: 2,
-    text: "Pasivo: Vínculo +3 (Gana +3 de poder por cada Ítem equipado en tus aliados).",
+    text: "Pasivo: Vínculo +3 (Gana +3 de poder por cada carta de Ítem en el carril).",
     effectId: "vinculo",
     rarity: "common",
     keyword: "vinculo",
