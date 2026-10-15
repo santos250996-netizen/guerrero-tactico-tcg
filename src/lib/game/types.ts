@@ -218,7 +218,7 @@ export const KEYWORD_META: Record<
   },
   vanguardia: {
     label: "Vanguardia", short: "VANG", emoji: "🚩", color: "text-sky-300",
-    description: "Se activa solo si es la primera carta que juegas en tu turno. Gana +X de poder.",
+    description: "Se activa si es la primera carta en tu lado de este carril. Gana +X de poder.",
     trigger: "on_play", hasValue: true,
   },
   aislado: {

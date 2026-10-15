@@ -592,10 +592,7 @@ function applyEffectLogic(
     }
 
     case "vanguardia": {
-      // 09 Vanguardia [X]: +X if first card played this turn.
-      // Engine can't track turn history; gameStore could pass a flag via ctx,
-      // but for simplicity we approximate: +X if no allies in this lane yet
-      // (proxy for "first card this turn" since most plays add to lane).
+      // 09 Vanguardia [X]: +X si es la primera carta en tu lado de este carril.
       const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
       if (allyLane.length === 0) accum.bonusPower += x;
       break;
