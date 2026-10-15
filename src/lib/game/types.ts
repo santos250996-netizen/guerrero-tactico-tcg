@@ -331,6 +331,15 @@ export interface CardDef {
   keywordValue?: number;
 }
 
+export interface PowerLogEntry {
+  /** Source of the change — card name, "Sinergia", "Campo", "Trampa", etc. */
+  source: string;
+  /** +X or -X power delta */
+  delta: number;
+  /** Type of effect for icon/color */
+  kind: "synergy" | "field" | "effect" | "buff" | "debuff" | "trap" | "umbral" | "passive" | "start_turn" | "end_turn" | "on_death" | "hand";
+}
+
 export interface BoardCard {
   uid: string;
   defId: string;
@@ -355,6 +364,8 @@ export interface BoardCard {
   keywordValue?: number;
   /** Sigilo protection: true during the card's first turn on the board (immune to direct enemy effects). */
   sigiloActive?: boolean;
+  /** Log of all power changes applied to this card (for the Registro button in preview). */
+  powerLog?: PowerLogEntry[];
 }
 
 export interface HandCard extends CardDef {

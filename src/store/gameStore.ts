@@ -10,6 +10,7 @@ import type {
   HandCard,
   LaneBonuses,
   LaneId,
+  PowerLogEntry,
 } from "@/lib/game/types";
 import {
   MAX_HAND_SIZE,
@@ -22,6 +23,7 @@ import {
   checkUmbralTriggers,
   computeFinalResult,
   emptyLaneTraps,
+  getLaneBonusPower,
   getFinalCost,
   getLaneMaxCards,
   isCardCostAllowed,
@@ -551,6 +553,30 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       const umbralRes = checkUmbralTriggers(triggerBoard);
       triggerBoard = umbralRes.board;
       log = pushTriggerLogs(log, state.turn, umbralRes);
+
+      // ====== POWER LOG TRACKING ======
+      const playedUid = res.playedCard.uid;
+      const _playedOnBoard = triggerBoard[lane]["player" as "player" | "enemy"].find(c => c.uid === playedUid)
+        ?? triggerBoard[lane]["enemy" as "player" | "enemy"].find(c => c.uid === playedUid);
+      if (_playedOnBoard) {
+        const pLog: PowerLogEntry[] = [];
+        if (card.handBonus) pLog.push({ source: "Bonificador en mano", delta: card.handBonus, kind: "hand" });
+        if (card.subtypes.includes(lane)) pLog.push({ source: "Sinergia de subtipo", delta: 2, kind: "synergy" });
+        const lbGain = getLaneBonusPower(card.category, laneBonus);
+        if (lbGain > 0) pLog.push({ source: `Campo: ${laneBonus?.label ?? ""}`, delta: lbGain, kind: "field" });
+        const effBonus = res.playedCard.currentPower - card.power - card.handBonus - (card.subtypes.includes(lane) ? 2 : 0) - lbGain;
+        if (effBonus !== 0) pLog.push({ source: "Efecto propio", delta: effBonus, kind: "effect" });
+        if (res.trapTriggered && activeTrap) pLog.push({ source: "Trampa enemiga", delta: -activeTrap.value, kind: "trap" });
+        _playedOnBoard.powerLog = pLog;
+      }
+      for (const m of res.mutations) {
+        const arr = triggerBoard[m.lane][m.side];
+        const tgt = arr.find(c => c.uid === m.uid);
+        if (tgt) {
+          if (!tgt.powerLog) tgt.powerLog = [];
+          tgt.powerLog.push({ source: card.name, delta: m.powerDelta, kind: m.powerDelta > 0 ? "buff" : "debuff" });
+        }
+      }
 
       set({
         board: triggerBoard,
