@@ -627,6 +627,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       const rxnRes = applyReactionEffects(triggerBoard, "enemy", playedEvent);
       log = pushTriggerLogs(log, state.turn, rxnRes);
 
+      // ====== Push keyword effect logs (celeridad target, eco target, etc.) ======
+      if (res.kwLogs && res.kwLogs.length > 0) {
+        log = pushTriggerLogs(log, state.turn, { logs: res.kwLogs });
+      }
+
       set({
         board: triggerBoard,
         hand: res.hand,

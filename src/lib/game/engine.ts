@@ -556,16 +556,14 @@ function applyEffectLogic(
       }
       if (target) {
         // ====== OFRENDA TRIGGER: fire the sacrificed card's keyword effects ======
-        // When a card with trigger="ofrenda" is SACRIFICED (not destroyed), its
-        // keyword effects fire before it's removed. E.g. a card with trigger=ofrenda
-        // + keyword=celeridad would reduce a random hand card's cost when sacrificed.
         if (target.trigger === "ofrenda") {
           fireKeywordEffects(ctx.board, side, lane, target, ctx.hand, []);
         }
         accum.removedCards.push({ side, lane, uid: target.uid, reason: "sacrificio" });
-        // Bonus is +X (the keyword value), per spec — NOT +X*2 (legacy double-bonus).
-        // The +X*2 was overcompensating and made auto-balance impossible.
-        accum.bonusPower += x;
+        // The +X bonus is now applied by fireKeywordEffects() (case "sacrificio")
+        // via applyPowerDelta, which creates a powerLog entry visible in the
+        // Registro de Modificadores. Previously this was accum.bonusPower += x
+        // which baked into finalPower without a powerLog entry.
       }
       break;
     }
@@ -590,54 +588,27 @@ function applyEffectLogic(
     }
 
     case "eco": {
-      // 06 Eco [X]: +X to all hand cards sharing subtype OR category
-      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 2;
-      for (const hc of ctx.hand) {
-        const sharesSubtype = hc.subtypes.some((s) => ctx.card.subtypes.includes(s));
-        const sharesCategory = hc.category === ctx.card.category;
-        if (sharesSubtype || sharesCategory) {
-          accum.handMutations.push({ uid: hc.uid, powerDelta: x });
-        }
-      }
+      // Now handled by fireKeywordEffects() — no-op here to avoid double-fire.
       break;
     }
 
     case "refuerzo": {
-      // 07 Refuerzo [X]: +X to ally card played immediately before (last in lane)
-      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
-      if (allyLane.length > 0) {
-        const lastAlly = allyLane[allyLane.length - 1];
-        accum.mutations.push({ side, lane, uid: lastAlly.uid, powerDelta: x });
-      }
+      // Now handled by fireKeywordEffects() — no-op here to avoid double-fire.
       break;
     }
 
     case "ventaja": {
-      // 17 Ventaja [X]: +X si tu poder total EN ESTE CARRIL es menor que el del rival en este carril.
-      // (Spec 2026-10 amendment: per-LANE power check, not global.)
-      // NOTE: this check runs at ON_PLAY time. For passive ventaja (e.g. Grito de
-      // Desafío with trigger=passive), the bonus is baked in at play time and does
-      // NOT recompute if lane power changes later. To support dynamic recompute,
-      // applyPassiveEffects would need to be called after each board mutation and
-      // re-evaluate the condition — left as future work.
-      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 4;
-      const allyTotal = calcLanePower(allyLane);
-      const enemyTotal = calcLanePower(enemyLane);
-      if (allyTotal < enemyTotal) accum.bonusPower += x;
+      // Now handled by fireKeywordEffects() — no-op here to avoid double-fire.
       break;
     }
 
     case "vanguardia": {
-      // 09 Vanguardia [X]: +X si es la primera carta en tu lado de este carril.
-      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
-      if (allyLane.length === 0) accum.bonusPower += x;
+      // Now handled by fireKeywordEffects() — no-op here to avoid double-fire.
       break;
     }
 
     case "aislado": {
-      // 10 Aislado [X]: +X while only ally in lane (i.e., no allies yet → will be first)
-      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 5;
-      if (allyLane.length === 0) accum.bonusPower += x;
+      // Now handled by fireKeywordEffects() — no-op here to avoid double-fire.
       break;
     }
 
@@ -729,35 +700,12 @@ function applyEffectLogic(
     }
 
     case "emboscada": {
-      // 23 Emboscada [X]: +X if enemy lane is full (4 cards)
-      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 5;
-      const maxCards = getLaneMaxCards(ctx.laneBonus);
-      if (enemyLane.length >= maxCards) accum.bonusPower += x;
+      // Now handled by fireKeywordEffects() — no-op here to avoid double-fire.
       break;
     }
 
     case "transferencia": {
-      // 24 Transferencia [X]: -X to ally here, +X to ally in another lane
-      const x = (ctx.card as CardDef & { keywordValue?: number }).keywordValue ?? 3;
-      const weakestAlly = lowestPowerCard(allyLane);
-      if (weakestAlly) {
-        accum.mutations.push({ side, lane, uid: weakestAlly.uid, powerDelta: -x });
-      }
-      // Find ally in another lane (prefer weakest)
-      let target2: BoardCard | null = null;
-      let target2Lane: LaneId | null = null;
-      for (const ln of LANE_IDS) {
-        if (ln === lane) continue;
-        for (const c of board[ln][side]) {
-          if (!target2 || c.currentPower < target2.currentPower) {
-            target2 = c;
-            target2Lane = ln;
-          }
-        }
-      }
-      if (target2 && target2Lane) {
-        accum.mutations.push({ side, lane: target2Lane, uid: target2.uid, powerDelta: x });
-      }
+      // Now handled by fireKeywordEffects() — no-op here to avoid double-fire.
       break;
     }
 
@@ -867,6 +815,8 @@ export interface PlayResult {
   trapTriggered: boolean;
   newTrap?: TrapState;
   energyNextTurnDelta?: number;
+  /** Logs from fireKeywordEffects (celeridad target, eco target, etc.) */
+  kwLogs?: { side: "player" | "enemy" | "system"; text: string }[];
 }
 
 /**
@@ -1049,7 +999,9 @@ export function playCard(
   // fire the card's keyword effects via the generic dispatcher.
   // This works for ANY keyword — celeridad (picks from newHand), mejora
   // (targets weakest ally), ventaja (checks per-lane power), etc.
-  fireKeywordEffects(newBoard, side, lane, newCard, newHand);
+  // Capture the logs so the caller (gameStore) can push them to the game log.
+  const kwLogs: { side: "player" | "enemy" | "system"; text: string }[] = [];
+  fireKeywordEffects(newBoard, side, lane, newCard, newHand, kwLogs);
 
   return {
     board: newBoard,
@@ -1062,6 +1014,7 @@ export function playCard(
     trapTriggered,
     newTrap: effect.newTrap,
     energyNextTurnDelta: effect.energyNextTurnDelta,
+    kwLogs,
   };
 }
 
@@ -2149,12 +2102,53 @@ function fireKeywordEffects(
   card: BoardCard,
   hand: HandCard[] = [],
   logs: TriggerResult["logs"] = [],
+  /** When true (called from start_turn/end_turn dispatchers), skip conditional
+   *  self-buff keywords (Ventaja, Aislado, Emboscada, Vanguardia, Mimetismo)
+   *  that would stack indefinitely if fired every turn. These should only fire
+   *  once at on_play or despertar (recurring=false). */
+  recurring = false,
 ): void {
   if (!card.keyword || card.keyword === "none") return;
   const x = card.keywordValue ?? 0;
   const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
 
+  // Skip conditional self-buff keywords when recurring (start_turn/end_turn).
+  // These would stack +X every turn if allowed to fire repeatedly.
+  if (recurring && (
+    card.keyword === "ventaja" ||
+    card.keyword === "aislado" ||
+    card.keyword === "emboscada" ||
+    card.keyword === "vanguardia" ||
+    card.keyword === "mimetismo"
+  )) {
+    return;
+  }
+
   switch (card.keyword) {
+    // ---- SACRIFICIO: +X a sí misma (el bonus por sacrificar un aliado) ----
+    case "sacrificio": {
+      if (x > 0) {
+        applyPowerDelta(board, side, lane, card.uid, x, `${card.name} (Sacrificio)`, "buff");
+        logs.push({ side, text: `🗡️ ${card.name} (Sacrificio): +${x} a sí misma` });
+      }
+      break;
+    }
+
+    // ---- REMATE: destruir enemigo con poder ≤ X ----
+    case "remate": {
+      if (x > 0) {
+        const target = highestPowerCard(board[lane][enemySide]);
+        if (target && target.currentPower <= x) {
+          // Mark for removal — but fireKeywordEffects doesn't have removedCards access.
+          // For now, just apply -target.currentPower to "destroy" it (set to 0).
+          // The gameStore should handle actual removal separately.
+          applyPowerDelta(board, enemySide, lane, target.uid, -target.currentPower, `${card.name} (Remate)`, "debuff");
+          logs.push({ side, text: `💀 ${card.name} (Remate): destruyó ${target.name} (poder ${target.currentPower} ≤ ${x})` });
+        }
+      }
+      break;
+    }
+
     // ---- CELERIDAD: reduce coste de carta ALEATORIA en mano ----
     case "celeridad": {
       if (x > 0 && hand.length > 0) {
@@ -2291,25 +2285,26 @@ function fireKeywordEffects(
     // ---- ECO: +X a cartas en mano que compartan subtipo o categoría ----
     case "eco": {
       if (x > 0 && hand.length > 0) {
-        let buffed = 0;
-        for (let i = 0; i < hand.length; i++) {
-          const hc = hand[i];
+        // Spec: +X to 1 RANDOM card in hand that shares subtype or category.
+        const matching = hand.filter((hc) => {
           const sharesSubtype = hc.subtypes.some((s) => card.subtypes.includes(s));
           const sharesCategory = hc.category === card.category;
-          if (sharesSubtype || sharesCategory) {
-            hand[i] = {
-              ...hc,
-              handBonus: (hc.handBonus ?? 0) + x,
+          return sharesSubtype || sharesCategory;
+        });
+        if (matching.length > 0) {
+          const target = matching[Math.floor(Math.random() * matching.length)];
+          const tIdx = hand.findIndex((c) => c.uid === target.uid);
+          if (tIdx >= 0) {
+            hand[tIdx] = {
+              ...target,
+              handBonus: (target.handBonus ?? 0) + x,
               handBonusSources: [
-                ...(hc.handBonusSources ?? []),
+                ...(target.handBonusSources ?? []),
                 { source: `${card.name} (Eco)`, delta: x },
               ],
             };
-            buffed++;
+            logs.push({ side, text: `🔁 ${card.name} (Eco): +${x} a ${target.name} en mano` });
           }
-        }
-        if (buffed > 0) {
-          logs.push({ side, text: `🔁 ${card.name} (Eco): +${x} a ${buffed} carta(s) en mano` });
         }
       }
       break;
@@ -2457,8 +2452,7 @@ export function applyStartTurnEffects(board: Board, side: "player" | "enemy", ha
       // ====== FIRE KEYWORD EFFECTS (start_turn) ======
       // Generic keyword dispatcher — fires ANY keyword's effect at start_turn.
       // Replaces the old inline Refuerzo check (now handled by fireKeywordEffects).
-      fireKeywordEffects(newBoard, side, lane, card, hand, logs);
-      // Etapa 3: Frenesí fires after the main start_turn effect.
+      fireKeywordEffects(newBoard, side, lane, card, hand, logs, true); // recurring=true: skip conditional buffs
       triggerFrenesiIfApplicable(newBoard, side, lane, card.uid, card.name, "Inicio de Turno", logs);
     }
   }
@@ -2515,8 +2509,7 @@ export function applyEndTurnEffects(board: Board, side: "player" | "enemy", hand
           break;
       }
       // ====== FIRE KEYWORD EFFECTS (end_turn) ======
-      fireKeywordEffects(newBoard, side, lane, card, hand, logs);
-      // Etapa 3: Frenesí fires after the main end_turn effect.
+      fireKeywordEffects(newBoard, side, lane, card, hand, logs, true); // recurring=true: skip conditional buffs
       triggerFrenesiIfApplicable(newBoard, side, lane, card.uid, card.name, "Fin de Turno", logs);
     }
   }

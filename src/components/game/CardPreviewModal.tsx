@@ -237,24 +237,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
 
             {/* ====== REGISTRO DE MODIFICADORES ====== */}
             {modifiers.length > 0 && (
-              <div className="mt-1 rounded-md border border-amber-700/40 bg-black/80 px-1.5 py-1 backdrop-blur-sm">
-                {/* Minimal header: just emoji + count */}
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500">⚙️ {modifiers.length} modificadores</span>
-                </div>
-
-                {/* Thin power bar */}
-                <div className="mb-1 flex h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-                  <div className="bg-zinc-600" style={{ width: `${basePower > 0 ? (basePower / Math.max(basePower, effectivePower, 1)) * 100 : 0}%` }} />
-                  {modifiers.filter(m => m.delta > 0).reduce((a, m) => a + m.delta, 0) > 0 && (
-                    <div className="bg-emerald-500" style={{ width: `${(modifiers.filter(m => m.delta > 0).reduce((a, m) => a + m.delta, 0) / Math.max(basePower, effectivePower, 1)) * 100}%` }} />
-                  )}
-                  {modifiers.filter(m => m.delta < 0).reduce((a, m) => a + Math.abs(m.delta), 0) > 0 && (
-                    <div className="bg-rose-600" style={{ width: `${(modifiers.filter(m => m.delta < 0).reduce((a, m) => a + Math.abs(m.delta), 0) / Math.max(basePower, effectivePower, 1)) * 100}%` }} />
-                  )}
-                </div>
-
-                {/* Clean modifier list — just emoji + source + delta, no kind label */}
+              <div className="mt-1 px-0.5">
                 <ul className="space-y-0.5">
                   {modifiers.map((m, i) => {
                     const km = KIND_META[m.kind] ?? KIND_META.effect;
@@ -270,9 +253,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                     );
                   })}
                 </ul>
-
-                {/* Minimal footer: just numbers */}
-                <div className="mt-1 flex items-center justify-end gap-1 border-t border-white/5 pt-0.5 text-[10px] font-bold tabular-nums">
+                <div className="mt-0.5 flex items-center justify-end gap-1 border-t border-white/5 pt-0.5 text-[10px] font-bold tabular-nums">
                   <span className="text-zinc-600">{basePower}</span>
                   <span className="text-zinc-700">→</span>
                   <span className={cn(isBuffed ? "text-emerald-400" : isDebuffed ? "text-rose-400" : "text-zinc-300")}>
