@@ -217,7 +217,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.enemy[i];
           if (card) {
-            return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
+            return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, umbralCondition: bc.umbralCondition })} />;
           }
           return <div key={`enemy-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
         })}
@@ -278,7 +278,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.player[i];
           if (card) {
-            return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity })} />;
+            return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, umbralCondition: bc.umbralCondition })} />;
           }
           return <div key={`player-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
         })}
