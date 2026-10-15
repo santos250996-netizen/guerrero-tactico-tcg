@@ -70,7 +70,23 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
         {card.currentPower}
       </div>
 
-      {/* Buff/debuff indicator */}
+      {/* Floating effect chips on right side (from powerLog) */}
+      {card.powerLog && card.powerLog.length > 0 && (
+        <div className="absolute right-0.5 top-5 z-30 flex flex-col gap-0.5">
+          {card.powerLog.slice(0, 4).map((entry, i) => (
+            <div key={i} className={cn(
+              "flex items-center gap-0.5 rounded border px-0.5 py-0 text-[5px] font-bold uppercase tracking-wide backdrop-blur-sm shadow",
+              entry.delta > 0
+                ? "border-emerald-400/40 bg-emerald-950/80 text-emerald-300"
+                : "border-rose-400/40 bg-rose-950/80 text-rose-300"
+            )}>
+              {entry.delta > 0 ? "+" : ""}{entry.delta}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Buff/debuff indicator (old, kept for compatibility) */}
       {isBuffed && (
         <div className="absolute bottom-0.5 right-0.5 z-20 rounded bg-emerald-500/90 px-0.5 py-0 text-[6px] font-black text-white shadow">
           +{card.currentPower - card.basePower}

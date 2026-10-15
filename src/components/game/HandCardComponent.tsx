@@ -222,10 +222,10 @@ export function HandCardComponent({
         <PowerBadge power={effectivePower} size="sm" />
       </div>
 
-      {/* Hand-bonus floating chip */}
+      {/* Hand-bonus floating chip — shows keyword name + value */}
       {card.handBonus ? (
-        <div className="absolute right-1 top-8 z-30 flex items-center gap-0.5 rounded bg-emerald-500/95 px-1 py-0 text-[8px] font-bold text-white shadow-md">
-          <Sparkles className="h-2 w-2" />+{card.handBonus}
+        <div className="absolute right-1 top-8 z-30 flex items-center gap-0.5 rounded bg-emerald-500/95 px-1 py-0 text-[7px] font-bold text-white shadow-md">
+          <Sparkles className="h-2 w-2" />{keyword !== "none" ? `${keywordMeta.short}+${card.handBonus}` : `+${card.handBonus}`}
         </div>
       ) : null}
 

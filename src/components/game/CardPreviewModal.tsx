@@ -191,76 +191,24 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               )}
             </div>
 
-            {/* Registro button — shows power breakdown (only in combat) */}
-            {("powerLog" in card) && (card as any).powerLog && (
-              <RegistroPanel powerLog={(card as any).powerLog} basePower={(card as any).basePower ?? card.power} currentPower={(card as any).currentPower ?? card.power} />
+            {/* Floating effect chips on right side (replaces Registro button) */}
+            {("powerLog" in card) && (card as any).powerLog && ((card as any).powerLog as PowerLogEntry[]).length > 0 && (
+              <div className="absolute right-1 top-12 z-30 flex flex-col gap-0.5">
+                {((card as any).powerLog as PowerLogEntry[]).map((entry, i) => (
+                  <div key={i} className={cn(
+                    "flex items-center gap-0.5 rounded border px-1 py-0.5 text-[7px] font-bold uppercase tracking-wider backdrop-blur-sm shadow-md",
+                    entry.delta > 0
+                      ? "border-emerald-400/40 bg-emerald-950/80 text-emerald-300"
+                      : "border-rose-400/40 bg-rose-950/80 text-rose-300"
+                  )}>
+                    {entry.delta > 0 ? "+" : ""}{entry.delta}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </motion.div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// ===========================================================================
-// RegistroPanel — shows what's affecting a board card's power
-// ===========================================================================
-const KIND_ICON: Record<string, string> = {
-  synergy: "🔗", field: "🌍", effect: "✨", buff: "⬆️", debuff: "⬇️",
-  trap: "🪤", umbral: "🔥", passive: "♾️", start_turn: "🌅",
-  end_turn: "🌇", on_death: "💀", hand: "✋",
-};
-
-function RegistroPanel({ powerLog, basePower, currentPower }: {
-  powerLog: PowerLogEntry[];
-  basePower: number;
-  currentPower: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const totalDelta = currentPower - basePower;
-  return (
-    <div className="mt-1">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
-          open ? "border-amber-500/50 bg-amber-950/50 text-amber-300" : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-        )}
-      >
-        <span className="flex items-center gap-1">
-          📋 Registro
-        </span>
-        <span className={cn("tabular-nums", totalDelta > 0 ? "text-emerald-400" : totalDelta < 0 ? "text-rose-400" : "text-zinc-500")}>
-          {basePower} → {currentPower} ({totalDelta > 0 ? "+" : ""}{totalDelta})
-        </span>
-      </button>
-
-      {open && (
-        <div className="mt-1 space-y-0.5 rounded-md border border-zinc-700 bg-black/80 p-1.5 backdrop-blur-sm">
-          {powerLog.length === 0 ? (
-            <div className="py-1 text-center text-[9px] text-zinc-600">Sin modificaciones</div>
-          ) : (
-            powerLog.map((entry, i) => (
-              <div key={i} className="flex items-center justify-between gap-2 text-[9px]">
-                <span className="flex items-center gap-1 text-zinc-400">
-                  <span>{KIND_ICON[entry.kind] ?? "•"}</span>
-                  <span>{entry.source}</span>
-                </span>
-                <span className={cn("font-bold tabular-nums", entry.delta > 0 ? "text-emerald-400" : "text-rose-400")}>
-                  {entry.delta > 0 ? "+" : ""}{entry.delta}
-                </span>
-              </div>
-            ))
-          )}
-          {/* Summary line */}
-          <div className="mt-1 flex items-center justify-between border-t border-zinc-800 pt-1 text-[10px] font-black">
-            <span className="text-zinc-300">Total</span>
-            <span className={cn("tabular-nums", totalDelta > 0 ? "text-emerald-400" : totalDelta < 0 ? "text-rose-400" : "text-zinc-500")}>
-              {basePower} {totalDelta >= 0 ? "+" : "−"} {Math.abs(totalDelta)} = {currentPower}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
