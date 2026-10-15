@@ -277,12 +277,12 @@ export function HandCardComponent({
           {card.name}
         </div>
 
-        {/* Bottom row: trigger + keyword chips (replaces old "Toca para ver efecto" + rarity letter) */}
-        <div className="flex items-center justify-center gap-0.5 flex-wrap">
+        {/* Bottom row: trigger + keyword chips — bigger now */}
+        <div className="flex items-center justify-center gap-1 flex-wrap">
           <span
             title={triggerMeta.description}
             className={cn(
-              "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[6px] font-bold uppercase tracking-wider backdrop-blur-sm",
+              "inline-flex items-center gap-1 rounded border border-white/20 bg-black/70 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider backdrop-blur-sm",
               triggerMeta.color
             )}
           >
@@ -293,7 +293,7 @@ export function HandCardComponent({
             <span
               title={keywordMeta.description}
               className={cn(
-                "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[6px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                "inline-flex items-center gap-1 rounded border border-white/20 bg-black/70 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider backdrop-blur-sm",
                 keywordMeta.color
               )}
             >
