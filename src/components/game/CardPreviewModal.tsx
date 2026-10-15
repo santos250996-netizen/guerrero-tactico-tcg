@@ -68,8 +68,10 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             // Same full-art hand-card design, just larger
             "relative mx-auto flex h-[28rem] w-56 cursor-pointer flex-col overflow-hidden rounded-2xl border-2 shadow-2xl shadow-black/90",
             "bg-zinc-950",
-            rar.borderClass,
-            rar.glowClass
+            card.rarity === "common" ? "border-zinc-500"
+            : card.rarity === "rare" ? "border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)]"
+            : card.rarity === "epic" ? "border-violet-400 shadow-[0_0_18px_rgba(168,85,247,0.4)]"
+            : "border-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.5)]",
           )}
           style={{
             boxShadow:
@@ -101,11 +103,6 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             style={{ boxShadow: "0 0 10px rgba(244,63,94,0.55)" }}
           >
             {card.power}
-          </div>
-
-          {/* Subtle "Toca para cerrar" pill at top-center (replaces "Vista previa") */}
-          <div className="pointer-events-none absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded-full bg-black/70 px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-200/90 backdrop-blur-sm">
-            <Sparkles className="inline h-2.5 w-2.5" /> Toca para cerrar
           </div>
 
           {/* Bottom info panel overlay */}
@@ -188,21 +185,8 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                 </div>
               )}
             </div>
-
-            {/* Rarity as TEXT at bottom center */}
-            <div className={cn("mt-0.5 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-widest", RARITY_TEXT_COLOR[card.rarity])}>
-              <span className={cn("inline-block h-2 w-2 rounded-full", rar.gemClass)} />
-              <span>{RARITY_LETTER[card.rarity]}</span>
-              <span className="opacity-70">·</span>
-              <span>{rar.label}</span>
-            </div>
           </div>
         </motion.div>
-
-        {/* Hint below the card */}
-        <div className="pointer-events-none mt-4 text-center text-[10px] uppercase tracking-widest text-zinc-400">
-          Toca en cualquier lugar para cerrar
-        </div>
       </DialogContent>
     </Dialog>
   );

@@ -37,6 +37,14 @@ const RARITY_SOLID_BG: Record<string, string> = {
   legendary: "bg-gradient-to-b from-amber-300 to-amber-600 text-zinc-950",
 };
 
+// Prominent rarity border colors — replaces old subtle borderClass
+const RARITY_BORDER: Record<string, string> = {
+  common: "border-2 border-zinc-500",
+  rare: "border-2 border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.3)]",
+  epic: "border-2 border-violet-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]",
+  legendary: "border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.5)]",
+};
+
 // Direction the user is dragging the card — determines whether we
 // drag the card to the board (vertical) or scroll the hand (horizontal).
 type DragMode = "none" | "vertical" | "horizontal";
@@ -269,8 +277,8 @@ export function HandCardComponent({
           {card.name}
         </div>
 
-        {/* Trigger + Keyword chip — small pill below the name showing when the effect fires + which keyword */}
-        <div className="flex justify-center gap-0.5">
+        {/* Bottom row: trigger + keyword chips (replaces old "Toca para ver efecto" + rarity letter) */}
+        <div className="flex items-center justify-center gap-0.5 flex-wrap">
           <span
             title={triggerMeta.description}
             className={cn(
@@ -283,7 +291,7 @@ export function HandCardComponent({
           </span>
           {keyword !== "none" && (
             <span
-              title={keywordMeta.description + (keywordMeta.hasValue && card.keywordValue ? ` (X=${card.keywordValue})` : "")}
+              title={keywordMeta.description}
               className={cn(
                 "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[6px] font-bold uppercase tracking-wider backdrop-blur-sm",
                 keywordMeta.color
@@ -293,25 +301,6 @@ export function HandCardComponent({
               {keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
             </span>
           )}
-        </div>
-
-        {/* "Toca para ver efecto" (left) parallel to rarity letter (right) — visual hint only, the whole card is tappable */}
-        <div className="flex items-end justify-between gap-1">
-          <span
-            className="inline-flex items-center gap-0.5 text-[6px] uppercase tracking-widest text-zinc-400 hover:text-amber-300 transition-colors"
-          >
-            <Info className="h-2 w-2" />
-            Toca para ver efecto
-          </span>
-          <span
-            title={rar.label}
-            className={cn(
-              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/80 text-[10px] font-black shadow-md",
-              RARITY_SOLID_BG[card.rarity]
-            )}
-          >
-            {RARITY_LETTER[card.rarity]}
-          </span>
         </div>
       </div>
     </>
@@ -338,7 +327,7 @@ export function HandCardComponent({
           "bg-zinc-950",
           selected
             ? "border-amber-400 ring-2 ring-amber-400/70 z-10"
-            : rar.borderClass,
+            : RARITY_BORDER[card.rarity],
           !affordable && "opacity-65 grayscale",
           // While dragging the in-place card is dimmed (ghost takes over)
           isDragging && "opacity-30"

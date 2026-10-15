@@ -229,7 +229,7 @@ export const KEYWORD_META: Record<
   // 3. TABLERO Y TRIGGERS ESPECIALES
   trampa: {
     label: "Trampa", short: "TRAMP", emoji: "🪤", color: "text-amber-300",
-    description: "Deja una marca. La próxima carta enemiga jugada aquí recibe -X de poder.",
+    description: "Deja una marca. La próxima carta enemiga jugada en este carril recibe -X de poder.",
     trigger: "on_play", hasValue: true,
   },
   reagrupar: {
@@ -244,7 +244,7 @@ export const KEYWORD_META: Record<
   },
   baluarte: {
     label: "Baluarte", short: "BALU", emoji: "🏰", color: "text-emerald-300",
-    description: "(Pasivo) Tus demás aliados aquí no pueden sufrir reducciones de poder enemigas.",
+    description: "(Pasivo) Tus demás aliados en este carril no pueden sufrir reducciones de poder enemigas.",
     trigger: "passive", hasValue: false,
   },
   sigilo: {
@@ -254,12 +254,12 @@ export const KEYWORD_META: Record<
   },
   vinculo: {
     label: "Vínculo", short: "VIN", emoji: "🔗", color: "text-emerald-300",
-    description: "(Pasivo) Si hay otra carta de su misma categoría aquí, ambas ganan +X de poder.",
+    description: "(Pasivo) Si hay otra carta de su misma categoría en este carril, ambas ganan +X de poder.",
     trigger: "passive", hasValue: true,
   },
   muro: {
     label: "Muro", short: "MURO", emoji: "🧱", color: "text-amber-300",
-    description: "(Pasivo) El rival debe jugar sus cartas aquí si no ha alcanzado el límite.",
+    description: "(Pasivo) El rival debe jugar sus cartas en este carril si no ha alcanzado el límite.",
     trigger: "passive", hasValue: false,
   },
   retorno: {
@@ -281,12 +281,12 @@ export const KEYWORD_META: Record<
   // 5. NUEVAS KEYWORDS TÁCTICAS
   doble_golpe: {
     label: "Doble Golpe", short: "DOBLE", emoji: "⚔️", color: "text-rose-300",
-    description: "Aplica su efecto o debuff de valor X aquí y en un carril adyacente.",
+    description: "Aplica su efecto o debuff de valor X en este carril y en un carril adyacente.",
     trigger: "on_play", hasValue: true,
   },
   refugio: {
     label: "Refugio", short: "REFUG", emoji: "⛺", color: "text-emerald-300",
-    description: "Absorbe hasta X puntos de debuff o reducción de poder que vaya a sufrir un aliado aquí.",
+    description: "Absorbe hasta X puntos de debuff o reducción de poder que vaya a sufrir un aliado en este carril.",
     trigger: "passive", hasValue: true,
   },
   emboscada: {
@@ -296,7 +296,7 @@ export const KEYWORD_META: Record<
   },
   transferencia: {
     label: "Transferencia", short: "TRANS", emoji: "➡️", color: "text-sky-300",
-    description: "Reduce X de poder a un aliado aquí y se lo otorga a un aliado en otro carril.",
+    description: "Reduce X de poder a un aliado en este carril y se lo otorga a un aliado en otro carril.",
     trigger: "on_play", hasValue: true,
   },
   renovacion: {
