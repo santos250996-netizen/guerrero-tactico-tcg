@@ -81,9 +81,9 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
           {/* Wrapper for outside chips: positive RIGHT, negative LEFT */}
           <div className="pointer-events-none absolute inset-0 z-40">
             {/* Positive chips — RIGHT side, outside card border */}
-            {("powerLog" in card) && (card as any).powerLog && ((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta > 0).length > 0 && (
+            {card.powerLog && card.powerLog.filter(e => e.delta > 0).length > 0 && (
               <div className="absolute left-full top-12 flex flex-col gap-1 pl-1">
-                {((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta > 0).map((entry: PowerLogEntry, i: number) => (
+                {card.powerLog.filter(e => e.delta > 0).map((entry, i) => (
                   <div key={i} className="flex items-center gap-0.5 rounded-md border border-emerald-400/50 bg-emerald-950/90 px-1.5 py-0.5 text-[8px] font-bold text-emerald-300 shadow-md backdrop-blur-sm whitespace-nowrap">
                     {entry.source} +{entry.delta}
                   </div>
@@ -91,9 +91,9 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               </div>
             )}
             {/* Negative chips — LEFT side, outside card border */}
-            {("powerLog" in card) && (card as any).powerLog && ((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta < 0).length > 0 && (
+            {card.powerLog && card.powerLog.filter(e => e.delta < 0).length > 0 && (
               <div className="absolute right-full top-12 flex flex-col items-end gap-1 pr-1">
-                {((card as any).powerLog as PowerLogEntry[]).filter((e: PowerLogEntry) => e.delta < 0).map((entry: PowerLogEntry, i: number) => (
+                {card.powerLog.filter(e => e.delta < 0).map((entry, i) => (
                   <div key={i} className="flex items-center gap-0.5 rounded-md border border-rose-400/50 bg-rose-950/90 px-1.5 py-0.5 text-[8px] font-bold text-rose-300 shadow-md backdrop-blur-sm whitespace-nowrap">
                     {entry.source} {entry.delta}
                   </div>

@@ -329,6 +329,12 @@ export interface CardDef {
   keyword?: Keyword;
   /** Optional X parameter for keywords that take a value (e.g. Sacrificio [3] → keywordValue=3). */
   keywordValue?: number;
+  /** Only present on board cards — power log for preview. */
+  powerLog?: PowerLogEntry[];
+  /** Only present on board cards — original power before effects. */
+  basePower?: number;
+  /** Only present on board cards — current power after effects. */
+  currentPower?: number;
 }
 
 export interface PowerLogEntry {
