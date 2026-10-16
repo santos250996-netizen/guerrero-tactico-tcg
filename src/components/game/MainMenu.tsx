@@ -55,7 +55,7 @@ export function MainMenu() {
         <User className="h-4 w-4" strokeWidth={2.2} />
       </motion.button>
 
-      {/* ── BOTTOM-RIGHT: OPCIONES (small icon button) ── */}
+      {/* ── BOTTOM-RIGHT: OPCIONES (small icon button — same style as PERFIL) ── */}
       <motion.button
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
@@ -63,7 +63,7 @@ export function MainMenu() {
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => { click(); setSettingsOpen(true); }}
-        className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-zinc-600/60 bg-zinc-950/70 backdrop-blur-sm text-zinc-300 shadow-[0_0_14px_rgba(0,0,0,0.6)] hover:bg-zinc-900/80 hover:text-zinc-100 hover:border-zinc-400/60"
+        className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/40 bg-zinc-950/70 backdrop-blur-sm text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] transition-colors hover:bg-zinc-900/80 hover:border-amber-400/70"
         title="Opciones"
       >
         <SettingsIcon className="h-4 w-4" strokeWidth={2.2} />

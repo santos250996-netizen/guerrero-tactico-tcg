@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { ArrowLeft, Lock, Swords, Sun, Sparkles, Library, Play, ChevronRight } from "lucide-react";
+import { ArrowLeft, Lock, Swords, Sparkles, Skull, Library, Play, ChevronRight } from "lucide-react";
 
 interface ClassDef {
   id: string;
@@ -33,18 +33,6 @@ const CLASSES: ClassDef[] = [
     cardCount: 94,
   },
   {
-    id: "imperio",
-    name: "IMPERIO DEL SOL",
-    subtypes: "Sacerdocio · Órdenes · Naguales",
-    keywords: ["Hecatombe", "Garra", "Metamorfosis"],
-    icon: <Sun className="h-7 w-7" strokeWidth={2.2} />,
-    color: "orange",
-    unlocked: false,
-    desc: "Sacerdotes guerreros del sol. Invocan naguales y ejecutan rituales de sangre.",
-    tagline: "Fe · Sacrificio · Transformación",
-    cardCount: 0,
-  },
-  {
     id: "mago",
     name: "MAGO",
     subtypes: "Arcano · Elemental · Ilusión",
@@ -54,6 +42,18 @@ const CLASSES: ClassDef[] = [
     unlocked: false,
     desc: "Tejedores de arcano. Manipulan elementos y crean ilusiones para confundir al enemigo.",
     tagline: "Mana · Elementos · Engaño",
+    cardCount: 0,
+  },
+  {
+    id: "asesino",
+    name: "ASESINO",
+    subtypes: "Sombras · Veneno · Sigilo",
+    keywords: ["Emboscada", "Veneno", "Sigilo"],
+    icon: <Skull className="h-7 w-7" strokeWidth={2.2} />,
+    color: "emerald",
+    unlocked: false,
+    desc: "Maestros del sigilo y el veneno. Acechan desde las sombras y eliminan objetivos con precisión letal.",
+    tagline: "Sigilo · Veneno · Muerte",
     cardCount: 0,
   },
 ];
@@ -82,18 +82,6 @@ const COLOR_MAP: Record<ClassDef["color"], {
     accent: "text-amber-300",
     hex: "251,191,36",
   },
-  orange: {
-    border: "border-orange-500/40",
-    borderStrong: "border-orange-400/70",
-    bg: "bg-zinc-950/40",
-    glow: "shadow-[0_0_28px_rgba(249,115,22,0.18)]",
-    chipBorder: "border-orange-600/40 bg-orange-950/40 text-orange-300",
-    iconBg: "bg-orange-950/50",
-    iconRing: "ring-orange-400/60",
-    btnPrimary: "from-orange-700 via-orange-600 to-rose-700 hover:from-orange-600 hover:via-orange-500 hover:to-rose-600 border-orange-400/50",
-    accent: "text-orange-300",
-    hex: "249,115,22",
-  },
   violet: {
     border: "border-violet-500/40",
     borderStrong: "border-violet-400/70",
@@ -105,6 +93,18 @@ const COLOR_MAP: Record<ClassDef["color"], {
     btnPrimary: "from-violet-700 via-violet-600 to-indigo-700 hover:from-violet-600 hover:via-violet-500 hover:to-indigo-600 border-violet-400/50",
     accent: "text-violet-300",
     hex: "168,85,247",
+  },
+  emerald: {
+    border: "border-emerald-500/40",
+    borderStrong: "border-emerald-400/70",
+    bg: "bg-zinc-950/40",
+    glow: "shadow-[0_0_28px_rgba(16,185,129,0.18)]",
+    chipBorder: "border-emerald-600/40 bg-emerald-950/40 text-emerald-300",
+    iconBg: "bg-emerald-950/50",
+    iconRing: "ring-emerald-400/60",
+    btnPrimary: "from-emerald-700 via-emerald-600 to-teal-700 hover:from-emerald-600 hover:via-emerald-500 hover:to-teal-600 border-emerald-400/50",
+    accent: "text-emerald-300",
+    hex: "16,185,129",
   },
 };
 
