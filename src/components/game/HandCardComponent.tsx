@@ -69,7 +69,7 @@ export function HandCardComponent({
   const keyword = card.keyword ?? "none";
   const keywordMeta = KEYWORD_META[keyword];
   const artUrl = `/cards/${card.id}.png`;
-  const effectivePower = card.power + (card.handBonus || 0);
+  const effectivePower = (Number(card.power) || 0) + (Number(card.handBonus) || 0);
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 
   // ====== Custom drag state (direction-aware) ======

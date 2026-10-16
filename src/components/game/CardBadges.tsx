@@ -5,6 +5,9 @@ import { cn } from "@/lib/utils";
 // CostBadge — cristal de energía hexagonal
 // =====================================================================
 export function CostBadge({ cost, size = "md" }: { cost: number; size?: "sm" | "md" | "lg" }) {
+  // Defensive: ensure cost is a number (NaN/undefined → 0) to avoid React
+  // 'Received NaN for children' warnings if a card has malformed cost data.
+  const safeCost = Number(cost) || 0;
   const dims = size === "sm" ? "h-6 w-6" : size === "lg" ? "h-10 w-10" : "h-8 w-8";
   const fontSize = size === "sm" ? "text-[10px]" : size === "lg" ? "text-base" : "text-xs";
   return (
@@ -39,7 +42,7 @@ export function CostBadge({ cost, size = "md" }: { cost: number; size?: "sm" | "
       </svg>
       {/* Number */}
       <div className={cn("absolute inset-0 flex items-center justify-center font-black text-white", fontSize)}>
-        {cost}
+        {safeCost}
       </div>
     </div>
   );
@@ -49,6 +52,9 @@ export function CostBadge({ cost, size = "md" }: { cost: number; size?: "sm" | "
 // PowerBadge — escudo de batalla
 // =====================================================================
 export function PowerBadge({ power, size = "md" }: { power: number; size?: "sm" | "md" | "lg" }) {
+  // Defensive: ensure power is a number (NaN/undefined → 0) to avoid React
+  // 'Received NaN for children' warnings if a card has malformed power data.
+  const safePower = Number(power) || 0;
   const dims = size === "sm" ? "h-6 w-6" : size === "lg" ? "h-10 w-10" : "h-8 w-8";
   const fontSize = size === "sm" ? "text-[10px]" : size === "lg" ? "text-base" : "text-xs";
   return (
@@ -83,7 +89,7 @@ export function PowerBadge({ power, size = "md" }: { power: number; size?: "sm" 
       </svg>
       {/* Number */}
       <div className={cn("absolute inset-0 flex items-center justify-center font-black text-white", fontSize)}>
-        {power}
+        {safePower}
       </div>
     </div>
   );
