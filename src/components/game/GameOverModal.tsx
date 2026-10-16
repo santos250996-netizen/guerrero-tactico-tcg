@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Skull, Equal, RefreshCw, Save } from "lucide-react";
+import { Trophy, Skull, Equal, RefreshCw, Save, LogOut } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { LANE_META } from "@/lib/game/types";
@@ -15,6 +15,8 @@ interface GameOverModalProps {
 export function GameOverModal({ open }: GameOverModalProps) {
   const finalResult = useGameStore((s) => s.finalResult);
   const resetGame = useGameStore((s) => s.resetGame);
+  const setView = useGameStore((s) => s.setView);
+  const setDeckEditorReturn = useGameStore((s) => s.setDeckEditorReturn);
   const [saved, setSaved] = useState<"idle" | "saving" | "ok" | "err">("idle");
 
   // Auto-save the match once when the modal opens.
@@ -176,15 +178,28 @@ export function GameOverModal({ open }: GameOverModalProps) {
                 )}
               </div>
 
-              <Button
-                className="mt-4 w-full bg-gradient-to-r from-amber-600 to-rose-600 text-white hover:from-amber-500 hover:to-rose-500"
-                onClick={() => {
-                  resetGame();
-                }}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Jugar de nuevo
-              </Button>
+              <div className="mt-4 flex w-full gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+                  onClick={() => {
+                    setDeckEditorReturn("main-menu");
+                    setView("main-menu");
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Salir
+                </Button>
+                <Button
+                  className="flex-[2] bg-gradient-to-r from-amber-600 to-rose-600 text-white hover:from-amber-500 hover:to-rose-500"
+                  onClick={() => {
+                    resetGame();
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Jugar de nuevo
+                </Button>
+              </div>
             </div>
           </motion.div>
         </motion.div>

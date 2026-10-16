@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check, Play } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, RARITY_META, TRIGGER_META, KEYWORD_META, LANE_META } from "@/lib/game/types";
@@ -19,6 +19,8 @@ export function DeckEditor() {
   const deckDirty = useGameStore((s) => s.deckDirty);
   const deckSaveStatus = useGameStore((s) => s.deckSaveStatus);
   const setView = useGameStore((s) => s.setView);
+  const deckEditorReturn = useGameStore((s) => s.deckEditorReturn);
+  const initGame = useGameStore((s) => s.initGame);
   const saveDeck = useGameStore((s) => s.saveDeck);
   const resetDeck = useGameStore((s) => s.resetDeck);
   const swapCardInDeck = useGameStore((s) => s.swapCardInDeck);
@@ -29,6 +31,18 @@ export function DeckEditor() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [deckLocked, setDeckLocked] = useState(false);
   const [deckDropdownOpen, setDeckDropdownOpen] = useState(false);
+
+  // Returns to wherever the user came from (in-game header → game; class-select flow → class-select; default → main-menu)
+  const handleBack = () => setView(deckEditorReturn);
+
+  // Starts a fresh game with the current deck (used when entering from ClassSelect flow)
+  const handleStartBattle = () => {
+    initGame();
+    setView("game");
+  };
+
+  // Whether the "Empezar Batalla" button should be shown (only in the JUGAR → Clase → Mazo flow)
+  const showStartBattle = deckEditorReturn === "class-select";
 
   // Load a preset deck — replaces all 12 slots with the preset's card IDs
   const loadPresetDeck = (deckId: string) => {
@@ -73,7 +87,7 @@ export function DeckEditor() {
     <div className="app-frame text-zinc-100">
       <header className="flex items-center justify-between gap-1.5 border-b border-zinc-800 bg-zinc-950/90 px-2.5 pt-3 pb-2 backdrop-blur">
         <div className="flex items-center gap-1.5 min-w-0">
-          <Button size="sm" variant="outline" className="h-7 border-zinc-700 bg-zinc-900 px-2 text-zinc-200 hover:bg-zinc-800" onClick={() => setView("game")}><ArrowLeft className="h-3.5 w-3.5" /><span className="text-[10px]">Volver</span></Button>
+          <Button size="sm" variant="outline" className="h-7 border-zinc-700 bg-zinc-900 px-2 text-zinc-200 hover:bg-zinc-800" onClick={handleBack}><ArrowLeft className="h-3.5 w-3.5" /><span className="text-[10px]">Volver</span></Button>
           <div className="leading-tight min-w-0"><div className="text-[9px] uppercase tracking-widest text-amber-400">Editor</div><div className="text-[11px] font-bold text-white">Tu Mazo</div></div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -88,6 +102,12 @@ export function DeckEditor() {
             {deckLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
           </Button>
           <Button size="sm" className={cn("h-7 bg-gradient-to-r from-amber-600 to-rose-600 px-2 text-white hover:from-amber-500 hover:to-rose-500", (!deckDirty || deckLocked) && "opacity-60")} disabled={!deckDirty || deckLocked} onClick={() => saveDeck()}><Save className="h-3 w-3" /><span className="text-[10px]">Guardar</span></Button>
+          {showStartBattle && (
+            <Button size="sm" className="h-7 bg-gradient-to-r from-emerald-600 to-amber-600 px-2 text-white hover:from-emerald-500 hover:to-amber-500" onClick={handleStartBattle} title="Empezar batalla con este mazo">
+              <Play className="h-3 w-3" fill="currentColor" />
+              <span className="text-[10px]">Batalla</span>
+            </Button>
+          )}
         </div>
       </header>
       <main className="app-main mx-auto flex w-full flex-1 flex-col gap-2 px-2 py-2">

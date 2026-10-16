@@ -120,7 +120,7 @@ interface GameStoreState {
   legendaryBurst: boolean;
 
   // View switch (game / editor)
-  view: "game" | "editor";
+  view: "main-menu" | "class-select" | "game" | "editor" | "profile";
 
   // Deck editor state
   cardPool: CardDef[];
@@ -128,6 +128,8 @@ interface GameStoreState {
   deckDirty: boolean;
   deckSaveStatus: "idle" | "saving" | "ok" | "err";
   deckLoading: boolean;
+  // Contextual return target when leaving DeckEditor ("game" header button vs "class-select" flow)
+  deckEditorReturn: "game" | "class-select" | "main-menu";
 
   // UI state
   selectedCardUid: string | null;
@@ -149,7 +151,8 @@ interface GameStoreState {
   clearFloatingNumbers: () => void;
 
   // View + preview
-  setView: (view: "game" | "editor") => void;
+  setView: (view: "main-menu" | "class-select" | "game" | "editor" | "profile") => void;
+  setDeckEditorReturn: (target: "game" | "class-select" | "main-menu") => void;
   setPreviewCard: (c: CardDef | null) => void;
 
   // Deck editor actions
@@ -286,12 +289,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   gameStats: emptyGameStats(),
   undoSnapshot: null,
   legendaryBurst: false,
-  view: "game",
+  view: "main-menu",
   cardPool: [],
   deckCardIds: [],
   deckDirty: false,
   deckSaveStatus: "idle",
   deckLoading: false,
+  deckEditorReturn: "main-menu",
   selectedCardUid: null,
   draggingCardUid: null,
   invalidPlayMsg: null,
@@ -1021,6 +1025,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   setView: (view) => set({ view }),
+
+  setDeckEditorReturn: (target) => set({ deckEditorReturn: target }),
 
   setPreviewCard: (c) => set({ previewCard: c }),
 

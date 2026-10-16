@@ -22,9 +22,15 @@ export function HeaderBar({ onOpenRules, onOpenHistory, onOpenSettings, onOpenPr
   const energy = useGameStore((s) => s.energy);
   const maxEnergy = useGameStore((s) => s.maxEnergy);
   const drawPile = useGameStore((s) => s.drawPile);
-  const phase = useGameStore((s) => s.phase);
   const setView = useGameStore((s) => s.setView);
+  const setDeckEditorReturn = useGameStore((s) => s.setDeckEditorReturn);
   const deckDirty = useGameStore((s) => s.deckDirty);
+
+  // Open deck editor — mark "game" as return target so Volver returns here
+  const openDeckEditor = () => {
+    setDeckEditorReturn("game");
+    setView("editor");
+  };
 
   return (
     <header className="relative flex items-center justify-between gap-1 border-b border-zinc-800/80 bg-zinc-950/95 px-2.5 pt-3 pb-2 backdrop-blur">
@@ -54,7 +60,7 @@ export function HeaderBar({ onOpenRules, onOpenHistory, onOpenSettings, onOpenPr
 
       {/* Right: action buttons — icon only */}
       <div className="flex items-center gap-0.5 shrink-0">
-        <Button size="sm" variant="outline" className="relative h-7 w-7 border-amber-700/60 bg-amber-950/40 p-0 text-amber-300 hover:bg-amber-900/40" onClick={() => setView("editor")} title="Editor de mazo">
+        <Button size="sm" variant="outline" className="relative h-7 w-7 border-amber-700/60 bg-amber-950/40 p-0 text-amber-300 hover:bg-amber-900/40" onClick={openDeckEditor} title="Editor de mazo">
           <Library className="h-3.5 w-3.5" />
           {deckDirty && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-zinc-900 bg-amber-400" />}
         </Button>
@@ -67,7 +73,7 @@ export function HeaderBar({ onOpenRules, onOpenHistory, onOpenSettings, onOpenPr
         <Button size="sm" variant="outline" className="h-7 w-7 border-zinc-700 bg-zinc-900 p-0 text-zinc-300 hover:bg-zinc-800" onClick={onOpenProfile} title="Perfil">
           <User className="h-3.5 w-3.5" />
         </Button>
-        <Button size="sm" variant="outline" className="h-7 w-7 border-zinc-700 bg-zinc-900 p-0 text-zinc-300 hover:bg-zinc-800" onClick={onOpenSettings} title="Ajustes">
+        <Button size="sm" variant="outline" className="h-7 w-7 border-amber-600/40 bg-amber-950/30 p-0 text-amber-300 hover:bg-amber-900/40" onClick={onOpenSettings} title="Ajustes / Salir">
           <Settings className="h-3.5 w-3.5" />
         </Button>
       </div>

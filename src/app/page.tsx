@@ -10,6 +10,9 @@ import { GameOverModal } from "@/components/game/GameOverModal";
 import { RulesModal } from "@/components/game/RulesModal";
 import { HistoryModal } from "@/components/game/HistoryModal";
 import { DeckEditor } from "@/components/game/DeckEditor";
+import { MainMenu } from "@/components/game/MainMenu";
+import { ClassSelect } from "@/components/game/ClassSelect";
+import { ProfileScreen } from "@/components/game/ProfileScreen";
 import { OnboardingModal } from "@/components/game/OnboardingModal";
 import { SettingsModal } from "@/components/game/SettingsModal";
 import { CardPreviewModal } from "@/components/game/CardPreviewModal";
@@ -63,8 +66,10 @@ export default function Home() {
     }
   }, [onboardingSeen, deckLoading]);
 
+  if (view === "main-menu") return <MainMenu />;
+  if (view === "class-select") return <ClassSelect />;
+  if (view === "profile") return <ProfileScreen />;
   if (view === "editor") return <DeckEditor />;
-
   if (deckLoading) {
     return (
       <div className="app-frame items-center justify-center text-zinc-100">
