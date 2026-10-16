@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { useSettings } from "@/lib/settings";
 import { useState } from "react";
-import { User, Settings as SettingsIcon, Play, ChevronRight } from "lucide-react";
+import { User, Settings as SettingsIcon, Play } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 
 export function MainMenu() {
@@ -21,118 +21,99 @@ export function MainMenu() {
     }
   };
 
-  const navigate = (view: "class-select" | "profile") => {
+  const goToProfile = () => {
     click();
-    setView(view);
+    setView("profile");
+  };
+
+  const goToClassSelect = () => {
+    click();
+    setView("class-select");
   };
 
   return (
     <div className="app-frame relative overflow-hidden text-zinc-100">
-      {/* Background image — has the 'PACTO DE GUERRA' title baked in */}
+      {/* Background image — title baked in */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
       />
-      {/* Bottom darkening overlay so buttons read clearly */}
-      <div className="absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-b from-transparent via-black/55 to-black/90" />
+      {/* Bottom darkening overlay for button legibility */}
+      <div className="absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-b from-transparent via-black/55 to-black/95" />
 
-      {/* Content layer */}
+      {/* ── TOP-LEFT: PERFIL (small icon button) ── */}
+      <motion.button
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.3 }}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={goToProfile}
+        className="absolute left-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/40 bg-zinc-950/70 backdrop-blur-sm text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] hover:bg-zinc-900/80 hover:border-amber-400/70"
+        title="Perfil"
+      >
+        <User className="h-4 w-4" strokeWidth={2.2} />
+      </motion.button>
+
+      {/* ── BOTTOM-RIGHT: OPCIONES (small icon button) ── */}
+      <motion.button
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.3 }}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => { click(); setSettingsOpen(true); }}
+        className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-zinc-600/60 bg-zinc-950/70 backdrop-blur-sm text-zinc-300 shadow-[0_0_14px_rgba(0,0,0,0.6)] hover:bg-zinc-900/80 hover:text-zinc-100 hover:border-zinc-400/60"
+        title="Opciones"
+      >
+        <SettingsIcon className="h-4 w-4" strokeWidth={2.2} />
+      </motion.button>
+
+      {/* ── CENTER: JUGAR button (prominent, professional) ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
+        className="absolute inset-x-0 bottom-24 z-20 flex flex-col items-center gap-2 px-6"
+      >
+        <motion.button
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={goToClassSelect}
+          className="group relative flex w-full max-w-[260px] items-center justify-center gap-3 overflow-hidden rounded-xl border-2 border-amber-400/50 bg-gradient-to-r from-amber-700 via-amber-600 to-rose-700 px-6 py-4 text-white shadow-[0_8px_30px_-6px_rgba(251,191,36,0.6),0_0_0_1px_rgba(0,0,0,0.4)] transition-all hover:border-amber-300/80 hover:from-amber-600 hover:via-amber-500 hover:to-rose-600"
+        >
+          {/* Inner shine (top highlight) */}
+          <span className="pointer-events-none absolute inset-x-2 top-1 h-1/3 rounded-full bg-gradient-to-b from-white/30 to-transparent opacity-60" />
+          {/* Icon disc */}
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-black/30 ring-1 ring-amber-300/40">
+            <Play className="h-4 w-4" fill="currentColor" strokeWidth={2.4} />
+          </span>
+          {/* Label */}
+          <span className="relative flex flex-col leading-none">
+            <span className="text-base font-black uppercase tracking-[0.22em]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+              Jugar
+            </span>
+            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] text-amber-100/80">
+              Iniciar batalla
+            </span>
+          </span>
+        </motion.button>
+      </motion.div>
+
+      {/* ── FOOTER (version) ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 flex h-full w-full flex-col justify-end px-6 pb-10"
+        transition={{ delay: 0.7 }}
+        className="absolute inset-x-0 bottom-2 z-20 flex justify-center"
       >
-        {/* ────────────────── MENU BUTTONS ────────────────── */}
-        <nav className="mx-auto flex w-full max-w-xs flex-col gap-2.5">
-          <MenuButton
-            icon={<Play className="h-5 w-5" strokeWidth={2.5} />}
-            label="JUGAR"
-            sublabel="Iniciar batalla"
-            variant="primary"
-            onClick={() => navigate("class-select")}
-          />
-          <MenuButton
-            icon={<User className="h-5 w-5" />}
-            label="PERFIL"
-            sublabel="Estadísticas del comandante"
-            variant="secondary"
-            onClick={() => navigate("profile")}
-          />
-          <MenuButton
-            icon={<SettingsIcon className="h-5 w-5" />}
-            label="OPCIONES"
-            sublabel="Sonido, animaciones"
-            variant="utility"
-            onClick={() => { click(); setSettingsOpen(true); }}
-          />
-        </nav>
-
-        {/* Footer */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="mt-5 flex flex-col items-center gap-0.5"
-        >
-          <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-amber-700/80">
-            v2.0 · 94 cartas · 33 keywords
-          </p>
-          <p className="text-[7px] uppercase tracking-widest text-zinc-700">
-            Sincroniza para compilar APK
-          </p>
-        </motion.div>
+        <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-amber-700/70">
+          v2.0 · 94 cartas · 33 keywords
+        </p>
       </motion.div>
 
       {/* Settings modal overlay */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
-  );
-}
-
-function MenuButton({
-  icon,
-  label,
-  sublabel,
-  variant,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  sublabel: string;
-  variant: "primary" | "secondary" | "utility";
-  onClick: () => void;
-}) {
-  const styles = {
-    primary:
-      "bg-gradient-to-r from-amber-700 via-amber-600 to-rose-700 text-white shadow-[0_6px_24px_-6px_rgba(251,191,36,0.6)] hover:from-amber-600 hover:via-amber-500 hover:to-rose-600 border-amber-400/40",
-    secondary:
-      "bg-zinc-900/80 backdrop-blur-sm text-zinc-100 border-zinc-700/80 hover:bg-zinc-800/80 hover:border-zinc-600",
-    utility:
-      "bg-black/60 backdrop-blur-sm text-zinc-400 border-zinc-800/80 hover:bg-zinc-900/70 hover:text-zinc-200",
-  };
-
-  return (
-    <motion.button
-      whileHover={{ scale: 1.02, x: 2 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all ${styles[variant]}`}
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/30">
-        {icon}
-      </span>
-      <span className="flex flex-1 flex-col">
-        <span className="text-sm font-black uppercase tracking-[0.18em]">
-          {label}
-        </span>
-        <span className={`text-[10px] font-medium uppercase tracking-wider ${
-          variant === "primary" ? "text-amber-100/80" : "text-zinc-500"
-        }`}>
-          {sublabel}
-        </span>
-      </span>
-      <ChevronRight className="h-4 w-4 opacity-50" />
-    </motion.button>
   );
 }
