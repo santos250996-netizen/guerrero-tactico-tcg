@@ -10,25 +10,30 @@ async function main() {
   const zai = await ZAI.create();
 
   const prompt = [
+    // Style anchor: stylized realism (Hearthstone / WoW TCG / Diablo IV splash art)
+    'stylized realism digital painting, hand-painted cinematic splash art',
+    'like Hearthstone card art, World of Warcraft TCG illustration, Diablo IV key art',
+    'realistic proportions and lighting but with painterly brushwork visible',
+    'dramatic high-contrast lighting with saturated warm color palette',
+    'digital painting with visible brush strokes, not photorealistic, not anime',
     // Subject + mood
-    'dark fantasy tactical card game menu background, vertical portrait',
-    'grimdark medieval battlefield at dusk with crimson and amber sky',
-    // Visual elements (no text!)
-    'cracked blood-red battlefield ground with floating embers and ash',
-    'tattered war banners and silhouetted crossed spears in the distance',
-    'smoke and dust drifting through the air',
-    'dramatic chiaroscuro lighting from below, dramatic war tableau',
+    'tactical card game main menu background, vertical portrait',
+    'epic medieval battlefield at dusk under a crimson and gold sky',
+    // Foreground elements (painterly, stylized-realism)
+    'stylized realistic crossed battle banners and ornate spears silhouetted in the distance',
+    'cracked earth battlefield with glowing ember particles floating upward',
+    'drifting smoke and dust clouds catching warm rim light',
     // Composition constraints
     'empty negative space in the upper third of the frame for title overlay',
-    'deep rich blacks and warm gold accents, atmospheric depth',
-    'vertical portrait composition with vignette',
-    // STRICT no-text directives (repeat to reinforce)
+    'rich deep blacks at the edges, warm amber and crimson glow at the center',
+    'vertical portrait composition with strong vignette',
+    // STRICT no-text directives
     'absolutely no text anywhere in the image',
     'no letters, no words, no alphabet, no writing, no symbols, no glyphs',
     'no signage, no inscriptions, no labels, no captions',
     'clean empty negative space, no watermark',
     // Quality
-    'highly detailed digital painting, cinematic, professional concept art',
+    'professional concept art, ArtStation featured quality, cinematic depth of field',
   ].join(', ');
 
   console.log('Generating main menu background...');
