@@ -15,6 +15,9 @@ import os
 from PIL import Image, ImageDraw, ImageFilter
 
 SRC = "/home/z/my-project/public/menu/game-icon-1024.png"
+# Transparent variant (no dark corners) — used for the adaptive foreground so
+# the system's background layer (#0A0507 dark) shows through cleanly.
+SRC_TRANSPARENT = "/home/z/my-project/public/menu/game-icon-transparent.png"
 ANDROID_RES = "/home/z/my-project/workspace/guerrero-tactico-tcg/android/app/src/main/res"
 
 # Android density sizes
@@ -98,12 +101,18 @@ def write_background_xml() -> str:
 def main():
     if not os.path.exists(SRC):
         raise SystemExit(f"Source icon not found: {SRC}")
+    if not os.path.exists(SRC_TRANSPARENT):
+        raise SystemExit(f"Transparent icon not found: {SRC_TRANSPARENT}")
     if not os.path.isdir(ANDROID_RES):
         raise SystemExit(f"Android res dir not found: {ANDROID_RES}")
 
-    print(f"Loading source icon: {SRC}")
+    print(f"Loading source icon (with bg): {SRC}")
     icon = Image.open(SRC).convert("RGBA")
     print(f"Source size: {icon.size}")
+
+    print(f"Loading transparent icon (no bg): {SRC_TRANSPARENT}")
+    icon_transparent = Image.open(SRC_TRANSPARENT).convert("RGBA")
+    print(f"Transparent source size: {icon_transparent.size}")
 
     # ── Legacy launcher icons (square + round) ──
     for density, size in LEGACY_DENSITIES:
@@ -118,14 +127,15 @@ def main():
         process_legacy_round(icon, size).save(rd_path, "PNG", optimize=True)
         print(f"  ✓ {density}/ic_launcher.png + ic_launcher_round.png  ({size}x{size})")
 
-    # ── Adaptive foreground icons ──
+    # ── Adaptive foreground icons (use the TRANSPARENT icon so the dark system
+    # background layer shows through the icon's corners — cleaner adaptive icon) ──
     for density, size in FOREGROUND_DENSITIES:
         out_dir = os.path.join(ANDROID_RES, density)
         os.makedirs(out_dir, exist_ok=True)
 
         fg_path = os.path.join(out_dir, "ic_launcher_foreground.png")
-        process_foreground(icon, size).save(fg_path, "PNG", optimize=True)
-        print(f"  ✓ {density}/ic_launcher_foreground.png  ({size}x{size}, transparent)")
+        process_foreground(icon_transparent, size).save(fg_path, "PNG", optimize=True)
+        print(f"  ✓ {density}/ic_launcher_foreground.png  ({size}x{size}, transparent variant)")
 
     # ── Replace background vector with solid dark color ──
     bg_path = os.path.join(ANDROID_RES, "drawable", "ic_launcher_background.xml")
