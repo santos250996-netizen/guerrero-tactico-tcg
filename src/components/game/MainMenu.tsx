@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { useSettings } from "@/lib/settings";
 import { useState } from "react";
-import { User, Settings as SettingsIcon, Play } from "lucide-react";
+import { User, Settings as SettingsIcon } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 
 export function MainMenu() {
@@ -33,7 +33,7 @@ export function MainMenu() {
 
   return (
     <div className="app-frame relative overflow-hidden text-zinc-100">
-      {/* Background image — title baked in */}
+      {/* Background image — title + emblem baked in (matches launcher icon) */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
@@ -69,33 +69,31 @@ export function MainMenu() {
         <SettingsIcon className="h-4 w-4" strokeWidth={2.2} />
       </motion.button>
 
-      {/* ── CENTER: JUGAR button (prominent, professional) ── */}
+      {/* ── CENTER: JUGAR button (pill shape, no icon, Cinzel typography) ── */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
-        className="absolute inset-x-0 bottom-24 z-20 flex flex-col items-center gap-2 px-6"
+        transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
+        className="absolute inset-x-0 bottom-20 z-20 flex justify-center px-6"
       >
         <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.96 }}
           onClick={goToClassSelect}
-          className="group relative flex w-full max-w-[260px] items-center justify-center gap-3 overflow-hidden rounded-xl border-2 border-amber-400/50 bg-gradient-to-r from-amber-700 via-amber-600 to-rose-700 px-6 py-4 text-white shadow-[0_8px_30px_-6px_rgba(251,191,36,0.6),0_0_0_1px_rgba(0,0,0,0.4)] transition-all hover:border-amber-300/80 hover:from-amber-600 hover:via-amber-500 hover:to-rose-600"
+          className="group relative inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-800 px-10 py-2.5 text-white shadow-[0_4px_18px_-3px_rgba(251,191,36,0.55),0_0_0_1px_rgba(0,0,0,0.4)_inset] transition-all hover:border-amber-200/80 hover:from-amber-500 hover:via-amber-600 hover:to-rose-700"
         >
-          {/* Inner shine (top highlight) */}
-          <span className="pointer-events-none absolute inset-x-2 top-1 h-1/3 rounded-full bg-gradient-to-b from-white/30 to-transparent opacity-60" />
-          {/* Icon disc */}
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-black/30 ring-1 ring-amber-300/40">
-            <Play className="h-4 w-4" fill="currentColor" strokeWidth={2.4} />
-          </span>
-          {/* Label */}
-          <span className="relative flex flex-col leading-none">
-            <span className="text-base font-black uppercase tracking-[0.22em]" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
-              Jugar
-            </span>
-            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.3em] text-amber-100/80">
-              Iniciar batalla
-            </span>
+          {/* Top inner highlight (glossy) */}
+          <span className="pointer-events-none absolute inset-x-3 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/40 to-transparent opacity-70" />
+          {/* The label — Cinzel Black for that Roman-inscription fantasy feel */}
+          <span
+            className="relative select-none text-2xl font-black uppercase tracking-[0.45em] text-amber-50"
+            style={{
+              fontFamily: 'var(--font-cinzel), serif',
+              textShadow: '0 1px 1px rgba(0,0,0,0.95), 0 0 12px rgba(251,191,36,0.55)',
+              paddingLeft: '0.45em',  // optical centering with tracking
+            }}
+          >
+            Jugar
           </span>
         </motion.button>
       </motion.div>

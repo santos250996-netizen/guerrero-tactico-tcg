@@ -1,35 +1,31 @@
 #!/usr/bin/env python3
 """
-Composite the 'PACTO DE GUERRA' title directly onto the main menu background.
+Composite the 'PACTO DE GUERRA' title + the SAME AI game icon used as Android
+launcher directly onto the raw menu background.
 
-Strategy:
-  - Load existing grimdark background (768x1344)
-  - Draw a radial glow disk behind the title
-  - Stamp the crossed-swords emblem above the title
-  - Render 'PACTO' + decorative divider + 'DE GUERRA' in heavy Noto Serif SC Black
-    with golden gradient fill, dark-red outer glow, and dark drop shadow
-  - Save over public/menu/main-bg.png
+Reads:   public/menu/main-bg-raw.png   (clean background, no title)
+Writes:  public/menu/main-bg.png       (final composited image)
 
-Replaces the previous CSS-rendered title overlay so the title is baked into the art itself.
+This keeps the menu emblem and the Android launcher icon visually IDENTICAL
+so the brand mark is consistent across surfaces (no incoherence).
 """
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-SRC_BG = "/home/z/my-project/public/menu/main-bg.png"
+RAW_BG = "/home/z/my-project/public/menu/main-bg-raw.png"
 OUT = "/home/z/my-project/public/menu/main-bg.png"
+# Use the SAME AI-generated icon as the launcher so brand identity is consistent
+EMBLEM_SRC = "/home/z/my-project/public/menu/game-icon-1024.png"
 
 # Heavy serif font (Noto Serif SC Black — has Latin glyphs alongside CJK)
 FONT_BLACK = "/usr/share/fonts/truetype/noto-serif-sc/NotoSerifSC-Black.ttf"
-# Sans fallback for emblem (Noto Sans SC Black) — let's check; if not, use DejaVu Sans Bold
 FONT_SANS_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 # Tactical grimdark palette
 GOLD_TOP = (255, 215, 100)     # bright amber highlight
 GOLD_BOT = (180, 110, 30)      # dark gold shadow
-GOLD_MID = (240, 180, 60)      # mid amber
 GLOW_RED = (180, 30, 30)       # outer glow crimson
 SHADOW = (0, 0, 0)             # drop shadow
-EMBLEM_GOLD = (220, 165, 55)
 
 
 def make_gradient_text(text: str, font: ImageFont.FreeTypeFont, grad_top, grad_bot, size):
@@ -128,32 +124,33 @@ def draw_radial_glow(base: Image.Image, center_xy, radius, color, max_alpha=110)
     base.alpha_composite(glow, (cx - radius, cy - radius))
 
 
-def draw_emblem(base: Image.Image, center_xy, size=72):
-    """Draw a simple crossed-swords + ring emblem in gold above the title."""
+def composite_game_emblem(base: Image.Image, center_xy, target_size=160):
+    """Stamp the AI-generated game launcher icon as the menu emblem.
+
+    Uses the SAME source PNG as scale-android-icons.py — keeps brand
+    identity coherent between the launcher icon and the in-menu emblem.
+    """
     cx, cy = center_xy
-    d = ImageDraw.Draw(base)
-    # Outer ring
-    d.ellipse((cx - size // 2, cy - size // 2, cx + size // 2, cy + size // 2),
-              outline=EMBLEM_GOLD + (220,), width=3)
-    # Inner fill (dark)
-    d.ellipse((cx - size // 2 + 5, cy - size // 2 + 5,
-               cx + size // 2 - 5, cy + size // 2 - 5),
-              fill=(15, 10, 10, 220), outline=EMBLEM_GOLD + (140,), width=1)
-    # Two crossed swords (lines)
-    s = size // 2 - 10
-    # Sword 1 (top-left to bottom-right)
-    d.line([(cx - s, cy - s), (cx + s, cy + s)], fill=EMBLEM_GOLD + (240,), width=4)
-    # Sword 2 (top-right to bottom-left)
-    d.line([(cx + s, cy - s), (cx - s, cy + s)], fill=EMBLEM_GOLD + (240,), width=4)
-    # Hilt dots
-    r = 3
-    d.ellipse((cx - s - r, cy - s - r, cx - s + r, cy - s + r), fill=EMBLEM_GOLD + (255,))
-    d.ellipse((cx + s - r, cy - s - r, cx + s + r, cy - s + r), fill=EMBLEM_GOLD + (255,))
-    d.ellipse((cx - s - r, cy + s - r, cx - s + r, cy + s + r), fill=EMBLEM_GOLD + (255,))
-    d.ellipse((cx + s - r, cy + s - r, cx + s + r, cy + s + r), fill=EMBLEM_GOLD + (255,))
+    if not os.path.exists(EMBLEM_SRC):
+        print(f"  ! Emblem source not found, skipping: {EMBLEM_SRC}")
+        return
+    emblem = Image.open(EMBLEM_SRC).convert("RGBA")
+    # Resize to target emblem size
+    emblem = emblem.resize((target_size, target_size), Image.LANCZOS)
+    # Subtle dark ring around the emblem for separation from the background
+    ring = Image.new("RGBA", (target_size, target_size), (0, 0, 0, 0))
+    ImageDraw.Draw(ring).ellipse(
+        (0, 0, target_size - 1, target_size - 1),
+        outline=(0, 0, 0, 140),
+        width=2,
+    )
+    # Center stamp
+    offset = (cx - target_size // 2, cy - target_size // 2)
+    base.alpha_composite(emblem, offset)
+    base.alpha_composite(ring, offset)
 
 
-def draw_divider(base: Image.Image, center_xy, width=180, color=EMBLEM_GOLD):
+def draw_divider(base: Image.Image, center_xy, width=180, color=GOLD_TOP):
     """Horizontal divider with central diamond."""
     cx, cy = center_xy
     d = ImageDraw.Draw(base)
@@ -176,11 +173,11 @@ def draw_divider(base: Image.Image, center_xy, width=180, color=EMBLEM_GOLD):
 
 
 def main():
-    if not os.path.exists(SRC_BG):
-        raise SystemExit(f"Background image not found: {SRC_BG}")
+    if not os.path.exists(RAW_BG):
+        raise SystemExit(f"Raw background not found: {RAW_BG}\nRun scripts/gen-menu-bg.ts first.")
 
-    print(f"Loading background: {SRC_BG}")
-    bg = Image.open(SRC_BG).convert("RGBA")
+    print(f"Loading raw background: {RAW_BG}")
+    bg = Image.open(RAW_BG).convert("RGBA")
     W, H = bg.size
     print(f"Background size: {W}x{H}")
 
@@ -191,13 +188,13 @@ def main():
     draw_radial_glow(bg, (cx, 280), radius=260, color=GLOW_RED, max_alpha=85)
     draw_radial_glow(bg, (cx, 280), radius=140, color=(255, 200, 100), max_alpha=70)
 
-    # ── Layer 2: Emblem
-    emblem_y = 150
-    draw_emblem(bg, (cx, emblem_y), size=78)
+    # ── Layer 2: AI game emblem (same PNG as the Android launcher icon)
+    emblem_y = 170
+    composite_game_emblem(bg, (cx, emblem_y), target_size=200)
 
     # ── Layer 3: 'PACTO' (heavy black serif, gold gradient)
     font_pacto = ImageFont.truetype(FONT_BLACK, 88)
-    pacto_y = emblem_y + 60 + 24
+    pacto_y = emblem_y + 130
     stamp_glow_text(bg, "PACTO", font_pacto, (cx, pacto_y),
                     grad_top=GOLD_TOP, grad_bot=GOLD_BOT,
                     glow_color=GLOW_RED, glow_radius=12)
