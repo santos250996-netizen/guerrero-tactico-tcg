@@ -223,10 +223,10 @@ export function ProfileScreen() {
 
   return (
     <div className="app-frame relative overflow-hidden text-zinc-100">
-      {/* ── Background: blurred stylized-realism backdrop ── */}
+      {/* ── Background: blurred armory/trophy-hall backdrop (unique to profile) ── */}
       <div
         className="absolute inset-0 z-0 scale-110 bg-cover bg-center blur-[6px]"
-        style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
+        style={{ backgroundImage: 'url(/menu/profile-bg-raw.png)' }}
       />
       <div className="absolute inset-0 z-0 bg-black/75" />
 
