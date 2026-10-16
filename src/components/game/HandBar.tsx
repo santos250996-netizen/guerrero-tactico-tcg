@@ -3,15 +3,22 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
+import { EnergyCrystals } from "./EnergyCrystals";
 import { AlertTriangle, Lock, LogOut, Activity } from "lucide-react";
 import { sfx } from "@/lib/sound";
 import type { LaneId } from "@/lib/game/types";
+
+// Total turns is a fixed rule constant (6 turns, energy 1→6).
+const MAX_TURNS = 6;
 
 export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
   const hand = useGameStore((s) => s.hand);
   const selectedCardUid = useGameStore((s) => s.selectedCardUid);
   const draggingCardUid = useGameStore((s) => s.draggingCardUid);
   const energy = useGameStore((s) => s.energy);
+  const maxEnergy = useGameStore((s) => s.maxEnergy);
+  const turn = useGameStore((s) => s.turn);
+  const drawPile = useGameStore((s) => s.drawPile);
   const selectCard = useGameStore((s) => s.selectCard);
   const setDraggingCard = useGameStore((s) => s.setDraggingCard);
   const playSelectedCardIntoLane = useGameStore((s) => s.playSelectedCardIntoLane);
@@ -41,6 +48,23 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
 
   return (
     <div className="border-t border-zinc-800 bg-zinc-950/95">
+      {/* Status bar — Turn + Energy + Draw Pile, sits ABOVE the hand so the
+          top of the screen is clean. Compact HUD-like row. */}
+      <div className="flex items-center justify-center gap-2 border-b border-zinc-800/60 bg-black/30 px-2 py-1">
+        {/* Turn indicator */}
+        <div className="flex items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-200">
+          <span className="font-bold uppercase tracking-wider text-zinc-500">T</span>
+          <span className="font-bold tabular-nums text-white">{turn}<span className="text-zinc-500">/{MAX_TURNS}</span></span>
+        </div>
+        {/* Energy crystals */}
+        <EnergyCrystals current={energy} max={maxEnergy} />
+        {/* Draw pile count */}
+        <div className="flex items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300">
+          <span className="text-zinc-500">☗</span>
+          <span className="font-bold tabular-nums">{drawPile.length}</span>
+        </div>
+      </div>
+
       {/* Invalid message */}
       <AnimatePresence>
         {invalidPlayMsg && (

@@ -85,7 +85,6 @@ export default function Home() {
         onOpenRules={() => setRulesOpen(true)}
         onOpenHistory={() => setHistoryOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
-        onOpenProfile={() => setProfileOpen(true)}
       />
 
       <main className="app-main mx-auto flex w-full flex-1 flex-col gap-2 px-2 py-2">
