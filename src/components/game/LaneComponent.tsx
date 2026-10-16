@@ -152,12 +152,12 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     >
       {/* Lane background image — subtype-specific per class.
           For Guerrero: armas / proteccion / furia each have a distinct bg.
-          Lighter overlay so the art is clearly visible (was too dark before). */}
+          Very light overlay so the art is clearly visible. */}
       <div
         className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: `url(/menu/lane-${laneId}.png)` }}
       />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/55 via-black/35 to-black/55" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/35 via-black/10 to-black/35" />
 
       {/* C3: Bonus background tint (sits above the image) */}
       {laneBonus && BONUS_TINT[laneBonus.kind] && (

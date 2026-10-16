@@ -45,11 +45,17 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
   };
 
   return (
-    <div className="border-t border-zinc-800 bg-zinc-950/95">
+    <div className="relative border-t border-amber-700/30 bg-zinc-950/95">
+      {/* Top decorative accent line — replaces the hard black border with a
+          subtle gold gradient so the hand area blends with the lanes above
+          instead of looking like a flat black slab. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+
       {/* Status bar — CHIMERA-style: turn text left + big energy circle center
           (golden border + lightning icon) + draw pile count right. Sits ABOVE
-          the hand so the top of the screen is clean. */}
-      <div className="flex items-center justify-between gap-2 border-b border-zinc-800/60 bg-black/30 px-3 py-1.5">
+          the hand so the top of the screen is clean. Subtle vertical gradient
+          bg instead of flat black for warmth. */}
+      <div className="relative flex items-center justify-between gap-2 border-b border-amber-700/15 bg-gradient-to-b from-zinc-900/80 to-zinc-950/60 px-3 py-1.5">
         {/* LEFT: Turn text (plain, no pill) */}
         <div className="flex items-baseline gap-1">
           <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
@@ -113,11 +119,18 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
       {/* Hand container — horizontal scroll when needed; data-hand-container is used by
           HandCardComponent's pointer handlers for manual horizontal scrolling on mouse drag.
           Touch users get native scrolling via `touch-action: pan-x` on the cards themselves.
-          (Removed the old 'Tu mano · X cartas' label — players can count by intuition.) */}
+          (Removed the old 'Tu mano · X cartas' label — players can count by intuition.)
+          Subtle amber-to-black radial gradient bg so the empty space around cards
+          doesn't look like a flat black slab. */}
       <div
         data-hand-container
-        className="no-scrollbar flex gap-1.5 overflow-x-auto px-2 pb-1 pt-0.5"
+        className="no-scrollbar relative flex gap-1.5 overflow-x-auto px-2 pb-1 pt-0.5"
+        style={{
+          backgroundImage: 'radial-gradient(ellipse at center, rgba(120, 53, 15, 0.18) 0%, rgba(9, 9, 11, 0.95) 70%)',
+        }}
       >
+        {/* Inner top highlight — thin gradient line at the top of the hand area */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent" />
         <AnimatePresence mode="popLayout">
           {hand.length === 0 ? (
             <div className="flex h-44 w-full items-center justify-center text-[10px] text-zinc-600">
@@ -143,8 +156,11 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
 
       {/* Action bar — Pasar (big) + Registro + Opciones (small)
           Opciones replaces 'Salir' button —Salir is now in the Opciones modal
-          ('Salir al Menú Principal' with confirmation flow). */}
-      <div className="flex items-center gap-1.5 border-t border-zinc-800 bg-black/40 px-2 py-1.5">
+          ('Salir al Menú Principal' with confirmation flow).
+          Gradient bg instead of flat black for visual warmth. */}
+      <div className="relative flex items-center gap-1.5 border-t border-amber-700/15 bg-gradient-to-b from-zinc-950/80 to-black/60 px-2 py-1.5">
+        {/* Top accent line above the action bar */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/25 to-transparent" />
         {phase === "playing" ? (
           <button
             onClick={() => { sfx.click(); endTurn(); }}
