@@ -109,7 +109,7 @@ export default function Home() {
       <GameOverModal open={phase === "ended"} />
       <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
       <HistoryModal open={historyOpen} onOpenChange={setHistoryOpen} />
-      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} showExitToMenu />
       <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
       <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
       <CardPreviewModal card={previewCard} open={previewCard !== null} onOpenChange={(o) => { if (!o) setPreviewCard(null); }} />

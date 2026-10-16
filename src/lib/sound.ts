@@ -1,14 +1,50 @@
 "use client";
 import { useSettings } from "@/lib/settings";
 let ctx: AudioContext | null = null;
-function getCtx(): AudioContext | null { if (typeof window === "undefined") return null; if (!ctx) { try { const A = (window as any).AudioContext || (window as any).webkitAudioContext; if (!A) return null; ctx = new A(); } catch { return null; } } return ctx; }
+function getCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (!ctx) {
+    try {
+      const A = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!A) return null;
+      ctx = new A();
+    } catch {
+      return null;
+    }
+  }
+  return ctx;
+}
+
+/**
+ * Play a tone with the user's master volume applied.
+ * Volume 0-100 from settings is multiplied with the per-tone gain.
+ * Returns early if soundOn is false or volume is 0.
+ */
 function tone(f: number, d: number, t: OscillatorType = "sine", g = 0.15, delay = 0, slide?: number) {
-  if (!useSettings.getState().soundOn) return;
-  const a = getCtx(); if (!a) return; if (a.state === "suspended") a.resume().catch(() => {});
-  const s = a.currentTime + delay; const o = a.createOscillator(); const gn = a.createGain();
-  o.type = t; o.frequency.setValueAtTime(f, s); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(1, slide), s + d);
-  gn.gain.setValueAtTime(0, s); gn.gain.linearRampToValueAtTime(g, s + 0.01); gn.gain.exponentialRampToValueAtTime(0.001, s + d);
-  o.connect(gn).connect(a.destination); o.start(s); o.stop(s + d + 0.05);
+  const settings = useSettings.getState();
+  if (!settings.soundOn) return;
+  // Volume 0-100 → gain multiplier 0-1
+  const vol = Math.max(0, Math.min(1, settings.volume / 100));
+  if (vol === 0) return;
+  const effectiveGain = g * vol;
+  if (effectiveGain <= 0.001) return;
+
+  const a = getCtx();
+  if (!a) return;
+  if (a.state === "suspended") a.resume().catch(() => {});
+
+  const s = a.currentTime + delay;
+  const o = a.createOscillator();
+  const gn = a.createGain();
+  o.type = t;
+  o.frequency.setValueAtTime(f, s);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(1, slide), s + d);
+  gn.gain.setValueAtTime(0, s);
+  gn.gain.linearRampToValueAtTime(effectiveGain, s + 0.01);
+  gn.gain.exponentialRampToValueAtTime(0.001, s + d);
+  o.connect(gn).connect(a.destination);
+  o.start(s);
+  o.stop(s + d + 0.05);
 }
 export const sfx = {
   click: () => tone(600, 0.04, "square", 0.05),
