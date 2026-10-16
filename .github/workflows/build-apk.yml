@@ -62,7 +62,7 @@ jobs:
         run: bun run build
 
       - name: Sync Capacitor
-        run: bunx cap sync android
+        run: bunx @capacitor/cli sync android
 
       - name: Build Debug APK
         working-directory: android
