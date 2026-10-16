@@ -223,12 +223,15 @@ export function ProfileScreen() {
 
   return (
     <div className="app-frame relative overflow-hidden text-zinc-100">
-      {/* ── Background: blurred armory/trophy-hall backdrop (unique to profile) ── */}
+      {/* ── Background: armory/trophy-hall backdrop (unique to profile) ──
+          Subtle blur + lighter overlay so the armory is actually visible
+          (not just a black void). Cards still have their own bg-zinc-950/70
+          so they remain readable on top of this. */}
       <div
-        className="absolute inset-0 z-0 scale-110 bg-cover bg-center blur-[6px]"
+        className="absolute inset-0 z-0 scale-105 bg-cover bg-center blur-[2px]"
         style={{ backgroundImage: 'url(/menu/profile-bg-raw.png)' }}
       />
-      <div className="absolute inset-0 z-0 bg-black/75" />
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/80 via-black/55 to-black/80" />
 
       {/* ── Back button ── */}
       <button
