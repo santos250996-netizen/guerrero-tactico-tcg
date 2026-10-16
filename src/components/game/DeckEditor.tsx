@@ -1,11 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RotateCcw, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check, Play, MoreVertical } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check, Play, MoreVertical, Plus, Eye } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, RARITY_META, TRIGGER_META, KEYWORD_META, LANE_META } from "@/lib/game/types";
-import type { CardDef, CardCategory, LaneId, Rarity } from "@/lib/game/types";
+import type { CardDef, CardCategory, LaneId, Rarity, Trigger, Keyword } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { CardPreviewModal } from "./CardPreviewModal";
 import { PRESET_DECKS } from "@/lib/game/cards";
@@ -28,6 +28,8 @@ export function DeckEditor() {
   const previewCard = useGameStore((s) => s.previewCard);
   const [rarityFilter, setRarityFilter] = useState<Rarity | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<CardCategory | "all">("all");
+  const [triggerFilter, setTriggerFilter] = useState<Trigger | "all">("all");
+  const [keywordFilter, setKeywordFilter] = useState<Keyword | "all">("all");
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [deckLocked, setDeckLocked] = useState(false);
   const [deckDropdownOpen, setDeckDropdownOpen] = useState(false);
@@ -71,10 +73,19 @@ export function DeckEditor() {
   }, [cardPool]);
 
   const deckCards = useMemo(() => deckCardIds.map((id) => uniqueCardPool.find((c) => c.id === id)).filter((c): c is CardDef => Boolean(c)), [deckCardIds, uniqueCardPool]);
-  const availableCards = useMemo(() => uniqueCardPool.filter((c) => { if (deckCardIds.includes(c.id)) return false; if (rarityFilter !== "all" && c.rarity !== rarityFilter) return false; if (categoryFilter !== "all" && c.category !== categoryFilter) return false; return true; }), [uniqueCardPool, deckCardIds, rarityFilter, categoryFilter]);
+  const availableCards = useMemo(() => uniqueCardPool.filter((c) => {
+    if (deckCardIds.includes(c.id)) return false;
+    if (rarityFilter !== "all" && c.rarity !== rarityFilter) return false;
+    if (categoryFilter !== "all" && c.category !== categoryFilter) return false;
+    if (triggerFilter !== "all" && (c.trigger ?? "on_play") !== triggerFilter) return false;
+    if (keywordFilter !== "all" && c.keyword !== keywordFilter) return false;
+    return true;
+  }), [uniqueCardPool, deckCardIds, rarityFilter, categoryFilter, triggerFilter, keywordFilter]);
   const costCurve = useMemo(() => { const c: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; for (const d of deckCards) if (c[d.cost] !== undefined) c[d.cost]++; return c; }, [deckCards]);
-  const totalCost = useMemo(() => deckCards.reduce((a, c) => a + c.cost, 0), [deckCards]);
-  const totalPower = useMemo(() => deckCards.reduce((a, c) => a + c.power, 0), [deckCards]);
+  // Defensive NaN guard: Number(c.cost) || 0 ensures a card with undefined/string cost
+  // doesn't turn the whole reduce into NaN (which would then show 'NaN' in the stats bar).
+  const totalCost = useMemo(() => deckCards.reduce((a, c) => a + (Number(c.cost) || 0), 0), [deckCards]);
+  const totalPower = useMemo(() => deckCards.reduce((a, c) => a + (Number(c.power) || 0), 0), [deckCards]);
   const avgCost = deckCards.length > 0 ? (totalCost / deckCards.length).toFixed(1) : "0";
   const avgPower = deckCards.length > 0 ? (totalPower / deckCards.length).toFixed(1) : "0";
   const maxCurveVal = Math.max(1, ...Object.values(costCurve));
@@ -220,8 +231,10 @@ export function DeckEditor() {
       </div>
 
       <main className="app-main relative z-10 mx-auto mt-[100px] flex w-full flex-1 flex-col gap-2 px-2 pb-4">
-        {/* Preset deck selector — translucent card */}
-        <section className="relative rounded-lg border border-amber-700/40 bg-zinc-950/40 p-2 backdrop-blur-[1px]">
+        {/* Preset deck selector — translucent card.
+            When the dropdown is open, raise z-30 so the dropdown escapes the
+            backdrop-filter stacking context of sibling sections below. */}
+        <section className={cn("relative rounded-lg border border-amber-700/40 bg-zinc-950/40 p-2 backdrop-blur-[1px]", deckDropdownOpen && "z-30")}>
           <button
             onClick={() => setDeckDropdownOpen(!deckDropdownOpen)}
             className="flex w-full items-center justify-between gap-2 rounded-md border border-amber-600/40 bg-zinc-900/60 px-3 py-2 text-left transition-colors hover:bg-zinc-800/60"
@@ -286,27 +299,46 @@ export function DeckEditor() {
           <CompactStat label="Poder medio" value={avgPower} accent="rose" />
         </section>
 
-        {/* Tu Mazo — translucent amber-tinted card */}
+        {/* Tu Mazo — translucent amber-tinted card.
+            Always renders 12 slots. Filled slots show FullArtCardMini.
+            Empty slots show a clickable EmptySlot placeholder so the user can
+            select an empty slot AND swap a card from the available pool in. */}
         <section className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-2 backdrop-blur-[1px]">
           <div className="mb-2 flex items-center justify-between"><div>
             <h2
               className="text-[11px] font-black uppercase tracking-wider text-amber-300"
               style={{ fontFamily: 'var(--font-cinzel), serif' }}
             >
-              Tu Mazo · 12
+              Tu Mazo · {deckCards.length}/12
             </h2>
-            <p className="text-[8px] text-zinc-400">{deckLocked ? "Bloqueado — clic para ver" : selectedSlot === null ? "Toca una carta del mazo para seleccionarla." : `Slot ${selectedSlot + 1} — elige disponible`}</p>
+            <p className="text-[8px] text-zinc-400">{deckLocked ? "Bloqueado — clic para ver" : selectedSlot === null ? "Toca una carta para cambiarla, o tap el ojo (👁) para previsualizar." : `Slot ${selectedSlot + 1} seleccionado — elige una carta disponible`}</p>
           </div>{selectedSlot !== null && !deckLocked && <Button size="sm" variant="ghost" className="h-6 text-[9px] text-zinc-400" onClick={() => setSelectedSlot(null)}>Cancelar</Button>}</div>
           <div className="grid grid-cols-3 gap-1.5">
-            {deckCards.map((card, idx) => (
-              <FullArtCardMini
-                key={`${card.id}-${idx}`}
-                card={card}
-                onClick={() => { if (deckLocked) { setPreviewCard(card); return; } setSelectedSlot(selectedSlot === idx ? null : idx); }}
-                selected={selectedSlot === idx && !deckLocked}
-                showSlotNumber={idx}
-              />
-            ))}
+            {Array.from({ length: 12 }).map((_, idx) => {
+              const card = deckCards[idx];
+              if (card) {
+                return (
+                  <FullArtCardMini
+                    key={`${card.id}-${idx}`}
+                    card={card}
+                    onClick={() => { if (deckLocked) { setPreviewCard(card); return; } setSelectedSlot(selectedSlot === idx ? null : idx); }}
+                    onPreview={() => setPreviewCard(card)}
+                    selected={selectedSlot === idx && !deckLocked}
+                    showSlotNumber={idx}
+                  />
+                );
+              }
+              // Empty slot — clickable to select for adding a card from the pool
+              return (
+                <EmptySlot
+                  key={`empty-${idx}`}
+                  slotIdx={idx}
+                  selected={selectedSlot === idx && !deckLocked}
+                  disabled={deckLocked}
+                  onClick={() => { if (deckLocked) return; setSelectedSlot(selectedSlot === idx ? null : idx); }}
+                />
+              );
+            })}
           </div>
         </section>
 
@@ -321,8 +353,58 @@ export function DeckEditor() {
             </h2>
           </div>
           <div className="mb-2 flex flex-wrap gap-1">
+            {/* Rarity filter */}
             {(["all","common","rare","epic","legendary"] as const).map((r) => <button key={r} onClick={() => setRarityFilter(r)} className={cn("rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider", rarityFilter === r ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800")}>{r === "all" ? "Todas" : RARITY_META[r as Rarity]?.label || r}</button>)}
+            {/* Category filter */}
             {(["all","Ataque","Ítem","Acción"] as const).map((c) => <button key={c} onClick={() => setCategoryFilter(c)} className={cn("rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider", categoryFilter === c ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800")}>{c === "all" ? "Todas" : c}</button>)}
+          </div>
+          {/* Trigger filter row — chips for each of the 8 triggers */}
+          <div className="mb-2 flex flex-wrap gap-1">
+            <span className="self-center text-[7px] font-bold uppercase tracking-widest text-zinc-500">Trigger:</span>
+            {(["all", ...Object.keys(TRIGGER_META) as Trigger[]] as const).map((t) => {
+              const meta = t === "all" ? null : TRIGGER_META[t as Trigger];
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTriggerFilter(t)}
+                  className={cn(
+                    "flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider",
+                    triggerFilter === t ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800",
+                  )}
+                >
+                  {meta && <span>{meta.emoji}</span>}
+                  {t === "all" ? "Todos" : meta?.short ?? t}
+                </button>
+              );
+            })}
+          </div>
+          {/* Keyword filter row — chips for each keyword present in the pool */}
+          <div className="mb-2 flex flex-wrap gap-1">
+            <span className="self-center text-[7px] font-bold uppercase tracking-widest text-zinc-500">Keyword:</span>
+            <button
+              onClick={() => setKeywordFilter("all")}
+              className={cn("rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider", keywordFilter === "all" ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800")}
+            >
+              Todas
+            </button>
+            {/* Only render keywords that actually appear in the available card pool (cuts the 33 list down) */}
+            {Array.from(new Set(uniqueCardPool.map((c) => c.keyword).filter(Boolean) as Keyword[])).sort().map((kw) => {
+              const meta = KEYWORD_META[kw as Keyword];
+              if (!meta) return null;
+              return (
+                <button
+                  key={kw}
+                  onClick={() => setKeywordFilter(kw as Keyword)}
+                  className={cn(
+                    "flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider",
+                    keywordFilter === kw ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800",
+                  )}
+                >
+                  {meta.emoji && <span>{meta.emoji}</span>}
+                  {meta.short ?? kw}
+                </button>
+              );
+            })}
           </div>
           {availableCards.length === 0 ? <div className="rounded border border-dashed border-zinc-800 bg-zinc-900/40 p-4 text-center text-[10px] text-zinc-500">No hay cartas con este filtro.</div> :
           <div className="grid grid-cols-3 gap-1.5">
@@ -352,9 +434,11 @@ const RARITY_SOLID_BG: Record<string, string> = {
 
 // Full-art card for the deck editor — same visual design as the hand cards
 // but rendered at mini scale (3-col grid on mobile).
-function FullArtCardMini({ card, onClick, selected, showSlotNumber, dimmed }: {
+function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, dimmed }: {
   card: CardDef;
   onClick: () => void;
+  // Optional: opens the preview modal (eye icon) without affecting slot selection
+  onPreview?: () => void;
   selected?: boolean;
   showSlotNumber?: number;
   dimmed?: boolean;
@@ -421,6 +505,21 @@ function FullArtCardMini({ card, onClick, selected, showSlotNumber, dimmed }: {
           {card.power}
         </span>
       </div>
+
+      {/* Preview (eye) button — only when onPreview is provided.
+          Sits at the bottom-right corner, overlays the bottom info panel with
+          a higher z-index. stopPropagation prevents the parent onClick from firing
+          (which would select the slot instead). */}
+      {onPreview && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onPreview(); }}
+          className="absolute bottom-0.5 right-0.5 z-40 flex h-5 w-5 items-center justify-center rounded-full border border-amber-400/60 bg-black/80 text-amber-300 shadow-md transition-colors hover:bg-amber-900/60 hover:text-amber-100"
+          title="Ver detalle"
+          aria-label="Ver detalle"
+        >
+          <Eye className="h-3 w-3" />
+        </button>
+      )}
 
       {/* Bottom info panel */}
       <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-0.5 px-1 py-1">
@@ -492,4 +591,44 @@ function CompactStat({ label, value, accent }: { label: string; value: string; a
 
 function DividerDot() {
   return <span className="h-1 w-1 shrink-0 rounded-full bg-zinc-700/60" aria-hidden />;
+}
+
+// ──────────────────────────────────────────────────────────────
+// EmptySlot — placeholder for empty deck slots (when deck has fewer than 12
+// cards). Clickable to select the slot so the user can swap a card from the
+// available pool IN. Previously the empty slots weren't rendered at all,
+// making it impossible to add new cards to the deck.
+// ──────────────────────────────────────────────────────────────
+function EmptySlot({ slotIdx, selected, disabled, onClick }: {
+  slotIdx: number;
+  selected: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <motion.button
+      whileHover={!disabled ? { scale: 1.03 } : undefined}
+      whileTap={!disabled ? { scale: 0.97 } : undefined}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "relative flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed transition-all",
+        selected ? "border-amber-400 bg-amber-950/40 shadow-[0_0_12px_rgba(251,191,36,0.3)]" : "border-zinc-700/60 bg-zinc-900/40 hover:border-zinc-500 hover:bg-zinc-800/40",
+        disabled && "cursor-not-allowed opacity-40",
+      )}
+    >
+      <div className="absolute left-0.5 top-0.5 z-30 flex h-4 w-4 items-center justify-center rounded bg-black/70 text-[7px] font-bold text-zinc-300">
+        {slotIdx + 1}
+      </div>
+      <Plus className="h-5 w-5 text-zinc-500" strokeWidth={2.4} />
+      <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">
+        Vacío
+      </span>
+      {selected && (
+        <span className="text-[7px] font-black uppercase tracking-wider text-amber-400">
+          + Carta
+        </span>
+      )}
+    </motion.button>
+  );
 }
