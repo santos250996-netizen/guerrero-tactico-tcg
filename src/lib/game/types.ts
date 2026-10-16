@@ -238,6 +238,10 @@ export const KEYWORD_META: Record<
     hasValue: boolean;
     /** Default scope for this keyword (per spec 2026-10). Cards can override via `card.scope`. */
     scope: ScopeKind;
+    /** Subtype that this keyword is EXCLUSIVE to (for class identity). 
+     *  If set, only cards with this subtype in their `subtypes` array can use this keyword.
+     *  Undefined = no restriction (any subtype can use it). */
+    exclusiveSubtype?: Subtype;
   }
 > = {
   // 1. ACTIVACIÓN DIRECTA
@@ -382,47 +386,47 @@ export const KEYWORD_META: Record<
   sangrado: {
     label: "Sangrado", short: "SANGR", emoji: "🩸", color: "text-rose-400",
     description: "Aplica X de reducción de poder progresiva a la carta objetivo (persistente, turno a turno).",
-    trigger: "start_turn", hasValue: true, scope: "CARRIL_LOCAL",
+    trigger: "start_turn", hasValue: true, scope: "CARRIL_LOCAL", exclusiveSubtype: "furia",
   },
   frenesi: {
     label: "Frenesí", short: "FREN", emoji: "🌀", color: "text-amber-300",
     description: "Gana +X de poder cada vez que se cumple la condición de su trigger (acumulativo).",
-    trigger: "start_turn", hasValue: true, scope: "PROPIO",
+    trigger: "start_turn", hasValue: true, scope: "PROPIO", exclusiveSubtype: "furia",
   },
   enrabia: {
     label: "Enrabia", short: "ENRAB", emoji: "😡", color: "text-rose-300",
     description: "Activa un bono de +X de poder la primera vez que sufre una reducción de poder enemiga.",
-    trigger: "reaction", hasValue: true, scope: "PROPIO",
+    trigger: "reaction", hasValue: true, scope: "PROPIO", exclusiveSubtype: "furia",
   },
   espinas: {
     label: "Espinas", short: "ESP", emoji: "🌵", color: "text-lime-300",
     description: "Aplica X de reducción de poder a la carta enemiga que aplique una reducción a esta carta.",
-    trigger: "reaction", hasValue: true, scope: "CARRIL_LOCAL",
+    trigger: "reaction", hasValue: true, scope: "CARRIL_LOCAL", exclusiveSubtype: "proteccion",
   },
   cupula: {
     label: "Cúpula", short: "CUP", emoji: "🛡️", color: "text-cyan-300",
     description: "Cancela hasta X puntos de reducciones de poder enemigas dirigidas a esta carta o al carril.",
-    trigger: "passive", hasValue: true, scope: "CARRIL_LOCAL",
+    trigger: "passive", hasValue: true, scope: "CARRIL_LOCAL", exclusiveSubtype: "proteccion",
   },
   guardian: {
     label: "Guardián", short: "GUARD", emoji: "🪖", color: "text-emerald-300",
     description: "Redirige hacia esta carta las reducciones de poder enemigas dirigidas a sus aliados locales.",
-    trigger: "passive", hasValue: false, scope: "CARRIL_LOCAL",
+    trigger: "passive", hasValue: false, scope: "CARRIL_LOCAL", exclusiveSubtype: "proteccion",
   },
   perforacion: {
     label: "Perforación", short: "PERF", emoji: "🎯", color: "text-orange-300",
     description: "Ignora hasta X puntos de Prevención (Cúpula/Baluarte) del objetivo al reducir su poder.",
-    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    trigger: "on_play", hasValue: true, scope: "PROPIO", exclusiveSubtype: "armas",
   },
   desarme: {
     label: "Desarme", short: "DESR", emoji: "🛠️", color: "text-zinc-300",
     description: "Inhabilita o reduce en X el valor de las keywords/habilidades de la carta enemiga objetivo.",
-    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL", exclusiveSubtype: "armas",
   },
   mejora: {
     label: "Mejora", short: "MEJ", emoji: "⭐", color: "text-amber-300",
     description: "Otorga +X de poder permanente a una carta aliada objetivo (no se pierde si la fuente muere).",
-    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL", exclusiveSubtype: "armas",
   },
   // NOTE: `ofrenda` is now a TRIGGER (spec 2026-10 amendment), not a keyword.
   // See `TRIGGER_META.ofrenda` and `TRIGGER_MODS.ofrenda`. The isOfrenda flag

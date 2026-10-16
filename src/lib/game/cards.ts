@@ -787,9 +787,7 @@ const BASTION_INQUEBRANTABLE: CardDef[] = [
     id: "yunque_de_guerra",
     name: "Yunque de Guerra",
     category: "Ítem",
-    subtypes: ["armas"],
-    cost: 3,
-    power: 7, // AUTO-BALANCED (era 6, Δ -0.59 → 0.41)
+    subtypes: ["armas", "furia"], // AUTO-BALANCED (era 6, Δ -0.59 → 0.41)
     text: "Fin de Turno: Eco 6 (Otorga +6 de poder a las cartas en tu mano que compartan subtipo o categoría.)",
     effectId: "eco",
     rarity: "rare",
@@ -1078,9 +1076,7 @@ const MALLA_DE_EMBOSCADA: CardDef[] = [
     id: "hostigamiento_tactico",
     name: "Hostigamiento Táctico",
     category: "Acción",
-    subtypes: ["furia"],
-    cost: 2,
-    power: 4,
+    subtypes: ["furia", "armas"],
     text: "Al Jugar: Emboscada 10 (Gana +10 de poder si el rival ya tiene el carril lleno, 4 cartas.)",
     effectId: "emboscada",
     rarity: "rare",
@@ -1183,9 +1179,7 @@ const DEFENSIVA_TEST: CardDef[] = [
     id: "escudo_cupula",
     name: "Escudo Cúpula",
     category: "Ítem",
-    subtypes: ["proteccion"],
-    cost: 2,
-    power: 6,
+    subtypes: ["proteccion", "armas"],
     text: "Pasivo: Cúpula 3 (Cancela hasta 3 puntos de reducciones enemigas dirigidas a este carril. Pool renovado cada turno.)",
     effectId: "muro_escudos", // re-uses existing passive effectId; cupulaRemaining is set at card creation based on keyword
     rarity: "rare",
@@ -1264,7 +1258,7 @@ const ETAPA3_TEST: CardDef[] = [
     id: "daga_sangrante",
     name: "Daga Sangrante",
     category: "Ataque",
-    subtypes: ["armas"],
+    subtypes: ["armas", "furia"],
     cost: 3,
     power: 11, // AUTO-BALANCED (era 7, Δ -4.00 → -0.00)
     text: "Inicio de Turno: Sangrado 2 (Aplica -2 de poder al enemigo más fuerte del carril, cada turno.)",
@@ -1294,7 +1288,7 @@ const ETAPA3_TEST: CardDef[] = [
     id: "red_de_desarme",
     name: "Red de Desarme",
     category: "Acción",
-    subtypes: ["proteccion"],
+    subtypes: ["proteccion", "armas"],
     cost: 2,
     power: 7, // AUTO-BALANCED (era 6, Δ -1.10 → -0.10)
     text: "Al Jugar: Desarme 2 (Reduce en 2 el valor de las keywords del enemigo más fuerte del carril.)",
@@ -1309,7 +1303,7 @@ const ETAPA3_TEST: CardDef[] = [
     id: "ritual_de_mejora",
     name: "Ritual de Mejora",
     category: "Acción",
-    subtypes: ["furia"],
+    subtypes: ["furia", "armas"],
     cost: 2,
     power: 6, // AUTO-BALANCED (era 4, Δ -1.90 → 0.10)
     text: "Al Jugar: Mejora 3 (Otorga +3 de poder permanente al aliado más débil del carril.)",
