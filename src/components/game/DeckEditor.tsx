@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RotateCcw, Layers, Coins, Swords, Flame, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check, Play } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check, Play, MoreVertical } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, RARITY_META, TRIGGER_META, KEYWORD_META, LANE_META } from "@/lib/game/types";
@@ -31,6 +31,7 @@ export function DeckEditor() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [deckLocked, setDeckLocked] = useState(false);
   const [deckDropdownOpen, setDeckDropdownOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // Returns to wherever the user came from (in-game header → game; class-select flow → class-select; default → main-menu)
   const handleBack = () => setView(deckEditorReturn);
@@ -136,41 +137,61 @@ export function DeckEditor() {
         </div>
       </header>
 
-      {/* ── Action toolbar (sticky row below the top bar) ── */}
+      {/* ── Action toolbar — only Save + Start Battle as primary; utilities hidden under "Más" ── */}
       <div className="absolute inset-x-0 top-[60px] z-30 flex items-center justify-between gap-1.5 px-3 pb-1">
-        {/* Left cluster: Reset / Trash / Lock */}
-        <div className="flex items-center gap-1">
+        {/* Left: "Más" dropdown (Reset / Trash / Lock) */}
+        <div className="relative">
           <Button
             size="sm"
             variant="outline"
             className="h-8 w-8 border-zinc-700/60 bg-zinc-950/60 p-0 text-zinc-300 backdrop-blur-sm hover:bg-zinc-800 hover:text-zinc-100"
-            onClick={() => resetDeck()}
-            title="Resetear"
+            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+            title="Más opciones"
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <MoreVertical className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 w-8 border-rose-800/50 bg-rose-950/40 p-0 text-rose-300 backdrop-blur-sm hover:bg-rose-900/40"
-            onClick={() => { if (confirm("¿Vaciar el mazo? Tendrás que elegir 12 cartas de nuevo.")) { useGameStore.setState({ deckCardIds: [], deckDirty: true, deckSaveStatus: "idle" }); setSelectedSlot(null); } }}
-            title="Vaciar todo el mazo"
-            disabled={deckLocked}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className={cn("h-8 w-8 p-0 backdrop-blur-sm", deckLocked ? "border-amber-600/60 bg-amber-950/50 text-amber-300" : "border-zinc-700/60 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100")}
-            onClick={() => { setDeckLocked(!deckLocked); setSelectedSlot(null); }}
-            title={deckLocked ? "Mazo bloqueado" : "Bloquear mazo"}
-          >
-            {deckLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-          </Button>
+          {moreMenuOpen && (
+            <>
+              {/* Backdrop to close on outside tap */}
+              <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
+              <div className="absolute left-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-zinc-700/60 bg-zinc-950/95 shadow-2xl backdrop-blur-md">
+                <button
+                  onClick={() => { resetDeck(); setMoreMenuOpen(false); }}
+                  className="flex w-full items-center gap-2.5 border-b border-zinc-800/60 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-300 transition-colors hover:bg-zinc-900/60"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-zinc-400" />
+                  Resetear mazo
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("¿Vaciar el mazo? Tendrás que elegir 12 cartas de nuevo.")) {
+                      useGameStore.setState({ deckCardIds: [], deckDirty: true, deckSaveStatus: "idle" });
+                      setSelectedSlot(null);
+                    }
+                    setMoreMenuOpen(false);
+                  }}
+                  disabled={deckLocked}
+                  className="flex w-full items-center gap-2.5 border-b border-zinc-800/60 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-rose-300 transition-colors hover:bg-rose-950/40 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Vaciar mazo
+                </button>
+                <button
+                  onClick={() => { setDeckLocked(!deckLocked); setSelectedSlot(null); setMoreMenuOpen(false); }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-zinc-900/60",
+                    deckLocked ? "text-amber-300" : "text-zinc-300",
+                  )}
+                >
+                  {deckLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                  {deckLocked ? "Desbloquear mazo" : "Bloquear mazo"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Right cluster: Save + Start Battle */}
+        {/* Right: Save + Start Battle (primary actions) */}
         <div className="flex items-center gap-1.5">
           {showStartBattle && (
             <Button
@@ -256,22 +277,13 @@ export function DeckEditor() {
           )}
         </section>
 
-        {/* Stats grid — translucent cards */}
-        <section className="grid grid-cols-2 gap-1.5">
-          <StatCard icon={<Layers className="h-3 w-3 text-zinc-400" />} label="Cartas" value={`${deckCards.length} / 12`} sub={`${availableCards.length} disp.`} />
-          <StatCard icon={<Coins className="h-3 w-3 text-sky-400" />} label="Coste" value={avgCost} sub={`${totalCost} tot.`} />
-          <StatCard icon={<Swords className="h-3 w-3 text-rose-400" />} label="Poder" value={avgPower} sub={`${totalPower} tot.`} />
-          <StatCard icon={<Flame className="h-3 w-3 text-amber-400" />} label="Rarezas" value={`${deckCards.filter(c=>c.rarity==="common").length}/${deckCards.filter(c=>c.rarity==="rare").length}/${deckCards.filter(c=>c.rarity==="epic").length}/${deckCards.filter(c=>c.rarity==="legendary").length}`} sub="C/R/E/L" />
-        </section>
-
-        {/* Cost curve — translucent card */}
-        <section className="rounded-lg border border-zinc-700/60 bg-zinc-950/40 p-2 backdrop-blur-[1px]">
-          <div className="mb-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400" style={{ fontFamily: 'var(--font-cinzel), serif' }}>Curva de Coste</div>
-          <div className="flex items-end justify-between gap-1" style={{ height: "40px" }}>
-            {COST_BUCKETS.map((c) => { const count = costCurve[c] ?? 0; const hpct = (count / maxCurveVal) * 100; return (
-              <div key={c} className="flex flex-1 flex-col items-center gap-0.5"><div className="text-[8px] font-bold tabular-nums text-zinc-300">{count}</div><div className="flex w-full flex-1 items-end justify-center" style={{ minHeight: "20px" }}><div className="w-full max-w-[16px] rounded-t bg-gradient-to-t from-amber-700 to-amber-400 transition-all duration-300" style={{ height: `${Math.max(2, hpct)}%` }} /></div><div className="text-[8px] font-bold text-amber-400">⚡{c}</div></div>
-            ); })}
-          </div>
+        {/* Compact inline stats — single row instead of 2x2 grid (less cognitive load) */}
+        <section className="flex items-center justify-between rounded-lg border border-zinc-700/60 bg-zinc-950/40 px-3 py-2 backdrop-blur-[1px]">
+          <CompactStat label="Cartas" value={`${deckCards.length}/12`} accent="amber" />
+          <DividerDot />
+          <CompactStat label="Coste medio" value={avgCost} accent="sky" />
+          <DividerDot />
+          <CompactStat label="Poder medio" value={avgPower} accent="rose" />
         </section>
 
         {/* Tu Mazo — translucent amber-tinted card */}
@@ -454,4 +466,30 @@ function FullArtCardMini({ card, onClick, selected, showSlotNumber, dimmed }: {
 
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub: string }) {
   return <div className="rounded-md border border-zinc-800 bg-zinc-950/60 px-2 py-1.5"><div className="flex items-center gap-1 text-[8px] uppercase tracking-wider text-zinc-400">{icon}{label}</div><div className="mt-0.5 text-sm font-bold tabular-nums text-white">{value}</div><div className="text-[8px] text-zinc-500">{sub}</div></div>;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Compact inline stat (used in the simplified single-row stats bar)
+// ──────────────────────────────────────────────────────────────
+function CompactStat({ label, value, accent }: { label: string; value: string; accent: "amber" | "sky" | "rose" }) {
+  const accents: Record<string, string> = {
+    amber: "text-amber-300",
+    sky: "text-sky-300",
+    rose: "text-rose-300",
+  };
+  return (
+    <div className="flex flex-1 flex-col items-center leading-tight">
+      <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-500">{label}</span>
+      <span
+        className={`text-base font-black tabular-nums ${accents[accent]}`}
+        style={{ fontFamily: 'var(--font-cinzel), serif' }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function DividerDot() {
+  return <span className="h-1 w-1 shrink-0 rounded-full bg-zinc-700/60" aria-hidden />;
 }
