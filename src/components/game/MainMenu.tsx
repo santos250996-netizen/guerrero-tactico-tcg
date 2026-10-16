@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { useSettings } from "@/lib/settings";
 import { useState } from "react";
-import { Swords, User, Settings as SettingsIcon, Play, ChevronRight } from "lucide-react";
+import { User, Settings as SettingsIcon, Play, ChevronRight } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 
 export function MainMenu() {
@@ -28,71 +28,23 @@ export function MainMenu() {
 
   return (
     <div className="app-frame relative overflow-hidden text-zinc-100">
-      {/* Background image */}
+      {/* Background image — has the 'PACTO DE GUERRA' title baked in */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
       />
-      {/* Dark vignette overlay */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/85 via-black/40 to-black/95" />
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.85)_100%)]" />
+      {/* Bottom darkening overlay so buttons read clearly */}
+      <div className="absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-b from-transparent via-black/55 to-black/90" />
 
       {/* Content layer */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 flex h-full w-full flex-col items-center justify-between px-6 py-10"
+        className="relative z-10 flex h-full w-full flex-col justify-end px-6 pb-10"
       >
-        {/* ────────────────── TITLE / EMBLEM ────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: -20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.9, ease: "easeOut", delay: 0.1 }}
-          className="flex flex-col items-center gap-3 pt-6"
-        >
-          {/* Crossed swords emblem */}
-          <div className="relative flex h-20 w-20 items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-500/20 to-rose-700/30 blur-md" />
-            <div className="relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-amber-500/60 bg-gradient-to-br from-zinc-900 to-black shadow-[0_0_30px_rgba(251,191,36,0.35)]">
-              <Swords className="h-8 w-8 text-amber-400" strokeWidth={2.2} />
-            </div>
-          </div>
-
-          {/* Title */}
-          <div className="text-center">
-            <h1
-              className="text-4xl font-black uppercase tracking-[0.18em] text-amber-300"
-              style={{
-                textShadow:
-                  '0 0 12px rgba(251,191,36,0.6), 0 0 24px rgba(220,38,38,0.4), 0 2px 4px rgba(0,0,0,0.9)',
-                fontFamily: 'var(--font-geist-sans)',
-                letterSpacing: '0.18em',
-              }}
-            >
-              Pacto
-            </h1>
-            <div className="mx-auto my-1 h-px w-32 bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
-            <h1
-              className="text-4xl font-black uppercase tracking-[0.18em] text-rose-400"
-              style={{
-                textShadow:
-                  '0 0 12px rgba(244,63,94,0.6), 0 0 24px rgba(220,38,38,0.4), 0 2px 4px rgba(0,0,0,0.9)',
-                letterSpacing: '0.18em',
-              }}
-            >
-              de Guerra
-            </h1>
-          </div>
-
-          {/* Subtitle */}
-          <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-zinc-400">
-            TCG Táctico de Carriles
-          </p>
-        </motion.div>
-
         {/* ────────────────── MENU BUTTONS ────────────────── */}
-        <nav className="flex w-full max-w-xs flex-col gap-2.5">
+        <nav className="mx-auto flex w-full max-w-xs flex-col gap-2.5">
           <MenuButton
             icon={<Play className="h-5 w-5" strokeWidth={2.5} />}
             label="JUGAR"
@@ -121,7 +73,7 @@ export function MainMenu() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="flex flex-col items-center gap-0.5"
+          className="mt-5 flex flex-col items-center gap-0.5"
         >
           <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-amber-700/80">
             v2.0 · 94 cartas · 33 keywords

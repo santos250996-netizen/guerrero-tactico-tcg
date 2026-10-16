@@ -10,18 +10,25 @@ async function main() {
   const zai = await ZAI.create();
 
   const prompt = [
-    'Dark fantasy tactical card game main menu background',
-    'grimdark medieval war banners and crossed swords',
-    'cracked blood-red battlefield ground with embers floating',
-    'ancient warhorn and tattered war flag silhouettes',
-    'ominous crimson and amber glow at the horizon',
-    'smoke and ash particles drifting through the air',
-    'dramatic chiaroscuro lighting from below',
-    'highly detailed digital painting',
-    'no text, no letters, no words, no typography',
-    'empty negative space in the upper third for title overlay',
-    'vertical portrait composition, atmospheric depth',
-    'cinematic war tableau, deep blacks and gold accents',
+    // Subject + mood
+    'dark fantasy tactical card game menu background, vertical portrait',
+    'grimdark medieval battlefield at dusk with crimson and amber sky',
+    // Visual elements (no text!)
+    'cracked blood-red battlefield ground with floating embers and ash',
+    'tattered war banners and silhouetted crossed spears in the distance',
+    'smoke and dust drifting through the air',
+    'dramatic chiaroscuro lighting from below, dramatic war tableau',
+    // Composition constraints
+    'empty negative space in the upper third of the frame for title overlay',
+    'deep rich blacks and warm gold accents, atmospheric depth',
+    'vertical portrait composition with vignette',
+    // STRICT no-text directives (repeat to reinforce)
+    'absolutely no text anywhere in the image',
+    'no letters, no words, no alphabet, no writing, no symbols, no glyphs',
+    'no signage, no inscriptions, no labels, no captions',
+    'clean empty negative space, no watermark',
+    // Quality
+    'highly detailed digital painting, cinematic, professional concept art',
   ].join(', ');
 
   console.log('Generating main menu background...');
