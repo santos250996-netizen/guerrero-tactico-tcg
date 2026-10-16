@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useSettings } from "@/lib/settings";
-import { HeaderBar } from "@/components/game/HeaderBar";
 import { HandBar } from "@/components/game/HandBar";
 import { LaneComponent } from "@/components/game/LaneComponent";
 import { GameOverModal } from "@/components/game/GameOverModal";
@@ -20,7 +19,6 @@ import { TurnTransitionBanner } from "@/components/game/TurnTransitionBanner";
 import { FloatingNumbersLayer } from "@/components/game/FloatingNumbers";
 import { Confetti } from "@/components/game/Confetti";
 import { LegendaryBurst } from "@/components/game/LegendaryBurst";
-import { ProfileModal } from "@/components/game/ProfileModal";
 import { LANE_IDS } from "@/lib/game/engine";
 import type { LaneId } from "@/lib/game/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -45,7 +43,6 @@ export default function Home() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [registroOpen, setRegistroOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -81,11 +78,10 @@ export default function Home() {
 
   return (
     <div className="app-frame text-zinc-100">
-      <HeaderBar
-        onOpenRules={() => setRulesOpen(true)}
-        onOpenHistory={() => setHistoryOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
+      {/* Top of the screen is intentionally empty — header bar was removed so
+          the lanes get maximum vertical space. Turn + Energy + DrawPile are
+           now in the HandBar (above the hand cards). Opciones button is also
+           in the HandBar action bar (where Salir used to be). */}
 
       <main className="app-main mx-auto flex w-full flex-1 flex-col gap-2 px-2 py-2">
         <div className="grid grid-cols-3 gap-1.5">
@@ -95,7 +91,10 @@ export default function Home() {
         </div>
       </main>
 
-      <HandBar onOpenRegistro={() => setRegistroOpen(true)} />
+      <HandBar
+        onOpenRegistro={() => setRegistroOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
 
       {/* Overlays */}
       <TurnTransitionBanner visible={aiTurnPhase === "banner"} phase="transition" />
@@ -108,8 +107,12 @@ export default function Home() {
       <GameOverModal open={phase === "ended"} />
       <RulesModal open={rulesOpen} onOpenChange={setRulesOpen} />
       <HistoryModal open={historyOpen} onOpenChange={setHistoryOpen} />
-      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} showExitToMenu />
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+      <SettingsModal
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        showExitToMenu
+        onOpenRules={() => { setSettingsOpen(false); setRulesOpen(true); }}
+      />
       <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
       <CardPreviewModal card={previewCard} open={previewCard !== null} onOpenChange={(o) => { if (!o) setPreviewCard(null); }} />
 

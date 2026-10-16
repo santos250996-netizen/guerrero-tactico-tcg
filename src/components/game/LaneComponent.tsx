@@ -139,7 +139,6 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
       data-lane-id={laneId}
       className={cn(
         "relative flex flex-1 flex-col gap-0.5 overflow-hidden rounded-lg border p-1",
-        colors.bg,
         colors.border,
         laneBonus && colors.glow,
         canDrop && "cursor-pointer ring-2 " + colors.ring
@@ -151,63 +150,46 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 8px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.5)",
       }}
     >
-      {/* C3: Bonus background tint */}
+      {/* Lane background image — subtype-specific per class.
+          For Guerrero: armas / proteccion / furia each have a distinct bg.
+          Dark overlay so cards stay readable on top. */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center opacity-50"
+        style={{ backgroundImage: `url(/menu/lane-${laneId}.png)` }}
+      />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/80 via-black/55 to-black/80" />
+
+      {/* C3: Bonus background tint (sits above the image) */}
       {laneBonus && BONUS_TINT[laneBonus.kind] && (
         <div
           className={cn(
-            "pointer-events-none absolute inset-0 bg-gradient-to-b to-transparent",
+            "pointer-events-none absolute inset-0 z-0 bg-gradient-to-b to-transparent",
             BONUS_TINT[laneBonus.kind]
           )}
         />
       )}
 
-      {/* Subtle texture pattern overlay */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `repeating-linear-gradient(45deg, rgba(255,255,255,0.5) 0px, rgba(255,255,255,0.5) 1px, transparent 1px, transparent 4px)`,
-        }}
-      />
-
-      {/* Lane header */}
+      {/* Lane header — JUST the name (top), bonus moved INSIDE the lane body */}
       <div className={cn(
-        "relative flex items-center justify-between rounded border border-white/5 px-1 py-0.5 backdrop-blur-sm",
+        "relative z-10 flex items-center justify-center rounded border border-white/5 px-1 py-0.5 backdrop-blur-sm",
         colors.headerBg
       )}>
-        <div className="flex items-center gap-0.5 min-w-0">
-          <span className="text-[10px] drop-shadow">{meta.emoji}</span>
-          <span
-            className={cn(
-              "truncate text-[7px] font-black uppercase tracking-wider drop-shadow",
-              colors.text
-            )}
-          >
-            {meta.title}
-          </span>
-        </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          {laneBonus ? (
-            <span
-              title={laneBonus.description}
-              className={cn(
-                "rounded border px-1 py-0 text-[6px] font-bold uppercase tracking-wide shadow-sm",
-                BONUS_CHIP_CLASS[laneBonus.flavor].chip
-              )}
-            >
-              {laneBonus.label}
-            </span>
-          ) : (
-            <span className="rounded border border-white/10 bg-black/50 px-1 py-0 text-[6px] font-bold uppercase tracking-wide text-zinc-500">
-              Sin bono
-            </span>
+        <span className="text-[10px] drop-shadow">{meta.emoji}</span>
+        <span
+          className={cn(
+            "ml-0.5 truncate text-[8px] font-black uppercase tracking-wider drop-shadow",
+            colors.text
           )}
-        </div>
+          style={{ fontFamily: 'var(--font-cinzel), serif' }}
+        >
+          {meta.title}
+        </span>
       </div>
 
       {/* Enemy slots — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid grid-cols-2 grid-rows-2 gap-0.5 rounded border p-0.5",
+          "relative z-10 grid grid-cols-2 grid-rows-2 gap-0.5 rounded border p-0.5",
           enemyWinning
             ? "border-rose-500/30 bg-rose-950/10"
             : "border-white/5 bg-black/30"
@@ -223,15 +205,28 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         })}
       </div>
 
-      {/* Central divider with VS */}
-      <div className="relative flex items-center justify-center py-0">
+      {/* Central divider with VS + bonus chip inside the lane (not in header) */}
+      <div className="relative z-10 flex items-center justify-center gap-1 py-0.5">
         <div className={cn("h-[1px] flex-1 rounded-full bg-gradient-to-r to-transparent", colors.dividerLine)} />
-        <span className="mx-1 text-[6px] font-black uppercase tracking-widest text-zinc-600">VS</span>
+        {/* Bonus chip — sits INSIDE the lane body so the header stays clean */}
+        {laneBonus ? (
+          <span
+            title={laneBonus.description}
+            className={cn(
+              "rounded-full border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wide shadow-sm",
+              BONUS_CHIP_CLASS[laneBonus.flavor].chip
+            )}
+          >
+            {laneBonus.label}
+          </span>
+        ) : (
+          <span className="text-[6px] font-black uppercase tracking-widest text-zinc-600">VS</span>
+        )}
         <div className={cn("h-[1px] flex-1 rounded-full bg-gradient-to-l to-transparent", colors.dividerLine)} />
       </div>
 
       {/* Score panel with visual bar */}
-      <div className="relative rounded border border-white/5 bg-black/50 px-1 py-0.5">
+      <div className="relative z-10 rounded border border-white/5 bg-black/50 px-1 py-0.5">
         <div className="flex items-center justify-between mb-0.5">
           <div className="text-right leading-none">
             <div className="text-[5px] uppercase tracking-widest text-zinc-500">Rival</div>
@@ -266,7 +261,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
       {/* Player slots (drop zone) — fixed 2x2 grid, always 4 slots */}
       <div
         className={cn(
-          "relative grid grid-cols-2 grid-rows-2 gap-0.5 rounded border border-dashed p-0.5 transition-colors",
+          "relative z-10 grid grid-cols-2 grid-rows-2 gap-0.5 rounded border border-dashed p-0.5 transition-colors",
           canDrop
             ? "border-yellow-400/60 bg-yellow-500/5"
             : playerWinning

@@ -4,14 +4,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
 import { EnergyCrystals } from "./EnergyCrystals";
-import { AlertTriangle, Lock, LogOut, Activity } from "lucide-react";
+import { AlertTriangle, Lock, Activity, Settings as SettingsIcon } from "lucide-react";
 import { sfx } from "@/lib/sound";
 import type { LaneId } from "@/lib/game/types";
 
 // Total turns is a fixed rule constant (6 turns, energy 1→6).
 const MAX_TURNS = 6;
 
-export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
+export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: () => void; onOpenSettings: () => void }) {
   const hand = useGameStore((s) => s.hand);
   const selectedCardUid = useGameStore((s) => s.selectedCardUid);
   const draggingCardUid = useGameStore((s) => s.draggingCardUid);
@@ -86,24 +86,10 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between px-2 py-0.5">
-        <span className="text-[9px] uppercase tracking-wider text-zinc-500">
-          Tu mano · {hand.length} carta(s)
-        </span>
-        {phase === "playing" && draggingCardUid ? (
-          <span className="text-[9px] text-amber-400 animate-pulse">
-            Arrastra a un carril
-          </span>
-        ) : phase === "playing" && selectedCardUid ? (
-          <span className="text-[9px] text-yellow-400">
-            Toca un carril para jugarla
-          </span>
-        ) : null}
-      </div>
-
       {/* Hand container — horizontal scroll when needed; data-hand-container is used by
           HandCardComponent's pointer handlers for manual horizontal scrolling on mouse drag.
-          Touch users get native scrolling via `touch-action: pan-x` on the cards themselves. */}
+          Touch users get native scrolling via `touch-action: pan-x` on the cards themselves.
+          (Removed the old 'Tu mano · X cartas' label — players can count by intuition.) */}
       <div
         data-hand-container
         className="no-scrollbar flex gap-1.5 overflow-x-auto px-2 pb-1 pt-0.5"
@@ -131,7 +117,9 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
         </AnimatePresence>
       </div>
 
-      {/* Action bar — Pasar (big) + Registro + Salir (small) */}
+      {/* Action bar — Pasar (big) + Registro + Opciones (small)
+          Opciones replaces 'Salir' button —Salir is now in the Opciones modal
+          ('Salir al Menú Principal' with confirmation flow). */}
       <div className="flex items-center gap-1.5 border-t border-zinc-800 bg-black/40 px-2 py-1.5">
         {phase === "playing" ? (
           <button
@@ -153,16 +141,18 @@ export function HandBar({ onOpenRegistro }: { onOpenRegistro: () => void }) {
         <button
           onClick={onOpenRegistro}
           className="flex items-center justify-center gap-1 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-[9px] font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          title="Registro de batalla"
         >
           <Activity className="h-3 w-3" />
           Registro
         </button>
         <button
-          onClick={() => { if (confirm("¿Abandonar la partida?")) resetGame(); }}
-          className="flex items-center justify-center gap-1 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-[9px] font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          onClick={onOpenSettings}
+          className="flex items-center justify-center gap-1 rounded-full border border-amber-600/40 bg-amber-950/30 px-2.5 py-2 text-[9px] font-bold uppercase tracking-wider text-amber-300 transition-colors hover:bg-amber-900/40 hover:text-amber-200"
+          title="Ajustes (sonido, animaciones, idioma, reglas, salir)"
         >
-          <LogOut className="h-3 w-3" />
-          Salir
+          <SettingsIcon className="h-3 w-3" />
+          Opciones
         </button>
       </div>
     </div>
