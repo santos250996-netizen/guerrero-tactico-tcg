@@ -83,8 +83,11 @@ export default function Home() {
            now in the HandBar (above the hand cards). Opciones button is also
            in the HandBar action bar (where Salir used to be). */}
 
-      <main className="app-main mx-auto flex w-full flex-1 flex-col gap-2 px-2 py-2">
-        <div className="grid grid-cols-3 gap-1.5">
+      <main className="app-main mx-auto flex w-full flex-1 flex-col px-2 py-2">
+        {/* h-full + grid-rows-1 + min-h-0 makes the grid fill the available
+            vertical space, stretching the lane sections to cover the gap
+            between the (removed) header and the hand bar. */}
+        <div className="grid h-full grid-cols-3 grid-rows-1 gap-1.5 min-h-0">
           {LANE_IDS.map((lane: LaneId) => (
             <LaneComponent key={lane} laneId={lane} />
           ))}

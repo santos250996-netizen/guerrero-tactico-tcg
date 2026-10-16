@@ -3,7 +3,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
-import { EnergyCrystals } from "./EnergyCrystals";
 import { AlertTriangle, Lock, Activity, Settings as SettingsIcon } from "lucide-react";
 import { sfx } from "@/lib/sound";
 import type { LaneId } from "@/lib/game/types";
@@ -16,7 +15,6 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
   const selectedCardUid = useGameStore((s) => s.selectedCardUid);
   const draggingCardUid = useGameStore((s) => s.draggingCardUid);
   const energy = useGameStore((s) => s.energy);
-  const maxEnergy = useGameStore((s) => s.maxEnergy);
   const turn = useGameStore((s) => s.turn);
   const drawPile = useGameStore((s) => s.drawPile);
   const selectCard = useGameStore((s) => s.selectCard);
@@ -48,20 +46,46 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
 
   return (
     <div className="border-t border-zinc-800 bg-zinc-950/95">
-      {/* Status bar — Turn + Energy + Draw Pile, sits ABOVE the hand so the
-          top of the screen is clean. Compact HUD-like row. */}
-      <div className="flex items-center justify-center gap-2 border-b border-zinc-800/60 bg-black/30 px-2 py-1">
-        {/* Turn indicator */}
-        <div className="flex items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-200">
-          <span className="font-bold uppercase tracking-wider text-zinc-500">T</span>
-          <span className="font-bold tabular-nums text-white">{turn}<span className="text-zinc-500">/{MAX_TURNS}</span></span>
+      {/* Status bar — CHIMERA-style: turn text left + big energy circle center
+          (golden border + lightning icon) + draw pile count right. Sits ABOVE
+          the hand so the top of the screen is clean. */}
+      <div className="flex items-center justify-between gap-2 border-b border-zinc-800/60 bg-black/30 px-3 py-1.5">
+        {/* LEFT: Turn text (plain, no pill) */}
+        <div className="flex items-baseline gap-1">
+          <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+            Turno
+          </span>
+          <span
+            className="text-sm font-black tabular-nums text-white"
+            style={{ fontFamily: 'var(--font-cinzel), serif' }}
+          >
+            {turn}
+          </span>
+          <span className="text-[9px] font-bold tabular-nums text-zinc-500">/{MAX_TURNS}</span>
         </div>
-        {/* Energy crystals */}
-        <EnergyCrystals current={energy} max={maxEnergy} />
-        {/* Draw pile count */}
-        <div className="flex items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300">
-          <span className="text-zinc-500">☗</span>
-          <span className="font-bold tabular-nums">{drawPile.length}</span>
+
+        {/* CENTER: Big energy circle with golden border + lightning + number */}
+        <div className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-amber-400 bg-zinc-950 shadow-[0_0_10px_rgba(251,191,36,0.4)]">
+          <span className="absolute -top-1 -right-0.5 text-[10px] text-amber-300" aria-hidden>⚡</span>
+          <span
+            className="text-base font-black tabular-nums text-amber-300"
+            style={{ fontFamily: 'var(--font-cinzel), serif' }}
+          >
+            {energy}
+          </span>
+        </div>
+
+        {/* RIGHT: Draw pile count */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+            Mazo
+          </span>
+          <span
+            className="text-sm font-black tabular-nums text-white"
+            style={{ fontFamily: 'var(--font-cinzel), serif' }}
+          >
+            {drawPile.length}
+          </span>
         </div>
       </div>
 

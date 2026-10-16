@@ -138,7 +138,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     <section
       data-lane-id={laneId}
       className={cn(
-        "relative flex flex-1 flex-col gap-0.5 overflow-hidden rounded-lg border p-1",
+        "relative flex h-full min-h-0 flex-1 flex-col gap-0.5 overflow-hidden rounded-lg border p-1",
         colors.border,
         laneBonus && colors.glow,
         canDrop && "cursor-pointer ring-2 " + colors.ring
@@ -152,12 +152,12 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     >
       {/* Lane background image — subtype-specific per class.
           For Guerrero: armas / proteccion / furia each have a distinct bg.
-          Dark overlay so cards stay readable on top. */}
+          Lighter overlay so the art is clearly visible (was too dark before). */}
       <div
-        className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center opacity-50"
+        className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: `url(/menu/lane-${laneId}.png)` }}
       />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/80 via-black/55 to-black/80" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/55 via-black/35 to-black/55" />
 
       {/* C3: Bonus background tint (sits above the image) */}
       {laneBonus && BONUS_TINT[laneBonus.kind] && (
@@ -186,10 +186,11 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         </span>
       </div>
 
-      {/* Enemy slots — fixed 2x2 grid, always 4 slots */}
+      {/* Enemy slots — fixed 2x2 grid, always 4 slots. flex-1 so it stretches
+          vertically to fill the lane height (was fixed before, leaving empty space). */}
       <div
         className={cn(
-          "relative z-10 grid grid-cols-2 grid-rows-2 gap-0.5 rounded border p-0.5",
+          "relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-0.5 rounded border p-0.5 min-h-0",
           enemyWinning
             ? "border-rose-500/30 bg-rose-950/10"
             : "border-white/5 bg-black/30"
@@ -258,10 +259,11 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         )}
       </div>
 
-      {/* Player slots (drop zone) — fixed 2x2 grid, always 4 slots */}
+      {/* Player slots (drop zone) — fixed 2x2 grid, always 4 slots. flex-1
+          so it stretches vertically to fill the lane height. */}
       <div
         className={cn(
-          "relative z-10 grid grid-cols-2 grid-rows-2 gap-0.5 rounded border border-dashed p-0.5 transition-colors",
+          "relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-0.5 rounded border border-dashed p-0.5 transition-colors min-h-0",
           canDrop
             ? "border-yellow-400/60 bg-yellow-500/5"
             : playerWinning
