@@ -268,8 +268,11 @@ export function ProfileScreen() {
           transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
           className="flex flex-col gap-4"
         >
-          {/* ────────────── PROFILE HEADER ────────────── */}
-          <section className="flex flex-col items-center gap-3 rounded-2xl border border-amber-600/40 bg-zinc-950/70 p-5 shadow-[0_0_30px_rgba(251,191,36,0.15)] backdrop-blur-sm">
+          {/* ────────────── PROFILE HEADER ──────────────
+              Card is intentionally semi-transparent (no backdrop-blur) so the
+              armory background shows through. Inner elements (avatar button,
+              XP bar, mini-stats chips) have their own bg-zinc-950 for contrast. */}
+          <section className="flex flex-col items-center gap-3 rounded-2xl border border-amber-600/40 bg-zinc-950/40 p-5 shadow-[0_0_30px_rgba(251,191,36,0.15)]">
             {/* Avatar — clickable to open the card picker */}
             <div className="relative">
               <div className="absolute -inset-1.5 rounded-full bg-gradient-to-br from-amber-400/60 via-amber-600/40 to-rose-700/50 blur-[1px]" />
@@ -419,7 +422,7 @@ export function ProfileScreen() {
           {/* ────────────── STATS DE BATALLA ────────────── */}
           <section className="flex flex-col gap-2.5">
             <SectionHeader title="Estadísticas de Batalla" />
-            <div className="flex flex-col gap-1 rounded-xl border border-zinc-700/60 bg-zinc-950/70 p-3 backdrop-blur-sm">
+            <div className="flex flex-col gap-1 rounded-xl border border-zinc-700/60 bg-zinc-950/40 p-3">
               <StatRow label="Empates" value={profile.draws} />
               <DividerLine />
               <StatRow label="Clase favorita" value={profile.favoriteClass} />
