@@ -504,14 +504,25 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 
   return (
-    <motion.button
+    <motion.div
       layout
       whileHover={{ y: -2, scale: 1.03 }}
       whileTap={{ scale: 0.97 }}
       onClick={onClick}
+      // Use a div with role=button instead of a <button> so we can nest the
+      // Eye preview <button> inside (HTML forbids nested buttons — would
+      // cause hydration errors and inconsistent behavior across browsers).
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       className={cn(
         "relative flex aspect-[3/4] flex-col overflow-hidden rounded-lg border-2 text-left",
-        "bg-zinc-950",
+        "bg-zinc-950 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400/60",
         selected ? "border-yellow-400 ring-2 ring-yellow-400/60" : rar.borderClass,
         dimmed && "opacity-60"
       )}
@@ -611,7 +622,7 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
           </span>
         </div>
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
 
