@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { ArrowLeft, Check, X, Image as ImageIcon, Lock } from "lucide-react";
+import { ArrowLeft, Check, X, Image as ImageIcon, Lock, Crown, Trophy, Swords, Scale } from "lucide-react";
 import { ALL_CARDS } from "@/lib/game/cards";
 import type { CardDef } from "@/lib/game/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -73,6 +73,20 @@ const DEFAULT_PROFILE: ProfileData = {
   avatarCardId: null,
   unlockedAvatarCardIds: ALL_CARD_IDS,
 };
+
+/**
+ * Map a player level to a rank title (Spanish, tactical theme).
+ * Rank progression gives the header a sense of progression even at low levels.
+ */
+function getRankTitle(level: number): { title: string; tier: "bronze" | "silver" | "gold" | "platinum" | "legend" } {
+  if (level >= 50) return { title: "Leyenda", tier: "legend" };
+  if (level >= 30) return { title: "Maestro de Guerra", tier: "platinum" };
+  if (level >= 20) return { title: "Comandante", tier: "gold" };
+  if (level >= 10) return { title: "Veterano", tier: "silver" };
+  if (level >= 5) return { title: "Guerrero", tier: "silver" };
+  if (level >= 3) return { title: "Soldado", tier: "bronze" };
+  return { title: "Recluta", tier: "bronze" };
+}
 
 function loadProfile(): ProfileData {
   try {
@@ -153,6 +167,9 @@ export function ProfileScreen() {
 
   const matchesIntoLevel = profile.totalMatches % MATCHES_PER_LEVEL;
   const xpPct = (matchesIntoLevel / MATCHES_PER_LEVEL) * 100;
+
+  // Rank title (auto from level — gives a sense of progression)
+  const rank = getRankTitle(profile.level);
 
   // ── Username edit handlers ──
   const startEditing = () => {
@@ -332,24 +349,31 @@ export function ProfileScreen() {
               ) : (
                 <button
                   onClick={startEditing}
-                  className="group flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-zinc-900/50"
+                  className="group flex flex-col items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-zinc-900/50"
                   title="Click para editar"
                 >
-                  <h3
-                    className="text-xl font-black uppercase tracking-[0.12em] text-amber-50"
-                    style={{
-                      fontFamily: 'var(--font-cinzel), serif',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-                    }}
-                  >
-                    {profile.username}
-                  </h3>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
-                    ✎ editar
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <h3
+                      className="text-xl font-black uppercase tracking-[0.12em] text-amber-50"
+                      style={{
+                        fontFamily: 'var(--font-cinzel), serif',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+                      }}
+                    >
+                      {profile.username}
+                    </h3>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
+                      ✎ editar
+                    </span>
+                  </div>
+                  {/* Rank title — auto-derived from level */}
+                  <RankTitle title={rank.title} tier={rank.tier} />
                 </button>
               )}
             </div>
+
+            {/* Decorative crossed-swords divider between identity block and progress block */}
+            <DecorativeDivider />
 
             {/* Level + XP progress bar */}
             <div className="w-full">
@@ -373,6 +397,9 @@ export function ProfileScreen() {
                 />
               </div>
             </div>
+
+            {/* Inline mini-stats row — quick glance of W / L / WR */}
+            <MiniStats wins={profile.wins} losses={profile.losses} winrate={winrate} />
           </section>
 
           {/* ────────────── STATS DE PARTIDAS ────────────── */}
@@ -654,4 +681,116 @@ function StatRow({ label, value }: { label: string; value: string | number }) {
 
 function DividerLine() {
   return <div className="h-px w-full bg-gradient-to-r from-transparent via-zinc-700/60 to-transparent" />;
+}
+
+// ──────────────────────────────────────────────────────────────
+// NEW: RankTitle — auto-derived rank title below the username
+// Color-coded by tier (bronze/silver/gold/platinum/legend) so the user
+// sees their progression visually.
+// ──────────────────────────────────────────────────────────────
+const TIER_STYLES: Record<string, { text: string; glow: string; icon: string }> = {
+  bronze:   { text: "text-amber-700",  glow: "rgba(180,83,9,0.35)",   icon: "bg-amber-900/40 text-amber-600 ring-1 ring-amber-700/40" },
+  silver:   { text: "text-zinc-300",   glow: "rgba(161,161,170,0.4)", icon: "bg-zinc-800/60 text-zinc-300 ring-1 ring-zinc-600/40" },
+  gold:     { text: "text-amber-400",  glow: "rgba(251,191,36,0.5)",  icon: "bg-amber-950/50 text-amber-400 ring-1 ring-amber-500/40" },
+  platinum: { text: "text-cyan-300",   glow: "rgba(103,232,249,0.4)", icon: "bg-cyan-950/50 text-cyan-300 ring-1 ring-cyan-500/40" },
+  legend:   { text: "text-rose-300",   glow: "rgba(244,63,94,0.55)",  icon: "bg-rose-950/50 text-rose-300 ring-1 ring-rose-500/40" },
+};
+
+function RankTitle({ title, tier }: { title: string; tier: "bronze" | "silver" | "gold" | "platinum" | "legend" }) {
+  const style = TIER_STYLES[tier];
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`flex h-4 w-4 items-center justify-center rounded-full ${style.icon}`}>
+        <Crown className="h-2.5 w-2.5" strokeWidth={2.4} />
+      </span>
+      <span
+        className={`text-[10px] font-black uppercase tracking-[0.3em] ${style.text}`}
+        style={{ textShadow: `0 0 8px ${style.glow}, 0 1px 2px rgba(0,0,0,0.95)` }}
+      >
+        {title}
+      </span>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// NEW: DecorativeDivider — crossed-swords icon centered between two
+// fading gradient lines. Gives the header a clear visual break between
+// the identity block (avatar+name+rank) and the progression block (level+xp).
+// ──────────────────────────────────────────────────────────────
+function DecorativeDivider() {
+  return (
+    <div className="flex w-full items-center gap-2 py-1">
+      <span className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-700/40" />
+      <span
+        className="text-amber-500/70"
+        style={{ fontSize: '10px', lineHeight: 1 }}
+        aria-hidden
+      >
+        ⚔
+      </span>
+      <span className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-700/40" />
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// NEW: MiniStats — inline quick-glance row showing W / L / WR
+// Sits below the XP bar, color-coded (emerald/rose/amber) for instant scan.
+// This complements (not duplicates) the detailed Stats section below by
+// giving the user a one-glance summary of their record.
+// ──────────────────────────────────────────────────────────────
+function MiniStats({ wins, losses, winrate }: { wins: number; losses: number; winrate: number }) {
+  return (
+    <div className="grid w-full grid-cols-3 gap-1.5">
+      <MiniStatChip
+        icon={<Trophy className="h-3 w-3" />}
+        label="V"
+        value={wins}
+        accent="emerald"
+      />
+      <MiniStatChip
+        icon={<Swords className="h-3 w-3" />}
+        label="D"
+        value={losses}
+        accent="rose"
+      />
+      <MiniStatChip
+        icon={<Scale className="h-3 w-3" />}
+        label="WR"
+        value={`${winrate}%`}
+        accent="amber"
+      />
+    </div>
+  );
+}
+
+function MiniStatChip({
+  icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  accent: "emerald" | "rose" | "amber";
+}) {
+  const accents: Record<string, string> = {
+    emerald: "border-emerald-700/40 bg-emerald-950/30 text-emerald-300",
+    rose: "border-rose-700/40 bg-rose-950/30 text-rose-300",
+    amber: "border-amber-700/40 bg-amber-950/30 text-amber-300",
+  };
+  return (
+    <div className={`flex items-center justify-center gap-1.5 rounded-lg border px-1 py-1.5 ${accents[accent]}`}>
+      <span className="opacity-80">{icon}</span>
+      <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">{label}</span>
+      <span
+        className="text-[12px] font-black tabular-nums"
+        style={{ fontFamily: 'var(--font-cinzel), serif' }}
+      >
+        {value}
+      </span>
+    </div>
+  );
 }
