@@ -34,6 +34,17 @@ export function DeckEditor() {
   const [deckLocked, setDeckLocked] = useState(false);
   const [deckDropdownOpen, setDeckDropdownOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Count how many non-"all" filters are currently active (for the toggle badge)
+  const activeFilterCount = [rarityFilter, categoryFilter, triggerFilter, keywordFilter]
+    .filter((f) => f !== "all").length;
+  const clearAllFilters = () => {
+    setRarityFilter("all");
+    setCategoryFilter("all");
+    setTriggerFilter("all");
+    setKeywordFilter("all");
+  };
 
   // Returns to wherever the user came from (in-game header → game; class-select flow → class-select; default → main-menu)
   const handleBack = () => setView(deckEditorReturn);
@@ -352,60 +363,101 @@ export function DeckEditor() {
               Disponibles · {availableCards.length}
             </h2>
           </div>
-          <div className="mb-2 flex flex-wrap gap-1">
-            {/* Rarity filter */}
-            {(["all","common","rare","epic","legendary"] as const).map((r) => <button key={r} onClick={() => setRarityFilter(r)} className={cn("rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider", rarityFilter === r ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800")}>{r === "all" ? "Todas" : RARITY_META[r as Rarity]?.label || r}</button>)}
-            {/* Category filter */}
-            {(["all","Ataque","Ítem","Acción"] as const).map((c) => <button key={c} onClick={() => setCategoryFilter(c)} className={cn("rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider", categoryFilter === c ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800")}>{c === "all" ? "Todas" : c}</button>)}
-          </div>
-          {/* Trigger filter row — chips for each of the 8 triggers */}
-          <div className="mb-2 flex flex-wrap gap-1">
-            <span className="self-center text-[7px] font-bold uppercase tracking-widest text-zinc-500">Trigger:</span>
-            {(["all", ...Object.keys(TRIGGER_META) as Trigger[]] as const).map((t) => {
-              const meta = t === "all" ? null : TRIGGER_META[t as Trigger];
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTriggerFilter(t)}
-                  className={cn(
-                    "flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider",
-                    triggerFilter === t ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800",
-                  )}
-                >
-                  {meta && <span>{meta.emoji}</span>}
-                  {t === "all" ? "Todos" : meta?.short ?? t}
-                </button>
-              );
-            })}
-          </div>
-          {/* Keyword filter row — chips for each keyword present in the pool */}
-          <div className="mb-2 flex flex-wrap gap-1">
-            <span className="self-center text-[7px] font-bold uppercase tracking-widest text-zinc-500">Keyword:</span>
+          {/* Filters toggle button — compact, only expands when user wants to filter.
+              Shows active filter count badge so the user knows what's currently filtered. */}
+          <div className="mb-2 flex items-center justify-between gap-2">
             <button
-              onClick={() => setKeywordFilter("all")}
-              className={cn("rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider", keywordFilter === "all" ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800")}
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors",
+                filtersOpen
+                  ? "border-amber-400/60 bg-amber-950/40 text-amber-300"
+                  : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100",
+              )}
+              aria-expanded={filtersOpen}
             >
-              Todas
+              <span>Filtros</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[8px] font-black text-zinc-950">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown className={cn("h-3 w-3 transition-transform", filtersOpen && "rotate-180")} />
             </button>
-            {/* Only render keywords that actually appear in the available card pool (cuts the 33 list down) */}
-            {Array.from(new Set(uniqueCardPool.map((c) => c.keyword).filter(Boolean) as Keyword[])).sort().map((kw) => {
-              const meta = KEYWORD_META[kw as Keyword];
-              if (!meta) return null;
-              return (
-                <button
-                  key={kw}
-                  onClick={() => setKeywordFilter(kw as Keyword)}
-                  className={cn(
-                    "flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider",
-                    keywordFilter === kw ? "border-amber-400 bg-amber-900/40 text-amber-300" : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800",
-                  )}
-                >
-                  {meta.emoji && <span>{meta.emoji}</span>}
-                  {meta.short ?? kw}
-                </button>
-              );
-            })}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="text-[8px] font-bold uppercase tracking-wider text-zinc-500 transition-colors hover:text-rose-300"
+                title="Limpiar todos los filtros"
+              >
+                ✕ Limpiar
+              </button>
+            )}
           </div>
+
+          {/* Expanded filter panel — grouped sections with clear labels */}
+          {filtersOpen && (
+            <div className="mb-2 flex flex-col gap-2.5 rounded-md border border-zinc-700/60 bg-zinc-950/60 p-2 backdrop-blur-[1px]">
+              {/* Rareza */}
+              <FilterGroup label="Rareza">
+                {(["all","common","rare","epic","legendary"] as const).map((r) => (
+                  <FilterChip key={r} active={rarityFilter === r} onClick={() => setRarityFilter(r)}>
+                    {r === "all" ? "Todas" : RARITY_META[r as Rarity]?.label || r}
+                  </FilterChip>
+                ))}
+              </FilterGroup>
+
+              {/* Categoría */}
+              <FilterGroup label="Categoría">
+                {(["all","Ataque","Ítem","Acción"] as const).map((c) => (
+                  <FilterChip key={c} active={categoryFilter === c} onClick={() => setCategoryFilter(c)}>
+                    {c === "all" ? "Todas" : c}
+                  </FilterChip>
+                ))}
+              </FilterGroup>
+
+              {/* Trigger */}
+              <FilterGroup label="Trigger">
+                <FilterChip active={triggerFilter === "all"} onClick={() => setTriggerFilter("all")}>
+                  Todos
+                </FilterChip>
+                {(Object.keys(TRIGGER_META) as Trigger[]).map((t) => {
+                  const meta = TRIGGER_META[t];
+                  return (
+                    <FilterChip
+                      key={t}
+                      active={triggerFilter === t}
+                      onClick={() => setTriggerFilter(t)}
+                    >
+                      {meta.emoji && <span className="mr-0.5">{meta.emoji}</span>}
+                      {meta.short}
+                    </FilterChip>
+                  );
+                })}
+              </FilterGroup>
+
+              {/* Keyword — only show those present in the pool to keep it manageable */}
+              <FilterGroup label="Keyword">
+                <FilterChip active={keywordFilter === "all"} onClick={() => setKeywordFilter("all")}>
+                  Todas
+                </FilterChip>
+                {Array.from(new Set(uniqueCardPool.map((c) => c.keyword).filter(Boolean) as Keyword[])).sort().map((kw) => {
+                  const meta = KEYWORD_META[kw as Keyword];
+                  if (!meta) return null;
+                  return (
+                    <FilterChip
+                      key={kw}
+                      active={keywordFilter === kw}
+                      onClick={() => setKeywordFilter(kw as Keyword)}
+                    >
+                      {meta.emoji && <span className="mr-0.5">{meta.emoji}</span>}
+                      {meta.short ?? kw}
+                    </FilterChip>
+                  );
+                })}
+              </FilterGroup>
+            </div>
+          )}
           {availableCards.length === 0 ? <div className="rounded border border-dashed border-zinc-800 bg-zinc-900/40 p-4 text-center text-[10px] text-zinc-500">No hay cartas con este filtro.</div> :
           <div className="grid grid-cols-3 gap-1.5">
             {availableCards.map((card) => (
@@ -632,3 +684,44 @@ function EmptySlot({ slotIdx, selected, disabled, onClick }: {
     </motion.button>
   );
 }
+
+// ──────────────────────────────────────────────────────────────
+// FilterGroup + FilterChip — organized filter rows with labeled headers.
+// Replaces the old disorganized stack of 4 chip rows with a clean grouped
+// layout where each filter dimension (Rareza, Categoría, Trigger, Keyword)
+// has its own labeled section.
+// ──────────────────────────────────────────────────────────────
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500"
+        style={{ fontFamily: 'var(--font-cinzel), serif' }}
+      >
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1">{children}</div>
+    </div>
+  );
+}
+
+function FilterChip({ active, onClick, children }: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center rounded-md border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors",
+        active
+          ? "border-amber-400 bg-amber-900/50 text-amber-200 shadow-[0_0_6px_rgba(251,191,36,0.3)]"
+          : "border-zinc-700/60 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
