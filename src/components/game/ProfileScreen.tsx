@@ -355,25 +355,25 @@ export function ProfileScreen() {
               ) : (
                 <button
                   onClick={startEditing}
-                  className="group flex flex-col items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-zinc-900/50"
+                  className="group relative flex flex-col items-center gap-1 rounded-lg px-3 py-1 transition-colors hover:bg-zinc-900/40"
                   title="Click para editar"
                 >
-                  <div className="flex items-center gap-2">
-                    <h3
-                      className="text-xl font-black uppercase tracking-[0.12em] text-amber-50"
-                      style={{
-                        fontFamily: 'var(--font-cinzel), serif',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-                      }}
-                    >
-                      {profile.username}
-                    </h3>
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
-                      ✎ editar
-                    </span>
-                  </div>
-                  {/* Rank title — auto-derived from level */}
+                  {/* Username — centered, no inline hint next to it (was causing off-center alignment) */}
+                  <h3
+                    className="text-center text-xl font-black uppercase tracking-[0.12em] text-amber-50"
+                    style={{
+                      fontFamily: 'var(--font-cinzel), serif',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+                    }}
+                  >
+                    {profile.username}
+                  </h3>
+                  {/* Rank title — auto-derived from level, centered below username */}
                   <RankTitle title={rank.title} tier={rank.tier} />
+                  {/* Hover-only "editar" hint — absolute positioned so it doesn't shift the username */}
+                  <span className="pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-[0.25em] text-amber-400/0 transition-opacity duration-200 group-hover:text-amber-400/80">
+                    ✎ editar
+                  </span>
                 </button>
               )}
             </div>
