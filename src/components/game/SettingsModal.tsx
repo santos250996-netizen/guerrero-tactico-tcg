@@ -1,5 +1,5 @@
 "use client";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useSettings } from "@/lib/settings";
 import type { Language } from "@/lib/settings";
@@ -47,7 +47,10 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden border border-zinc-800/80 bg-zinc-950/95 p-0 text-zinc-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-md sm:max-w-md">
+      <DialogContent
+        showCloseButton={false}
+        className="overflow-hidden border border-zinc-800/80 bg-zinc-950/95 p-0 text-zinc-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-md sm:max-w-md"
+      >
         {/* ────────────── HEADER con brand mark ────────────── */}
         <div className="relative flex items-center gap-3 border-b border-zinc-800/60 bg-gradient-to-b from-zinc-900/80 to-zinc-950/60 px-4 py-3.5">
           {/* Mini brand mark — transparent game icon */}
@@ -60,12 +63,16 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
             />
           </div>
           <div className="flex flex-col leading-tight">
-            <h2 className="text-sm font-black uppercase tracking-[0.35em] text-zinc-50">
-              Ajustes
-            </h2>
-            <p className="text-[9px] uppercase tracking-[0.25em] text-zinc-500">
-              Pacto de Guerra
-            </p>
+            <DialogTitle asChild>
+              <h2 className="text-sm font-black uppercase tracking-[0.35em] text-zinc-50">
+                Ajustes
+              </h2>
+            </DialogTitle>
+            <DialogDescription asChild>
+              <p className="text-[9px] uppercase tracking-[0.25em] text-zinc-500">
+                Pacto de Guerra
+              </p>
+            </DialogDescription>
           </div>
           <button
             onClick={() => onOpenChange(false)}
