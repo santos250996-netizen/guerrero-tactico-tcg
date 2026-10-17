@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.guerrero.tactico',
-  appName: 'Guerrero Tactico TCG',
+  appId: 'com.pacto.guerra',
+  appName: 'Pacto de Guerra',
   webDir: 'out'
 };
 

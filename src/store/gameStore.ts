@@ -979,6 +979,19 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     newHand = startRetornoRes.hand;
     log = pushTriggerLogs(log, newTurn, { logs: startRetornoLogs });
 
+    // ====== RE-ROLL LANE BONUSES AT TURN 4 ======
+    // User spec: at the start of turn 4, do another random roll of lane bonuses
+    // so the player needs to adapt their strategy mid-match (was static before).
+    let newLaneBonuses = freshState.laneBonuses;
+    if (newTurn === 4) {
+      newLaneBonuses = rollLaneBonuses();
+      const bonusSummary = LANE_IDS.map((ln) => {
+        const b = newLaneBonuses[ln];
+        return b ? `${ln}: ${b.label}` : `${ln}: sin bono`;
+      }).join(" · ");
+      log = pushLog(log, newTurn, "system", `🔮 ¡Bonos re-rollados! ${bonusSummary}`, "buff");
+    }
+
     set({
       board: workBoard,
       turn: newTurn,
@@ -991,6 +1004,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       invalidPlayMsg: null,
       lastEnemyPlays: plan,
       laneTraps: workTraps,
+      laneBonuses: newLaneBonuses,
       nextTurnEnergyPenalty: 0,
       aiTurnPhase: "idle",
       log,
@@ -1064,14 +1078,26 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   swapCardInDeck: (index, cardId) => {
+    // Allow placing a card into ANY of the 12 deck slots, even if the slot is
+    // beyond the current deckCardIds length (e.g. user emptied the deck then
+    // clicks slot 5 — we pad with empty strings up to that index).
+    if (index < 0 || index >= 12) return;
     const { deckCardIds } = get();
-    if (index < 0 || index >= deckCardIds.length) return;
     if (deckCardIds[index] === cardId) return;
-    // Prevent duplicates (deck is 12 unique cards)
-    if (deckCardIds.includes(cardId)) return;
+    // Prevent duplicates (deck is 12 unique cards) — if the card is already in
+    // the deck at a DIFFERENT slot, move it from the old slot to the new one
+    // (old slot becomes empty). This is the "drag-to-rearrange" UX.
     const next = [...deckCardIds];
+    // Pad with empty strings up to the target index so we can place at any slot
+    while (next.length <= index) next.push("");
+    if (deckCardIds.includes(cardId)) {
+      const existingIdx = deckCardIds.indexOf(cardId);
+      next[existingIdx] = "";  // clear old slot
+    }
     next[index] = cardId;
-    set({ deckCardIds: next, deckDirty: true, deckSaveStatus: "idle" });
+    // Always store exactly 12 entries (pad/truncate to 12)
+    while (next.length < 12) next.push("");
+    set({ deckCardIds: next.slice(0, 12), deckDirty: true, deckSaveStatus: "idle" });
   },
 
   saveDeck: async () => {

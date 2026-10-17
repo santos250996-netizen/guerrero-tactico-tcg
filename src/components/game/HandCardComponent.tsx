@@ -22,25 +22,11 @@ interface HandCardComponentProps {
   phase: "playing" | "enemy" | "ended";
 }
 
-// Rarity letters — all uppercase per user spec (C / R / E / L)
-const RARITY_LETTER: Record<string, string> = {
-  common: "C",
-  rare: "R",
-  epic: "E",
-  legendary: "L",
-};
-
-// Solid rarity background color (used for the bottom-right badge fill)
-const RARITY_SOLID_BG: Record<string, string> = {
-  common: "bg-gradient-to-b from-zinc-400 to-zinc-700 text-zinc-950",
-  rare: "bg-gradient-to-b from-sky-400 to-sky-700 text-white",
-  epic: "bg-gradient-to-b from-violet-400 to-violet-700 text-white",
-  legendary: "bg-gradient-to-b from-amber-300 to-amber-600 text-zinc-950",
-};
-
-// Prominent rarity border colors — replaces old subtle borderClass
+// Prominent rarity border colors — replaces old subtle borderClass.
+// Common uses emerald (was zinc — user requested change so common cards
+// have a more visible color frame, matching RARITY_META.common.borderClass).
 const RARITY_BORDER: Record<string, string> = {
-  common: "border-2 border-zinc-500",
+  common: "border-2 border-emerald-500",
   rare: "border-2 border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.3)]",
   epic: "border-2 border-violet-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]",
   legendary: "border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.5)]",
@@ -63,7 +49,6 @@ export function HandCardComponent({
   phase,
 }: HandCardComponentProps) {
   const cat = CATEGORY_META[card.category];
-  const rar = RARITY_META[card.rarity];
   const trigger = card.trigger ?? "on_play";
   const triggerMeta = TRIGGER_META[trigger];
   const keyword = card.keyword ?? "none";

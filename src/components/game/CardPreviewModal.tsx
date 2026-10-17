@@ -9,17 +9,9 @@ import { CostBadge, PowerBadge } from "./CardBadges";
 import { useState } from "react";
 import type { PowerLogEntry } from "@/lib/game/types";
 
-// Rarity letters — all uppercase per user spec (C / R / E / L)
-const RARITY_LETTER: Record<string, string> = {
-  common: "C",
-  rare: "R",
-  epic: "E",
-  legendary: "L",
-};
-
-// Solid rarity background color for the rare pill text
+// Rarity text color (used in the rarity pill label in the preview header)
 const RARITY_TEXT_COLOR: Record<string, string> = {
-  common: "text-zinc-300",
+  common: "text-emerald-300",
   rare: "text-sky-300",
   epic: "text-violet-300",
   legendary: "text-amber-300",
@@ -107,7 +99,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             "bg-zinc-950",
             // Auto-grow height: base 28rem + extra for the Registro panel when there are modifiers.
             modifiers.length > 0 ? "h-[34rem]" : "h-[28rem]",
-            card.rarity === "common" ? "border-zinc-500"
+            card.rarity === "common" ? "border-emerald-500"
             : card.rarity === "rare" ? "border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)]"
             : card.rarity === "epic" ? "border-violet-400 shadow-[0_0_18px_rgba(168,85,247,0.4)]"
             : "border-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.5)]",

@@ -83,7 +83,20 @@ export function DeckEditor() {
     });
   }, [cardPool]);
 
-  const deckCards = useMemo(() => deckCardIds.map((id) => uniqueCardPool.find((c) => c.id === id)).filter((c): c is CardDef => Boolean(c)), [deckCardIds, uniqueCardPool]);
+  // deckSlots is ALWAYS length 12 — preserves positions so the grid shows
+  // cards at the exact slot the user placed them. undefined = empty slot.
+  // Was: filtered list (lost position info when user placed a card beyond
+  // current deckCardIds length — the card ended up at the wrong slot).
+  const deckSlots = useMemo<(CardDef | undefined)[]>(() => {
+    return Array.from({ length: 12 }).map((_, idx) => {
+      const id = deckCardIds[idx];
+      if (!id) return undefined;
+      return uniqueCardPool.find((c) => c.id === id);
+    });
+  }, [deckCardIds, uniqueCardPool]);
+  // deckCards is the filtered list (no undefined entries) — used for stats
+  // (avgCost, avgPower, costCurve) where empty slots shouldn't count.
+  const deckCards = useMemo(() => deckSlots.filter((c): c is CardDef => Boolean(c)), [deckSlots]);
   const availableCards = useMemo(() => uniqueCardPool.filter((c) => {
     if (deckCardIds.includes(c.id)) return false;
     if (rarityFilter !== "all" && c.rarity !== rarityFilter) return false;
@@ -325,8 +338,7 @@ export function DeckEditor() {
             <p className="text-[8px] text-zinc-400">{deckLocked ? "Bloqueado — clic para ver" : selectedSlot === null ? "Toca una carta para cambiarla, o tap el ojo (👁) para previsualizar." : `Slot ${selectedSlot + 1} seleccionado — elige una carta disponible`}</p>
           </div>{selectedSlot !== null && !deckLocked && <Button size="sm" variant="ghost" className="h-6 text-[9px] text-zinc-400" onClick={() => setSelectedSlot(null)}>Cancelar</Button>}</div>
           <div className="grid grid-cols-3 gap-1.5">
-            {Array.from({ length: 12 }).map((_, idx) => {
-              const card = deckCards[idx];
+            {deckSlots.map((card, idx) => {
               if (card) {
                 return (
                   <FullArtCardMini
@@ -475,15 +487,6 @@ export function DeckEditor() {
   );
 }
 
-// Rarity letters — all uppercase (C / R / E / L)
-const RARITY_LETTER: Record<string, string> = { common: "C", rare: "R", epic: "E", legendary: "L" };
-const RARITY_SOLID_BG: Record<string, string> = {
-  common: "bg-gradient-to-b from-zinc-400 to-zinc-700 text-zinc-950",
-  rare: "bg-gradient-to-b from-sky-400 to-sky-700 text-white",
-  epic: "bg-gradient-to-b from-violet-400 to-violet-700 text-white",
-  legendary: "bg-gradient-to-b from-amber-300 to-amber-600 text-zinc-950",
-};
-
 // Full-art card for the deck editor — same visual design as the hand cards
 // but rendered at mini scale (3-col grid on mobile).
 function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, dimmed }: {
@@ -617,9 +620,10 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
               </span>
             )}
           </div>
-          <span title={rar.label} className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/80 text-[6px] font-black shadow-md", RARITY_SOLID_BG[card.rarity])}>
-            {RARITY_LETTER[card.rarity]}
-          </span>
+          {/* Rarity badge REMOVED — the frame border color already indicates
+              rarity (common=emerald, rare=sky, epic=violet, legendary=amber).
+              Having both the colored frame AND a small C/R/E/L badge was
+              redundant visual noise. */}
         </div>
       </div>
     </motion.div>

@@ -22,7 +22,7 @@ const cinzel = Cinzel({
 });
 
 export const metadata: Metadata = {
-  title: "Guerrero Táctico · WoW TCG",
+  title: "Pacto de Guerra",
   description:
     "Juego de cartas táctico inspirado en WoW TCG: gestiona tu energía, juega cartas en 3 carriles y vence al rival.",
   keywords: [
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "Guerrero Táctico · WoW TCG",
+    title: "Pacto de Guerra",
     description: "Juego de cartas táctico inspirado en WoW TCG.",
     url: "https://chat.z.ai",
     siteName: "Z.ai",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Guerrero Táctico · WoW TCG",
+    title: "Pacto de Guerra",
     description: "Juego de cartas táctico inspirado en WoW TCG.",
   },
 };

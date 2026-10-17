@@ -23,7 +23,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
       <DialogContent className="max-h-[85vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-200 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-amber-400">
-            Reglas del Guerrero Táctico
+            Reglas de Pacto de Guerra
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
             Juego de cartas por carriles inspirado en WoW TCG. Vence al rival en 2
