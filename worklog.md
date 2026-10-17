@@ -46,3 +46,24 @@ Stage Summary:
 - 5 skills nuevas disponibles en /home/z/my-project/skills/ (impeccable + 4 tcg-*-architect)
 - Stack de juego listo: phaser 3.90 + interactjs 1.10 + lucide-react
 - Pendiente detectado: POST /api/matches y click.mp3 siguen faltando (preexistente)
+
+---
+Task ID: 3
+Agent: Z.ai main agent
+Task: Directiva permanente (usar skills+stack siempre) + lote 1 de mejoras al proyecto
+
+Work Log:
+- REGISTRADA DIRECTIVA del usuario: usar siempre impeccable + 4 tcg-*-architect + lucide/phaser3/interact.js; reemplazar/mejorar todo lo posible con ese stack
+- Creado POST+GET /api/matches (zod + Prisma Match): GameOverModal ya persiste e HistoryModal lee historial
+- Descubierto y resuelto conflicto: next.config output:export rechazaba force-dynamic → output ahora condicional (STATIC_EXPORT=1 → export para APK; script build:static añadido)
+- MainMenu: new Audio("/click.mp3") (404) reemplazado por sfx.click() unificado
+- Migración completa emoji→lucide: LANE_META (Swords/Shield/Flame), TRIGGER_META (Zap/Sunrise/Sunset/Skull), KEYWORD_META (Minus), KIND_META CardPreviewModal (13 iconos), badges ⚡→Zap en LaneBonusFlash, StatCards perfil (Gamepad2/Trophy/Skull/Scale), ✎→Pencil, ⚔→Swords separadores, 🔥→Flame Umbral
+- Fix bug: KIND_META[m.kind] parecía corrupto — era ilusión de ANSI en grep; archivo estaba bien
+- Lint: 20 errores TODOS preexistentes (scripts del repo + patterns React 19); 0 nuevos de mis cambios
+- E2E browser verificado: menú→perfil(iconos nuevos)→partida(6 turnos)→GameOver→POST 201→BD confirma DRAW 0-0 turnos:6; 0 errores JS; click.mp3 404s: 0 en requests recientes
+
+Stage Summary:
+- Persistencia de partidas funcional end-to-end (API 201 + BD)
+- 0 emojis restantes en metadatos de juego (lanes/triggers/keywords/kinds/stats)
+- Stack lucide adoptado como estándar visual del proyecto
+- Roadmap próximo: DnD interact.js, capa efectos Phaser 3, KEYWORD_META nuevos al diseñar cartas, design pass impeccable

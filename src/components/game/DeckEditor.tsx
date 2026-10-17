@@ -441,7 +441,7 @@ export function DeckEditor() {
                       active={triggerFilter === t}
                       onClick={() => setTriggerFilter(t)}
                     >
-                      {meta.emoji && <span className="mr-0.5">{meta.emoji}</span>}
+                      {meta.icon && <meta.icon className="mr-0.5 inline h-2.5 w-2.5" />}
                       {meta.short}
                     </FilterChip>
                   );
@@ -462,7 +462,7 @@ export function DeckEditor() {
                       active={keywordFilter === kw}
                       onClick={() => setKeywordFilter(kw as Keyword)}
                     >
-                      {meta.emoji && <span className="mr-0.5">{meta.emoji}</span>}
+                      {meta.icon && <meta.icon className="mr-0.5 inline h-2.5 w-2.5" />}
                       {meta.short ?? kw}
                     </FilterChip>
                   );
@@ -596,8 +596,8 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
           </span>
           <div className="flex items-center gap-0.5">
             {subtypeMetas.map((lm) => (
-              <span key={lm.title} title={lm.title} className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[7px] leading-none backdrop-blur-sm">
-                {lm.emoji}
+              <span key={lm.title} title={lm.title} className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white/40 bg-black/60 leading-none backdrop-blur-sm">
+                <lm.icon className="h-2 w-2" />
               </span>
             ))}
           </div>
@@ -612,11 +612,11 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
         <div className="flex items-end justify-between gap-0.5">
           <div className="flex gap-0.5">
             <span title={triggerMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", triggerMeta.color)}>
-              <span>{triggerMeta.emoji}</span>{triggerMeta.short}
+              <triggerMeta.icon className="h-1.5 w-1.5" />{triggerMeta.short}
             </span>
             {keyword !== "none" && (
               <span title={keywordMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", keywordMeta.color)}>
-                <span>{keywordMeta.emoji}</span>{keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
+                <keywordMeta.icon className="h-1.5 w-1.5" />{keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
               </span>
             )}
           </div>

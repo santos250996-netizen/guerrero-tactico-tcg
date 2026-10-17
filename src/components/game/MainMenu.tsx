@@ -2,23 +2,20 @@
 
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { useSettings } from "@/lib/settings";
+import { sfx } from "@/lib/sound";
 import { useState } from "react";
 import { User, Settings as SettingsIcon } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 
 export function MainMenu() {
   const setView = useGameStore((s) => s.setView);
-  const soundOn = useSettings((s) => s.soundOn);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const click = () => {
-    if (soundOn) {
-      const audio = new Audio("/click.mp3");
-      audio.volume = 0.3;
-      audio.play().catch(() => {});
-    }
+    // Unified sound system (src/lib/sound.ts) — replaces the old
+    // `new Audio("/click.mp3")` which 404'd because the asset never existed.
+    sfx.click();
   };
 
   const goToProfile = () => {

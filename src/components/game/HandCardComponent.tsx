@@ -240,9 +240,9 @@ export function HandCardComponent({
                 <span
                   key={lm.title}
                   title={lm.title}
-                  className="flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[9px] leading-none backdrop-blur-sm"
+                  className="flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-black/60 leading-none backdrop-blur-sm"
                 >
-                  {lm.emoji}
+                  <lm.icon className="h-2.5 w-2.5" />
                 </span>
               ))}
             </AnimatePresence>
@@ -263,7 +263,7 @@ export function HandCardComponent({
               triggerMeta.color
             )}
           >
-            <span>{triggerMeta.emoji}</span>
+            <triggerMeta.icon className="h-2 w-2" />
             {triggerMeta.short}
           </span>
           {keyword !== "none" ? (
@@ -274,7 +274,7 @@ export function HandCardComponent({
                 keywordMeta.color
               )}
             >
-              <span>{keywordMeta.emoji}</span>
+              <keywordMeta.icon className="h-2 w-2" />
               {keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
             </span>
           ) : (

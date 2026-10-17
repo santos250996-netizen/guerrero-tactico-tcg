@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { ArrowLeft, Check, X, Image as ImageIcon, Lock, Crown, Trophy, Swords, Scale } from "lucide-react";
+import { ArrowLeft, Check, X, Image as ImageIcon, Lock, Crown, Trophy, Swords, Scale, Gamepad2, Skull, Pencil } from "lucide-react";
 import { ALL_CARDS } from "@/lib/game/cards";
 import type { CardDef } from "@/lib/game/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -371,8 +371,8 @@ export function ProfileScreen() {
                   {/* Rank title — auto-derived from level, centered below username */}
                   <RankTitle title={rank.title} tier={rank.tier} />
                   {/* Hover-only "editar" hint — absolute positioned so it doesn't shift the username */}
-                  <span className="pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-[0.25em] text-amber-400/0 transition-opacity duration-200 group-hover:text-amber-400/80">
-                    ✎ editar
+                  <span className="pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-0.5 text-[8px] font-bold uppercase tracking-[0.25em] text-amber-400/0 transition-opacity duration-200 group-hover:text-amber-400/80">
+                    <Pencil className="h-2.5 w-2.5" /> editar
                   </span>
                 </button>
               )}
@@ -412,10 +412,10 @@ export function ProfileScreen() {
           <section className="flex flex-col gap-2.5">
             <SectionHeader title="Estadísticas de Partidas" />
             <div className="grid grid-cols-2 gap-2">
-              <StatCard label="Partidas" value={profile.totalMatches} accent="amber" icon="♟" />
-              <StatCard label="Victorias" value={profile.wins} accent="emerald" icon="♛" />
-              <StatCard label="Derrotas" value={profile.losses} accent="rose" icon="✟" />
-              <StatCard label="Winrate" value={`${winrate}%`} accent="amber" icon="⚖" />
+              <StatCard label="Partidas" value={profile.totalMatches} accent="amber" icon={<Gamepad2 className="h-5 w-5" />} />
+              <StatCard label="Victorias" value={profile.wins} accent="emerald" icon={<Trophy className="h-5 w-5" />} />
+              <StatCard label="Derrotas" value={profile.losses} accent="rose" icon={<Skull className="h-5 w-5" />} />
+              <StatCard label="Winrate" value={`${winrate}%`} accent="amber" icon={<Scale className="h-5 w-5" />} />
             </div>
           </section>
 
@@ -612,11 +612,11 @@ function SectionHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-3">
       <span
-        className="text-amber-500/80"
+        className="flex items-center text-amber-500/80"
         style={{ fontSize: '12px', lineHeight: 1 }}
         aria-hidden
       >
-        ⚔
+        <Swords className="h-3 w-3" />
       </span>
       <h4
         className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-300"
@@ -641,7 +641,7 @@ function StatCard({
   label: string;
   value: string | number;
   accent: "amber" | "emerald" | "rose";
-  icon: string;
+  icon: React.ReactNode;
 }) {
   const accents: Record<string, string> = {
     amber: "border-amber-600/40 bg-gradient-to-br from-amber-950/60 to-zinc-950/80 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.12)]",
@@ -653,7 +653,7 @@ function StatCard({
       whileHover={{ scale: 1.02 }}
       className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 backdrop-blur-sm transition-all ${accents[accent]}`}
     >
-      <span className="text-xl leading-none opacity-90">{icon}</span>
+      <span className="flex h-5 w-5 items-center justify-center text-xl leading-none opacity-90">{icon}</span>
       <div className="flex flex-col leading-tight">
         <span className="text-[8px] font-bold uppercase tracking-[0.2em] opacity-70">
           {label}
@@ -729,11 +729,11 @@ function DecorativeDivider() {
     <div className="flex w-full items-center gap-2 py-1">
       <span className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-700/40" />
       <span
-        className="text-amber-500/70"
+        className="flex items-center text-amber-500/70"
         style={{ fontSize: '10px', lineHeight: 1 }}
         aria-hidden
       >
-        ⚔
+        <Swords className="h-2.5 w-2.5" />
       </span>
       <span className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-700/40" />
     </div>

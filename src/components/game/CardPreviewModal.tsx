@@ -3,7 +3,21 @@ import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
 import type { CardDef } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
-import { Sparkles } from "lucide-react";
+import {
+  Sparkles,
+  Link2,
+  Map,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Flame,
+  Infinity as InfinityIcon,
+  Sunrise,
+  Sunset,
+  Skull,
+  Hand,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CostBadge, PowerBadge } from "./CardBadges";
 import { useState } from "react";
@@ -17,20 +31,20 @@ const RARITY_TEXT_COLOR: Record<string, string> = {
   legendary: "text-amber-300",
 };
 
-// PowerLogEntry kind → emoji + label + color (for the Registro de Modificadores panel)
-const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { emoji: string; label: string; text: string; bg: string; border: string }> = {
-  synergy:   { emoji: "🔗", label: "Sinergia",       text: "text-sky-300",     bg: "bg-sky-950/70",     border: "border-sky-500/40" },
-  field:      { emoji: "🗺️", label: "Campo",          text: "text-amber-300",  bg: "bg-amber-950/70",   border: "border-amber-500/40" },
-  effect:     { emoji: "✨", label: "Efecto",         text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
-  buff:       { emoji: "⬆️", label: "Mejora",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
-  debuff:     { emoji: "⬇️", label: "Reducción",      text: "text-rose-300",   bg: "bg-rose-950/70",    border: "border-rose-500/40" },
-  trap:       { emoji: "🪤", label: "Trampa",        text: "text-rose-400",   bg: "bg-rose-950/80",   border: "border-rose-400/50" },
-  despertar:  { emoji: "🔥", label: "Despertar",     text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
-  passive:    { emoji: "♾️", label: "Pasivo",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
-  start_turn: { emoji: "🌅", label: "Inicio turno",   text: "text-amber-300",  bg: "bg-amber-950/70",  border: "border-amber-500/40" },
-  end_turn:   { emoji: "🌇", label: "Fin turno",      text: "text-violet-300", bg: "bg-violet-950/70", border: "border-violet-500/40" },
-  on_death:   { emoji: "💀", label: "Al morir",       text: "text-rose-300",   bg: "bg-rose-950/70",   border: "border-rose-500/40" },
-  hand:       { emoji: "✋", label: "En mano",        text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+// PowerLogEntry kind → lucide icon + label + color (for the Registro de Modificadores panel)
+const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { icon: LucideIcon; label: string; text: string; bg: string; border: string }> = {
+  synergy:   { icon: Link2,        label: "Sinergia",       text: "text-sky-300",     bg: "bg-sky-950/70",     border: "border-sky-500/40" },
+  field:      { icon: Map,          label: "Campo",          text: "text-amber-300",  bg: "bg-amber-950/70",   border: "border-amber-500/40" },
+  effect:     { icon: Sparkles,     label: "Efecto",         text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
+  buff:       { icon: TrendingUp,   label: "Mejora",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+  debuff:     { icon: TrendingDown, label: "Reducción",      text: "text-rose-300",   bg: "bg-rose-950/70",   border: "border-rose-500/40" },
+  trap:       { icon: Target,       label: "Trampa",        text: "text-rose-400",   bg: "bg-rose-950/80",   border: "border-rose-400/50" },
+  despertar:  { icon: Flame,        label: "Despertar",     text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
+  passive:    { icon: InfinityIcon, label: "Pasivo",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+  start_turn: { icon: Sunrise,      label: "Inicio turno",   text: "text-amber-300",  bg: "bg-amber-950/70",  border: "border-amber-500/40" },
+  end_turn:   { icon: Sunset,       label: "Fin turno",      text: "text-violet-300", bg: "bg-violet-950/70", border: "border-violet-500/40" },
+  on_death:   { icon: Skull,        label: "Al morir",       text: "text-rose-300",   bg: "bg-rose-950/70",   border: "border-rose-500/40" },
+  hand:       { icon: Hand,         label: "En mano",        text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
 };
 
 export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef | null; open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -162,7 +176,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                     title={lm.title}
                     className="flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-sm leading-none backdrop-blur-sm"
                   >
-                    {lm.emoji}
+                    <lm.icon className="h-3.5 w-3.5" />
                   </span>
                 ))}
               </div>
@@ -182,7 +196,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                   triggerMeta.color
                 )}
               >
-                <span>{triggerMeta.emoji}</span>
+                <triggerMeta.icon className="h-3 w-3" />
                 {triggerMeta.label}
               </span>
               {keyword !== "none" && (
@@ -193,7 +207,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                     keywordMeta.color
                   )}
                 >
-                  <span>{keywordMeta.emoji}</span>
+                  <keywordMeta.icon className="h-3 w-3" />
                   {keywordMeta.label}{keywordMeta.hasValue && card.keywordValue ? ` [${card.keywordValue}]` : ""}
                 </span>
               )}
@@ -221,7 +235,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               )}
               {card.umbralCondition && (
                 <div className="mt-1">
-                  <span className="font-bold">🔥 Umbral:</span>{" "}
+                  <span className="font-bold"><Flame className="mr-0.5 inline h-3 w-3" />Umbral:</span>{" "}
                   <span>Se activa al alcanzar o superar {card.umbralCondition.powerThreshold} puntos de poder.</span>
                 </div>
               )}
@@ -236,7 +250,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                     const positive = m.delta > 0;
                     return (
                       <li key={i} className="flex items-center gap-1 text-[10px] leading-none">
-                        <span className="shrink-0 text-[10px]">{km.emoji}</span>
+                        <km.icon className="h-2.5 w-2.5 shrink-0" />
                         <span className="flex-1 truncate text-zinc-400">{m.source}</span>
                         <span className={cn("shrink-0 font-bold tabular-nums", positive ? "text-emerald-400" : "text-rose-400")}>
                           {positive ? "+" : ""}{m.delta}

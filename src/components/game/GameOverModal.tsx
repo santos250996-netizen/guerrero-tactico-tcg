@@ -131,7 +131,7 @@ export function GameOverModal({ open }: GameOverModalProps) {
                       className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs"
                     >
                       <span className="flex items-center gap-1.5 text-zinc-300">
-                        <span>{meta.emoji}</span>
+                        <meta.icon className="h-3 w-3 shrink-0" />
                         <span className="font-semibold uppercase tracking-wider">
                           {meta.title}
                         </span>

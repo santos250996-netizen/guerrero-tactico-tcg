@@ -185,8 +185,9 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                         key={ln}
                         className="rounded bg-black/30 px-1.5 py-0.5 text-center"
                       >
-                        <div className="text-zinc-500">
-                          {meta.emoji} {meta.title}
+                        <div className="flex items-center justify-center gap-1 text-zinc-500">
+                          <meta.icon className="h-3 w-3" />
+                          {meta.title}
                         </div>
                         <div className="tabular-nums">
                           <span className="text-emerald-400">{p}</span>

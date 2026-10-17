@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import type { LaneBonus, LaneId } from "@/lib/game/types";
 import { LANE_META } from "@/lib/game/types";
+import { Zap } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { BoardCardMini } from "./BoardCardMini";
 import {
@@ -177,7 +178,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         "relative z-10 flex items-center justify-center rounded border border-white/5 px-1 py-0.5 backdrop-blur-sm",
         colors.headerBg
       )}>
-        <span className="text-[10px] drop-shadow">{meta.emoji}</span>
+        <meta.icon className="h-3 w-3 shrink-0 drop-shadow" />
         <span
           className={cn(
             "ml-0.5 truncate text-[8px] font-black uppercase tracking-wider drop-shadow",
@@ -311,13 +312,13 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
 // ──────────────────────────────────────────────────────────────
 function LaneBonusFlashContent({ bonus }: { bonus: import("@/lib/game/types").LaneBonus }) {
   // Each bonus kind gets a custom visual
-  const FLASH_BY_KIND: Record<string, { big: string; sub: string; color: string }> = {
+  const FLASH_BY_KIND: Record<string, { big: string; sub: string; color: string; zap?: boolean }> = {
     // Restrictive (amber) — show "X VS X" format per user spec
     limit_1:     { big: "1", sub: "VS 1",    color: "text-amber-300" },
     limit_3:     { big: "3", sub: "VS 3",    color: "text-amber-300" },
-    cost_only_1: { big: "⚡1", sub: "COSTE",   color: "text-amber-300" },
-    cost_only_3: { big: "⚡3", sub: "COSTE",   color: "text-amber-300" },
-    cost_only_5: { big: "⚡5", sub: "COSTE",   color: "text-amber-300" },
+    cost_only_1: { big: "1", sub: "COSTE MÁX",   color: "text-amber-300", zap: true },
+    cost_only_3: { big: "3", sub: "COSTE MÁX",   color: "text-amber-300", zap: true },
+    cost_only_5: { big: "5", sub: "COSTE MÁX",   color: "text-amber-300", zap: true },
     // Positive (emerald) — show the buff value
     cost_neg:    { big: "-1", sub: "COSTE",   color: "text-emerald-300" },
     cat_item:    { big: "+3", sub: "ÍTEM",    color: "text-emerald-300" },
@@ -326,16 +327,17 @@ function LaneBonusFlashContent({ bonus }: { bonus: import("@/lib/game/types").La
     // Penalty (rose)
     cost_pos:    { big: "+1", sub: "COSTE",   color: "text-rose-300" },
   };
-  const flash = FLASH_BY_KIND[bonus.kind] || { big: bonus.label, sub: "BONO", color: "text-zinc-300" };
+  const flash = FLASH_BY_KIND[bonus.kind] || { big: bonus.label, sub: "BONO", color: "text-zinc-300", zap: false };
   return (
     <div className="flex flex-col items-center gap-0.5 text-center">
       <div
-        className={`text-5xl font-black tabular-nums leading-none ${flash.color}`}
+        className={`flex items-center gap-1 text-5xl font-black tabular-nums leading-none ${flash.color}`}
         style={{
           fontFamily: 'var(--font-cinzel), serif',
           textShadow: '0 0 12px currentColor, 0 2px 4px rgba(0,0,0,0.9)',
         }}
       >
+        {flash.zap && <Zap className="h-8 w-8" strokeWidth={2.5} />}
         {flash.big}
       </div>
       <div

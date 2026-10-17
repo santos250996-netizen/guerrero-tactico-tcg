@@ -1,5 +1,8 @@
 // Core game types for WoW TCG - Guerrero Táctico
 
+import { Swords, Shield, Flame, Zap, Sunrise, Sunset, Skull, Minus } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 export type CardCategory = "Ataque" | "Ítem" | "Acción";
 
 export type LaneId = "armas" | "proteccion" | "furia";
@@ -74,34 +77,34 @@ export type Trigger =
 
 export const TRIGGER_META: Record<
   Trigger,
-  { label: string; short: string; description: string; emoji: string; color: string }
+  { label: string; short: string; description: string; icon: LucideIcon; color: string }
 > = {
   on_play: {
     label: "Al Jugar",
     short: "JUGAR",
     description: "Se activa una sola vez al entrar al tablero desde tu mano.",
-    emoji: "⚡",
+    icon: Zap,
     color: "text-sky-300",
   },
   start_turn: {
     label: "Inicio de Turno",
     short: "INICIO",
     description: "Se dispara al comienzo de cada uno de los 6 turnos.",
-    emoji: "🌅",
+    icon: Sunrise,
     color: "text-amber-300",
   },
   end_turn: {
     label: "Fin de Turno",
     short: "FIN",
     description: "Se dispara al concluir la fase de juego, antes del cálculo del carril.",
-    emoji: "🌇",
+    icon: Sunset,
     color: "text-violet-300",
   },
   on_death: {
     label: "Último Aliento",
     short: "MUERTE",
     description: "Se dispara automáticamente cuando la carta es destruida o sacrificada.",
-    emoji: "💀",
+    icon: Skull,
     color: "text-rose-300",
   },
 };
@@ -162,7 +165,7 @@ export const KEYWORD_META: Record<
     label: string;
     short: string;
     description: string;
-    emoji: string;
+    icon: LucideIcon;
     color: string;
     /** Default trigger for this keyword (used when `card.trigger` is omitted). */
     trigger: Trigger;
@@ -180,7 +183,7 @@ export const KEYWORD_META: Record<
   // Only the "none" placeholder remains. New keywords will be added here
   // when the new keyword system is designed (Phase 3a).
   none: {
-    label: "—", short: "—", emoji: "•", color: "text-zinc-500",
+    label: "—", short: "—", icon: Minus, color: "text-zinc-500",
     description: "Sin keyword oficial.",
     trigger: "on_play", hasValue: false, scope: "PROPIO",
   },
@@ -306,11 +309,11 @@ export interface FinalResult {
 
 export const LANE_META: Record<
   LaneId,
-  { title: string; emoji: string; color: string }
+  { title: string; icon: LucideIcon; color: string }
 > = {
-  armas: { title: "ARMAS", emoji: "⚔️", color: "amber" },
-  proteccion: { title: "PROTECCIÓN", emoji: "🛡️", color: "sky" },
-  furia: { title: "FURIA", emoji: "🔥", color: "rose" },
+  armas: { title: "ARMAS", icon: Swords, color: "amber" },
+  proteccion: { title: "PROTECCIÓN", icon: Shield, color: "sky" },
+  furia: { title: "FURIA", icon: Flame, color: "rose" },
 };
 
 // ---------------------------------------------------------------------------
