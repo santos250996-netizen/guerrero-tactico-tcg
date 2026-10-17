@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { sfx } from "@/lib/sound";
 import { useState } from "react";
-import { User, Settings as SettingsIcon } from "lucide-react";
+import { User, Settings as SettingsIcon, Wifi } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 
 export function MainMenu() {
@@ -26,6 +26,11 @@ export function MainMenu() {
   const goToClassSelect = () => {
     click();
     setView("class-select");
+  };
+
+  const goToPvp = () => {
+    click();
+    setView("pvp");
   };
 
   return (
@@ -91,6 +96,33 @@ export function MainMenu() {
             }}
           >
             Jugar
+          </span>
+        </motion.button>
+      </motion.div>
+
+      {/* ── BELOW: PVP LOCAL (secondary pill) ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut", delay: 0.35 }}
+        className="absolute inset-x-0 bottom-11 z-20 flex justify-center px-6"
+      >
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={goToPvp}
+          className="inline-flex items-center gap-2 rounded-full border border-teal-400/50 bg-gradient-to-b from-teal-700/90 via-teal-800/90 to-zinc-950/90 px-6 py-1.5 text-teal-100 shadow-[0_3px_14px_-3px_rgba(45,212,191,0.4)] transition-all hover:border-teal-300/70"
+        >
+          <Wifi className="h-3.5 w-3.5" />
+          <span
+            className="select-none text-sm font-black uppercase tracking-[0.3em]"
+            style={{
+              fontFamily: 'var(--font-cinzel), serif',
+              textShadow: '0 1px 1px rgba(0,0,0,0.9)',
+              paddingLeft: '0.3em',
+            }}
+          >
+            PvP Local
           </span>
         </motion.button>
       </motion.div>

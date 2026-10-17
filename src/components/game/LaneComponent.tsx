@@ -13,7 +13,9 @@ import {
 } from "@/lib/game/engine";
 import { cn } from "@/lib/utils";
 
-const LANE_COLOR_CLASSES: Record<
+// Tabla de paletas por color de carril — compartida con el tablero PvP
+// (PvpLane) para que ambos tableros se vean idénticos.
+export const LANE_COLOR_CLASSES: Record<
   string,
   {
     bg: string;

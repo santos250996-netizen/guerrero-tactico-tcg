@@ -12,6 +12,7 @@ import { DeckEditor } from "@/components/game/DeckEditor";
 import { MainMenu } from "@/components/game/MainMenu";
 import { ClassSelect } from "@/components/game/ClassSelect";
 import { ProfileScreen } from "@/components/game/ProfileScreen";
+import { PvpRoot } from "@/components/game/pvp/PvpRoot";
 import { OnboardingModal } from "@/components/game/OnboardingModal";
 import { SettingsModal } from "@/components/game/SettingsModal";
 import { CardPreviewModal } from "@/components/game/CardPreviewModal";
@@ -67,6 +68,7 @@ export default function Home() {
   if (view === "class-select") return <ClassSelect />;
   if (view === "profile") return <ProfileScreen />;
   if (view === "editor") return <DeckEditor />;
+  if (view === "pvp") return <PvpRoot />;
   if (deckLoading) {
     return (
       <div className="app-frame items-center justify-center text-zinc-100">

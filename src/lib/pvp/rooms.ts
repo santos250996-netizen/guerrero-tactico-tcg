@@ -1,0 +1,186 @@
+// ============================================================================
+// Registro de salas PvP — memoria (globalThis, sobrevive a HMR de Next dev)
+// + persistencia en SQLite (modelo PvpRoom) para sobrevivir reinicios.
+// Cada sala envuelve el estado puro del juego (src/lib/game/pvp.ts) con los
+// tokens secretos de cada jugador (transporte/autenticación, no lógica).
+// ============================================================================
+
+import { db } from "@/lib/db";
+import {
+  buildClientView,
+  createPvpState,
+  joinPvpState,
+  type PvpClientView,
+  type PvpPlayerInput,
+  type PvpSide,
+  type PvpState,
+} from "@/lib/game/pvp";
+
+const ROOM_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+export interface RoomEnvelope {
+  state: PvpState;
+  tokens: { a: string | null; b: string | null };
+}
+
+// --- singleton global (HMR-safe) -------------------------------------------
+interface PvpRoomCache {
+  rooms: Map<string, RoomEnvelope>;
+}
+
+const g = globalThis as unknown as { __pvpRooms?: PvpRoomCache };
+function cache(): PvpRoomCache {
+  if (!g.__pvpRooms) g.__pvpRooms = { rooms: new Map() };
+  return g.__pvpRooms;
+}
+
+// --- persistencia -----------------------------------------------------------
+
+function serialize(env: RoomEnvelope): string {
+  return JSON.stringify({ state: env.state, tokens: env.tokens });
+}
+
+function deserialize(json: string): RoomEnvelope | null {
+  try {
+    const parsed = JSON.parse(json);
+    if (!parsed?.state || !parsed?.tokens) return null;
+    return parsed as RoomEnvelope;
+  } catch {
+    return null;
+  }
+}
+
+async function persistRoom(env: RoomEnvelope): Promise<void> {
+  try {
+    await db.pvpRoom.upsert({
+      where: { code: env.state.code },
+      create: { code: env.state.code, stateJson: serialize(env) },
+      update: { stateJson: serialize(env) },
+    });
+  } catch (err) {
+    console.error(`[pvp] persistRoom(${env.state.code}) falló:`, err);
+  }
+}
+
+/** Archiva el resultado una única vez cuando la partida termina. */
+async function archiveMatchIfEnded(env: RoomEnvelope): Promise<void> {
+  const s = env.state;
+  if (s.phase !== "ended" || s.endedSaved || !s.finalResultA) return;
+  s.endedSaved = true;
+  try {
+    await db.pvpMatch.create({
+      data: {
+        code: s.code,
+        nameA: s.players.a.name || "Jugador A",
+        nameB: s.players.b.name || "Jugador B",
+        classA: s.players.a.gameClass,
+        classB: s.players.b.gameClass,
+        winsA: s.finalResultA.playerWins,
+        winsB: s.finalResultA.enemyWins,
+        draws: s.finalResultA.draws,
+        scoreA: s.finalResultA.totalPlayer,
+        scoreB: s.finalResultA.totalEnemy,
+        turnsPlayed: s.turn,
+        winnerSide:
+          s.finalResultA.result === "WIN" ? "a" : s.finalResultA.result === "LOSS" ? "b" : "draw",
+      },
+    });
+  } catch (err) {
+    s.endedSaved = false;
+    console.error("[pvp] archiveMatch falló:", err);
+  }
+}
+
+// --- API pública del registro ----------------------------------------------
+
+function genCode(): string {
+  let code = "";
+  for (let i = 0; i < 4; i++) {
+    code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
+async function codeAvailable(code: string): Promise<boolean> {
+  if (cache().rooms.has(code)) return false;
+  try {
+    const row = await db.pvpRoom.findUnique({ where: { code } });
+    return !row;
+  } catch {
+    return true; // si la BD falla, igual dejamos crear la sala en memoria
+  }
+}
+
+export async function createRoom(
+  input: PvpPlayerInput
+): Promise<{ code: string; token: string; side: PvpSide; view: PvpClientView }> {
+  let code = genCode();
+  for (let i = 0; i < 20 && !(await codeAvailable(code)); i++) code = genCode();
+
+  const state = createPvpState(code, input);
+  const env: RoomEnvelope = { state, tokens: { a: crypto.randomUUID(), b: null } };
+  cache().rooms.set(code, env);
+  await persistRoom(env);
+  return {
+    code,
+    token: env.tokens.a!,
+    side: "a",
+    view: buildClientView(state, "a"),
+  };
+}
+
+export async function joinRoom(
+  code: string,
+  input: PvpPlayerInput
+): Promise<{ token: string; side: PvpSide; view: PvpClientView }> {
+  const env = await getRoomEnvelope(code);
+  if (!env) throw new Error("Sala no encontrada. Revisa el código.");
+  if (env.state.players.b.name) throw new Error("La sala está llena.");
+
+  joinPvpState(env.state, input);
+  env.tokens.b = crypto.randomUUID();
+  await persistRoom(env);
+  return { token: env.tokens.b!, side: "b", view: buildClientView(env.state, "b") };
+}
+
+export async function getRoomEnvelope(code: string): Promise<RoomEnvelope | null> {
+  const c = cache();
+  const mem = c.rooms.get(code);
+  if (mem) return mem;
+  // memoria falló → intenta recuperar de BD (reinicio del servidor)
+  try {
+    const row = await db.pvpRoom.findUnique({ where: { code } });
+    if (!row) return null;
+    const env = deserialize(row.stateJson);
+    if (!env) return null;
+    if (Date.now() - env.state.createdAt > ROOM_TTL_MS) return null;
+    c.rooms.set(code, env);
+    return env;
+  } catch (err) {
+    console.error(`[pvp] getRoomEnvelope(${code}) falló:`, err);
+    return null;
+  }
+}
+
+export function sideForToken(env: RoomEnvelope, token: string | null): PvpSide | null {
+  if (!token) return null;
+  if (env.tokens.a === token) return "a";
+  if (env.tokens.b === token) return "b";
+  return null;
+}
+
+/** Guarda el estado tras una mutación (acción / revancha / unión). */
+export async function saveRoom(env: RoomEnvelope): Promise<void> {
+  await persistRoom(env);
+  await archiveMatchIfEnded(env);
+}
+
+export async function deleteRoom(code: string): Promise<void> {
+  cache().rooms.delete(code);
+  try {
+    await db.pvpRoom.delete({ where: { code } }).catch(() => undefined);
+  } catch {
+    // noop
+  }
+}
