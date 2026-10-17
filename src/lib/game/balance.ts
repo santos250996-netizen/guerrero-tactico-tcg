@@ -49,32 +49,27 @@ export function getPTPRange(energyCost: number): { min: number; max: number; tar
  * Modificadores por trigger — cuánto multiplica el valor base del keyword
  * según CUÁNDO se dispara el efecto.
  *
- * • ON_PLAY     = 1.0  (Efecto único instantáneo — valor pleno)
- * • PASSIVE     = 1.2  (Permanente en mesa — bonus por duración)
- * • START_TURN  = 1.3  (Continuo turno a turno, suele dispararse 6 veces — máximo)
- * • END_TURN    = 1.2  (Continuo turno a turno, similar a start)
- * • ON_DEATH    = 0.8  (Solo al morir — condicional, menos valioso)
- * • DESPERTAR   = 0.7  (Requiere condición previa — menos confiable)
- * • REACTION    = 1.2  (Condicional a acción del rival — bonus por reactividad)
+ * After the simplification (user spec), only 4 triggers remain — all with
+ * modifier 1.0 (the trigger no longer affects balance; only the keyword's
+ * base value + scope + once-modifier matter).
+ *
+ * • ON_PLAY     = 1.0  (Efecto único instantáneo)
+ * • START_TURN  = 1.0  (Se dispara cada inicio de turno)
+ * • END_TURN    = 1.0  (Se dispara cada fin de turno)
+ * • ON_DEATH    = 1.0  (Solo al morir)
  */
 export function getTriggerModifier(trigger: Trigger | undefined): number {
+  // After the simplification, only 4 triggers remain.
+  // Modifiers are all 1.0 (per TRIGGER_MODS in types.ts).
   switch (trigger ?? "on_play") {
     case "on_play":
       return 1.0;
-    case "passive":
-      return 1.2;
     case "start_turn":
-      return 1.3;
+      return 1.0;
     case "end_turn":
-      return 1.2;
+      return 1.0;
     case "on_death":
-      return 0.8;
-    case "despertar":
-      return 0.7;
-    case "reaction":
-      return 1.2;
-    case "ofrenda":
-      return 1.0; // Flag — no aplica efecto, solo marca prioridad
+      return 1.0;
     default:
       return 1.0;
   }
@@ -159,8 +154,6 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
       // (On Death) si coste ≤ X, regresa a mano. Valor de recursión = X.
       return X;
     // IV. UMBRALES Y RECURSOS
-    // NOTE: `despertar` is now a TRIGGER (spec 2026-10 amendment), not a keyword.
-    // Its modifier is in `getTriggerModifier` (case "despertar" → 0.7).
     case "reciclar":
       // (On Death) recupera X energía. Valor = X.
       return X;
@@ -225,7 +218,7 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
  * Fórmula completa (spec 2026-10):
  *   effectPoints = Valor_Keyword × Mod_Trigger × Mod_Scope × Mod_Once
  *
- * Mod_Once se deriva del trigger: passive/start_turn/end_turn = 0.8 (repite), otros = 1.0 (one-shot).
+ * Mod_Once se deriva del trigger: start_turn/end_turn = 0.8 (repite cada turno), on_play/on_death = 1.0 (one-shot).
  * Mod_Scope se obtiene de SCOPE_MODS, defaulteando al scope del keyword si la carta no override.
  */
 export function calculateEffectPoints(card: CardDef): number {
@@ -239,7 +232,8 @@ export function calculateEffectPoints(card: CardDef): number {
   const scope = card.scope ?? KEYWORD_META[keyword].scope ?? "PROPIO";
   const scopeMod = SCOPE_MODS[scope];
   // Once modifier (si el efecto se repite indefinidamente). Lo derivamos del trigger.
-  const isRepeating = card.trigger === "passive" || card.trigger === "start_turn" || card.trigger === "end_turn";
+  // After the simplification: only start_turn / end_turn repeat each turn.
+  const isRepeating = card.trigger === "start_turn" || card.trigger === "end_turn";
   const onceMod = isRepeating ? MOD_ONCE_PER_TURN : MOD_ONCE_SINGLE;
   return baseValue * triggerMod * scopeMod * onceMod;
 }

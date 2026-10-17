@@ -59,22 +59,18 @@ export type Rarity = "common" | "rare" | "epic" | "legendary";
 // Triggers — when a card's effect fires during the game lifecycle.
 // ---------------------------------------------------------------------------
 
+// ============================================================================
+// TRIGGERS — Only 4 remain after the simplification (user spec).
+// Removed: despertar (umbral), passive, ofrenda, reaction.
+// Kept:    on_play, start_turn, end_turn, on_death.
+// The engine logic for the removed triggers has been cleaned up too — see
+// engine.ts (checkUmbralTriggers + applyReactionEffects removed).
+// ============================================================================
 export type Trigger =
   | "on_play" // fires once when the card is played from hand to board
-  | "passive" // active continuously while the card is on the board
   | "start_turn" // fires at the start of each of the 6 turns
   | "end_turn" // fires at the end of the play phase, before scoring
-  | "on_death" // fires when the card is destroyed or sacrificed
-  | "despertar" // fires once per game when its power-threshold condition is met (renamed from "umbral")
-  | "reaction" // fires as a response to a rival action (card_played / debuff_applied / card_destroyed)
-  | "ofrenda"; // marks this card as priority sacrifice target (flag, no effect fires)
-
-// Optional condition for `umbral` triggers (currently just a power threshold,
-// but kept as an object so it can be extended later with other condition types).
-export interface UmbralCondition {
-  /** Minimum currentPower required to fire the umbral trigger. */
-  powerThreshold?: number;
-}
+  | "on_death"; // fires when the card is destroyed or sacrificed
 
 export const TRIGGER_META: Record<
   Trigger,
@@ -86,14 +82,6 @@ export const TRIGGER_META: Record<
     description: "Se activa una sola vez al entrar al tablero desde tu mano.",
     emoji: "⚡",
     color: "text-sky-300",
-  },
-  passive: {
-    label: "Pasivo",
-    short: "PASIVO",
-    description:
-      "Permanece activo mientras la carta esté en la mesa. Se pierde si la carta es destruida.",
-    emoji: "♾️",
-    color: "text-emerald-300",
   },
   start_turn: {
     label: "Inicio de Turno",
@@ -116,30 +104,6 @@ export const TRIGGER_META: Record<
     emoji: "💀",
     color: "text-rose-300",
   },
-  despertar: {
-    label: "Despertar",
-    short: "DESP",
-    description:
-      "Se activa una sola vez por partida cuando se cumple una condición específica.",
-    emoji: "🔥",
-    color: "text-fuchsia-300",
-  },
-  reaction: {
-    label: "Reacción",
-    short: "REAC",
-    description:
-      "Se activa como respuesta a una acción específica realizada por el rival (juega carta, aplica reducción o destruye un aliado).",
-    emoji: "↩️",
-    color: "text-cyan-300",
-  },
-  ofrenda: {
-    label: "Ofrenda",
-    short: "OFREN",
-    description:
-      "Marca a esta carta como objetivo prioritario para ser destruida por efectos de Sacrificio. No aplica un efecto en sí — es una marca.",
-    emoji: "🐐",
-    color: "text-amber-200",
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -151,13 +115,9 @@ export const TRIGGER_META: Record<
 /** Multiplier applied to a keyword's Valor_Keyword based on WHEN it fires. */
 export const TRIGGER_MODS: Record<Trigger, number> = {
   on_play: 1.0, // Efecto único instantáneo — valor pleno
-  passive: 1.1, // Permanente en mesa — ligero bonus por duración
   start_turn: 1.0, // Se dispara cada inicio de turno
   end_turn: 1.0, // Se dispara cada fin de turno
   on_death: 1.0, // Condicional al morir
-  despertar: 1.1, // Requiere condición previa — ligero bonus (renamed from "umbral")
-  reaction: 1.2, // Condicional a acción del rival — bonus por reactividad
-  ofrenda: 1.0, // Flag — no aplica efecto, solo marca prioridad para Sacrificio
 };
 
 /** Multiplier applied to a keyword's Valor_Keyword based on WHERE it hits. */
@@ -181,9 +141,9 @@ export const MOD_ONCE_PER_TURN = 0.8; // Efecto que se repite indefinidamente (M
 // still driven by `effectId` (in engine.ts) — the `keyword` field is just for
 // display + future keyword-aware logic (e.g. AI scoring by keyword type).
 //
-// Ofrenda moved to TRIGGER (spec 2026-10 amendment) — it's now `trigger: "ofrenda"`
-// instead of `keyword: "ofrenda"`. The isOfrenda flag is set in playCard based
-// on `trigger === "ofrenda"`.
+// Ofrenda / despertar / passive / reaction TRIGGERS were removed in the
+// simplification — only 4 triggers remain (on_play, start_turn, end_turn,
+// on_death). Cards that previously used those triggers no longer exist.
 // ---------------------------------------------------------------------------
 
 export type Keyword =
@@ -445,8 +405,6 @@ export interface CardDef {
   rarity: Rarity;
   /** When the card's effect fires. Defaults to "on_play" if omitted. */
   trigger?: Trigger;
-  /** Optional condition for `umbral` triggers. Ignored for other triggers. */
-  umbralCondition?: UmbralCondition;
   /** Official keyword label for UI display (e.g. "Sacrificio", "Celeridad"). */
   keyword?: Keyword;
   /** Optional X parameter for keywords that take a value (e.g. Sacrificio [3] → keywordValue=3). */
@@ -494,10 +452,6 @@ export interface BoardCard {
   rarity: Rarity;
   /** When the card's effect fires (copied from the CardDef when the card was played). */
   trigger?: Trigger;
-  /** Optional condition for `umbral` triggers. */
-  umbralCondition?: UmbralCondition;
-  /** True once an umbral trigger has fired for this board card (prevents re-firing). */
-  umbralTriggered?: boolean;
   /** Official keyword label (copied from CardDef). */
   keyword?: Keyword;
   /** X parameter for keywords that take a value. */
@@ -516,8 +470,6 @@ export interface BoardCard {
   perforacionRemaining?: number;
   /** Enrabia [X] — true once the +X reaction has fired (one-shot per game). */
   enrabiadUsed?: boolean;
-  /** Ofrenda — flag: marked as priority target for Sacrificio (Etapa 3). */
-  isOfrenda?: boolean;
   /** Refuerzo — UID of the marked ally (the last ally played before this card in the lane).
    *  When this card has keyword=refuerzo and trigger=start_turn, the start_turn dispatcher
    *  gives +X to this marked ally each turn. Set at card creation in playCard. */
