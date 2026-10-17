@@ -24,3 +24,25 @@ Stage Summary:
 - 404 preexistentes del repo (no bloquean): GET /click.mp3 (sonido faltante), POST /api/matches (endpoint inexistente, historial de partidas no persiste)
 - Token de GitHub usado solo para clonar; recomendado revocarlo
 - Repo temporal /home/z/repo-tmp eliminado tras la copia
+
+---
+Task ID: 2
+Agent: Z.ai main agent
+Task: Instalar skills (impeccable.style + 4 TCG architects) y librerías (lucide, phaser 3, interact.js)
+
+Work Log:
+- Buscado en ClawHub: las 4 skills tcg-*-architect NO existen; impeccable sí (pbakaus, 314k installs)
+- clawhub install de impeccable falló por hash del resolver → instalada desde GitHub pbakaus/impeccable a skills/impeccable/ (SKILL.md + reference/ + agents/ + scripts/)
+- tcgarchitect.com verificado: web ajena (deckbuilder de Grand Archive/Gundam), no instalable como skill
+- Creadas 4 skills personalizadas para "Pacto de Guerra":
+  * tcg-game-architect: arquitectura global (store/engine/vistas/persistencia, modelo 4 triggers)
+  * tcg-keyword-architect: sistema de keywords (contrato de 5 puntos, scopes, balance, scripts)
+  * tcg-board-architect: tablero visual (lanes, drag&drop interact.js, Phaser como capa de efectos)
+  * tcg-combat-architect: combate (PTP por carril, orden de resolución, IA rival, balance IA-vs-IA)
+- Librerías instaladas: phaser@3.90.0 (fijada v3 a petición, la latest es 4.x), interactjs@1.10.28; lucide-react@0.525.0 ya estaba
+- Verificación final: juego carga OK, sin errores JS, dev server compila limpio
+
+Stage Summary:
+- 5 skills nuevas disponibles en /home/z/my-project/skills/ (impeccable + 4 tcg-*-architect)
+- Stack de juego listo: phaser 3.90 + interactjs 1.10 + lucide-react
+- Pendiente detectado: POST /api/matches y click.mp3 siguen faltando (preexistente)
