@@ -17,62 +17,62 @@ const CARDS = [
   {
     id: "mandoble_quebrantamuros",
     name: "Mandoble Quebrantamuros",
-    prompt: `A colossal two-handed greatsword smashing through an ornate enemy breastplate, armor plates exploding outward in metal shards, the blade edge glowing white-hot, a dwarf in heavy plate armor swinging with both hands, motion blur on the blade, shattered shield fragments flying toward the camera, dramatic close-up, dark fortress wall background,`,
+    prompt: `A battle-scarred dwarf in dented plate armor swinging a colossal two-handed greatsword at the very climax of impact, the blade piercing straight through a glowing blue enemy barrier as if it did not exist, the strongest most imposing enemy champion having his ornate breastplate split open with plates exploding outward, metal shards flying toward the camera, motion blur on the blade, dark fortress wall background,`,
   },
   {
     id: "espada_duelista",
     name: "Espada del Duelista",
-    prompt: `A lone elf duelist standing in an empty stone arena, slender glowing longsword raised in challenge, solitary heroic stance, empty dueling circle with scattered sand around their feet, a single dramatic shaft of light illuminating the duelist, perfect one-versus-one composition, focused calm expression,`,
+    prompt: `A single blood elf duelist utterly alone in a vast empty stone arena at dawn, absolutely no one else in view, her slender longsword just beginning to glow with the first surge of morning power, the first ray of sunrise crossing the blade edge, heroic solitary stance in an empty sand dueling circle, the vast emptiness of the arena emphasizing that she is the only card on the field,`,
   },
   {
     id: "amoladora_campamento",
     name: "Amoladora de Campamento",
-    prompt: `A battle-worn grinding wheel showering orange sparks onto a notched sword blade, strong armored hands holding the blade against the spinning stone, military camp at dusk in the background with tents and war banners, embers rising into the air, warm firelight glow, sense of relentless sharpening and growth,`,
+    prompt: `A massive grinding wheel dominating the frame as the true protagonist, showering golden sparks onto a notched sword blade held by strong armored hands, every spark making the edge visibly brighter than the last pass, embers accumulating and rising like power being added stroke by stroke, first light of dawn over a military camp with tents and war banners in the background, the item larger and more detailed than the figures,`,
   },
   {
     id: "cuerno_guerra",
     name: "Cuerno de Guerra",
-    prompt: `A massive curved war horn made of dark bronze blowing visible golden sound-ring shockwaves into the air, armored warriors in the background standing taller and raising their weapons in response, banner poles and spears silhouetted against the sky, epic low angle composition, golden hour light,`,
+    prompt: `A tauren warrior blowing a massive curved dark bronze war horn at dusk, one expanding golden sound-wave washing simultaneously over an entire formation of armored warriors, every single soldier in the line empowered by the same wave at once, all standing taller with weapons raised, banner poles and spears silhouetted against a sunset sky, the effect at its full apex as the day closes,`,
   },
   {
     id: "adarga_centinela",
     name: "Adarga del Centinela",
-    prompt: `A round leather-and-steel shield held by a vigilant sentinel, the shield surface glowing faint blue with protective runes, enemy arrows bouncing off it in a shower of sparks, the sentinel in half-plate armor braced behind it, watchtower and night sky background, cool moonlight on steel,`,
+    prompt: `A vigilant night elf sentinel braced behind a round leather-and-steel shield, a fresh translucent blue barrier just materializing around her body, the barrier marked with exactly three glowing rune segments like a finite charge meter waiting to be spent, enemy arrows frozen mid-air against it in showers of sparks, watchtower and moonlit night sky background, cool moonlight on steel,`,
   },
   {
     id: "estandarte_cohorte",
     name: "Estandarte de la Cohorte",
-    prompt: `A military standard bearer raising a tall war banner with a glowing azure sigil, waves of protective blue light flowing from the banner onto surrounding armored soldiers who raise their shields, radiant barrier energy arcing between shields, heroic triangular composition, battlefield at dawn,`,
+    prompt: `A tall war banner with a glowing azure sigil as the dominant centerpiece held high by a human standard bearer, waves of protective blue light flowing outward to several surrounding allies who each receive their own newly formed translucent shield, the bearer himself standing exposed without a shield of his own, protected by the cohort he serves, heroic triangular composition, battlefield at dawn,`,
   },
   {
     id: "oracion_bastion",
     name: "Oración del Bastión",
-    prompt: `A paladin with both hands raised channeling cleansing golden-white light downward onto kneeling wounded soldiers, dark corruption smoke lifting off their armor and dissipating into the air, cathedral light beams breaking through storm clouds, serene powerful expression, floating holy energy particles,`,
+    prompt: `A draenei priestess with both hands raised at first light, ribbons of dark corruption smoke being visibly pulled out of kneeling wounded soldiers and dissolving into the morning air, clean golden dawn light flowing in to replace everything the smoke carries away, accumulated debuffs lifting off the armor with the smoke, serene powerful expression, cathedral light rays breaking through storm clouds,`,
   },
   {
     id: "martillo_veterano",
     name: "Martillo del Veterano",
-    prompt: `A grizzled scarred veteran raising a heavy war hammer, tapping a young recruit's shoulder plate with glowing amber award-light, the young soldier standing straighter with renewed vigor and determination, warm amber light connecting both figures, campfire glow, mentor-and-recruit composition,`,
+    prompt: `A towering scarred orc veteran in battered plate armor tapping the glowing amber head of his war hammer onto the smallest most battered young recruit in the line, the frail underdog straightening up as fresh power visibly flows into him, stark contrast between the mighty giver and the weakest receiver, warm amber light connecting both figures at the moment of transfer, campfire glow,`,
   },
   {
     id: "berserker_recluta",
     name: "Berserker Recluta",
-    prompt: `A young orc recruit charging forward with escalating momentum, multiple motion after-images trailing behind, tusks bared in a wild battle grin, axe trailing red energy streaks, full accelerating sprint pose, red war paint streaks on the face, dust kicking up from the battlefield ground,`,
+    prompt: `A young orc berserker in red war paint, bare tattooed muscles and crude leather straps with bone trophies, charging at full sprint with multiple trailing motion after-images behind him, each ghostly echo representing another card played before this one, red energy streaks growing with every step of accumulated momentum, dust exploding from the ground, no metal armor at all, raw escalating fury,`,
   },
   {
     id: "colmillo_verdugo",
     name: "Colmillo del Verdugo",
-    prompt: `A hooded executioner wielding a curved fang-shaped dagger poised to strike a weakened kneeling enemy, cold calculating eyes glowing under the hood, the cruel blade dripping with crimson energy, dramatic hard shadow play, single dark dungeon light from above, merciless predatory mood,`,
+    prompt: `A gaunt troll executioner adorned with bone trophies and crude leather wraps crouching at dusk, cold calculating eyes locked on the weakest wounded enemy already slumped and faltering before him, his curved fang-shaped dagger dripping crimson energy, the patient predator closing the day by claiming the easiest prey, hard shadow play, single dying light from above, merciless mood, no metal armor,`,
   },
   {
     id: "hacha_ejecucion",
     name: "Hacha de Ejecución",
-    prompt: `A massive executioner's axe raised high above a defeated enemy kneeling at the block, the axe blade gleaming with a final-edge white light, grim executioner in dark leathers, sparks of fate energy arcing around the axe head, dramatic top-down angle, storm clouds parting in a single beam of light,`,
+    prompt: `A hulking worgen executioner in raw furs and old scars raising a crude massive axe at the very climax of the final swing, an already defeated weak enemy kneeling powerless at the block, far too feeble to resist the killing blow, the axe edge flashing with white final-strike energy, dust and fate sparks arcing around the blade, dramatic top-down angle, storm clouds parting in a single beam of light, no polished armor,`,
   },
   {
     id: "veterano_caido",
     name: "Veterano Caído",
-    prompt: `A fallen elderly warrior lying on a battlefield passing his glowing sword upward into a younger soldier's hand, warm golden light flowing from the dying veteran into the young successor, solemn heroic passing-the-torch moment, sunset battlefield background, other soldiers saluting with lowered heads,`,
+    prompt: `A mortally wounded elderly orc warrior in crude furs and bone ornaments lying defeated on the battlefield just after the fatal blow, his glowing sword and golden life essence flowing upward into the hands of the weakest young survivor kneeling beside him, death becoming a transfer of power, warm sunset light, other warriors saluting with lowered heads around the fallen, no polished armor,`,
   },
 ];
 
