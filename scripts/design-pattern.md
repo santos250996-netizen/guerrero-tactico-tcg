@@ -99,6 +99,44 @@ Interpretación visual de cada keyword, tomada de su texto de efecto:
 Al diseñar una keyword NUEVA: añadir aquí su interpretación visual ANTES de
 generar su arte.
 
+## 📝 NOMBRES DE CARTA — REGLAS (obligatorio)
+
+El nombre es la primera pieza de la interpretación: NOMBRE → EFECTO → IMAGEN
+deben contar la misma historia. Estilo WoW/Hearthstone en español.
+
+### Fórmulas por categoría (elegir la del tipo de carta)
+- **Ataque**: [Acción] + [modificador] → "Golpe Demoledor", "Tajo Veloz",
+  "Estocada Maestra" — o [Arma] + [epíteto agentivo] → "Mandoble Quebrantamuros"
+- **Ítem**: [Objeto] + de/del + [evocador] → "Amuleto del Frenesí",
+  "Aegis del Bastión", "Poción de Vida", "Yunque de Guerra"
+- **Acción**: [Sustantivo de acto] + [complemento] → "Decreto de Masacre",
+  "Rito de Cólera", "Llamado de Sangre", "Orden de Cohesión"
+- **Personaje/Unidad**: [Rol] + [epíteto o calificador] → "Veterano Caído",
+  "Campeón Revestido", "Mago Joven", "Comandante de Vanguardia"
+
+### Reglas duras
+1. Español fantasy épico; extranjerismos solo si son del género (berserker, aegis).
+2. Máximo 3 palabras de contenido — los artículos (de/del/la/el) no cuentan
+   ("Baluarte de la Alianza" vale; la "Estación de Reaprovisionamiento" de
+   5 palabras fue el outlier a no repetir).
+3. El nombre EVOKA el efecto sin nombrar la keyword literal: "Oración del
+   Bastión", no "Purificación" — la keyword ya vive en el texto del efecto.
+4. Único en el catálogo. El repo heredó duplicados por bug (cuerno_batalla/
+   cuerno_de_batalla, avatar_titan/avatar_del_titan, trono_hierro/trono_de_hierro,
+   filotormesta como typo de filotormenta): prohibido repetir nombre ni variante
+   mínima del mismo.
+5. Una sola palabra solo para acciones icónicas de verbo (Ejecutar, Provocar,
+   Embestida) o tokens base (Soldado, Recluta, Paladín). Toda carta con keyword
+   lleva nombre compuesto que narre su efecto.
+6. Filename = nombre en snake_case SIN acentos (despertar_bélico fue bug;
+   correcto: despertar_belico).
+
+### Coherencia de la tríada (verificación obligatoria)
+NOMBRE → EFECTO → IMAGEN deben cerrar solos: "Veterano Caído" → Legado
+on_death ("Último Aliento: el más débil gana +3") → escena post-caída con
+transferencia de esencia. Si alguna de las tres no cuenta la misma historia,
+se rediseña la que esté fuera.
+
 ## SUGERENCIAS POR CARRIL (variedad, no camisa de fuerza)
 - **ARMAS**: metal forjado con historia (mellado, grabado, oxidado), técnica y
   precisión de duelo, armas protagonista del impacto.

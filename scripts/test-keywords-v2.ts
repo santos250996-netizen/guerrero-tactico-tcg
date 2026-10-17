@@ -91,11 +91,11 @@ console.log("\n🔵 INSIGNIA (on_play)");
 {
   const board = emptyBoard();
   const vet = boardCard(cardById("veterano_caido")); // p3
-  const colmillo = boardCard(cardById("colmillo_verdugo")); // p4
+  const colmillo = boardCard(cardById("colmillo_del_verdugo")); // p4
   place(board, "player", "furia", vet);
   place(board, "player", "furia", colmillo);
 
-  const res = playCard(board, [asHand(cardById("martillo_veterano"))], 10, "player", "furia", asHand(cardById("martillo_veterano")), null, NO_TRAP);
+  const res = playCard(board, [asHand(cardById("martillo_del_veterano"))], 10, "player", "furia", asHand(cardById("martillo_del_veterano")), null, NO_TRAP);
   const vetAfter = res.board.furia.player.find((c) => c.uid === vet.uid)!;
   const hammer = res.playedCard;
   check("Veterano Caído recibe +3 (era el más débil: 3 < 4)", vetAfter.currentPower === 6, `esperado 6, real ${vetAfter.currentPower}`);
@@ -110,13 +110,13 @@ console.log("\n🔵 REMATE (on_play)");
 {
   const board = emptyBoard();
   const weak1 = boardCard(cardById("veterano_caido"), { currentPower: 1, basePower: 1 }); // p1
-  const weak2 = boardCard(cardById("hacha_ejecucion"), { currentPower: 2, basePower: 2 }); // p2
-  const strong = boardCard(cardById("colmillo_verdugo")); // p4 (fuera de alcance)
+  const weak2 = boardCard(cardById("hacha_de_ejecucion"), { currentPower: 2, basePower: 2 }); // p2
+  const strong = boardCard(cardById("colmillo_del_verdugo")); // p4 (fuera de alcance)
   place(board, "enemy", "furia", weak1);
   place(board, "enemy", "furia", weak2);
   place(board, "enemy", "furia", strong);
 
-  const hand = asHand(cardById("hacha_ejecucion"));
+  const hand = asHand(cardById("hacha_de_ejecucion"));
   const res = playCard(board, [hand], 10, "player", "furia", hand, null, NO_TRAP);
   check("Se destruye exactamente 1 carta", res.removedCards.length === 1);
   check("Es la MÁS FUERTE de las que cumplen (p2, no p1)", res.removedCards[0]?.uid === weak2.uid);
@@ -130,7 +130,7 @@ console.log("\n🔵 REMATE (on_play)");
 console.log("\n🟠 HENDER ARMADURA (on_play, clase Armas)");
 {
   const board = emptyBoard();
-  const shielded = boardCard(cardById("adarga_centinela")); // p1, llevará escudo
+  const shielded = boardCard(cardById("adarga_del_centinela")); // p1, llevará escudo
   const big = boardCard(cardById("mandoble_quebrantamuros")); // p5 — el más fuerte
   shielded.shieldRemaining = 3;
   place(board, "enemy", "armas", shielded);
@@ -151,12 +151,12 @@ console.log("\n🟠 HENDER ARMADURA (on_play, clase Armas)");
 console.log("\n🟠 AMPARO (on_play, clase Protección)");
 {
   const board = emptyBoard();
-  const adarga = boardCard(cardById("adarga_centinela")); // p1
-  const martillo = boardCard(cardById("martillo_veterano")); // p3
+  const adarga = boardCard(cardById("adarga_del_centinela")); // p1
+  const martillo = boardCard(cardById("martillo_del_veterano")); // p3
   place(board, "player", "proteccion", adarga);
   place(board, "player", "proteccion", martillo);
 
-  const hand = asHand(cardById("estandarte_cohorte")); // amparo 2
+  const hand = asHand(cardById("estandarte_de_la_cohorte")); // amparo 2
   const res = playCard(board, [hand], 10, "player", "proteccion", hand, null, NO_TRAP);
   const a1 = res.board.proteccion.player.find((c) => c.uid === adarga.uid)!;
   const a2 = res.board.proteccion.player.find((c) => c.uid === martillo.uid)!;
@@ -189,7 +189,7 @@ console.log("\n🟠 ÍMPETU (on_play, clase Furia)");
 console.log("\n🔵 CORAZA (on_play)");
 {
   const board = emptyBoard();
-  const hand = asHand(cardById("adarga_centinela")); // coraza 3
+  const hand = asHand(cardById("adarga_del_centinela")); // coraza 3
   const res = playCard(board, [hand], 10, "player", "proteccion", hand, null, NO_TRAP);
   check("La Adarga entra con escudo 3", res.playedCard.shieldRemaining === 3, `real ${res.playedCard.shieldRemaining}`);
   check("Poder base + sinergia protección = 1+2 = 3", res.playedCard.currentPower === 3, `real ${res.playedCard.currentPower}`);
@@ -201,7 +201,7 @@ console.log("\n🔵 CORAZA (on_play)");
 console.log("\n🔵 FERVOR (start_turn)");
 {
   const board = emptyBoard();
-  const amoladora = boardCard(cardById("amoladora_campamento")); // fervor 1
+  const amoladora = boardCard(cardById("amoladora_de_campamento")); // fervor 1
   place(board, "player", "armas", amoladora);
 
   let b = board;
@@ -220,7 +220,7 @@ console.log("\n🔵 FERVOR (start_turn)");
 console.log("\n🟠 DUELISTA (start_turn, clase Armas)");
 {
   const board = emptyBoard();
-  const espada = boardCard(cardById("espada_duelista")); // duelista 1
+  const espada = boardCard(cardById("espada_del_duelista")); // duelista 1
   place(board, "player", "armas", espada);
 
   const res1 = applyStartTurnEffects(board, "player");
@@ -230,7 +230,7 @@ console.log("\n🟠 DUELISTA (start_turn, clase Armas)");
   // Ahora el jugador añade otra carta al carril → deja de crecer
   const res2 = applyStartTurnEffects(res1.board, "player");
   const s2 = res2.board.armas.player.find((c) => c.uid === espada.uid)!;
-  place(res2.board, "player", "armas", boardCard(cardById("amoladora_campamento")));
+  place(res2.board, "player", "armas", boardCard(cardById("amoladora_de_campamento")));
   const res3 = applyStartTurnEffects(res2.board, "player");
   const s3 = res3.board.armas.player.find((c) => c.uid === espada.uid)!;
   check("Sigue sola en el 2º inicio → +1 (p5)", s2.currentPower === 5, `real ${s2.currentPower}`);
@@ -243,8 +243,8 @@ console.log("\n🟠 DUELISTA (start_turn, clase Armas)");
 console.log("\n🟠 PURIFICACIÓN (start_turn, clase Protección)");
 {
   const board = emptyBoard();
-  const oracion = boardCard(cardById("oracion_bastion")); // purificación
-  const martillo = boardCard(cardById("martillo_veterano"));
+  const oracion = boardCard(cardById("oracion_del_bastion")); // purificación
+  const martillo = boardCard(cardById("martillo_del_veterano"));
   martillo.currentPower = 1; // p3 base, sufrió −2
   martillo.debuffTaken = 2;
   place(board, "player", "proteccion", oracion);
@@ -262,9 +262,9 @@ console.log("\n🟠 PURIFICACIÓN (start_turn, clase Protección)");
 console.log("\n🔵 FORTALEZA (end_turn)");
 {
   const board = emptyBoard();
-  const cuerno = boardCard(cardById("cuerno_guerra")); // fortaleza 1
-  const amoladora = boardCard(cardById("amoladora_campamento"));
-  const espada = boardCard(cardById("espada_duelista"));
+  const cuerno = boardCard(cardById("cuerno_de_guerra")); // fortaleza 1
+  const amoladora = boardCard(cardById("amoladora_de_campamento"));
+  const espada = boardCard(cardById("espada_del_duelista"));
   place(board, "player", "armas", cuerno);
   place(board, "player", "armas", amoladora);
   place(board, "player", "proteccion", espada); // OTRO carril: no debe recibir
@@ -285,9 +285,9 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
 {
   // 11a: sin escudo
   const board = emptyBoard();
-  const colmillo = boardCard(cardById("colmillo_verdugo")); // crueldad 1
+  const colmillo = boardCard(cardById("colmillo_del_verdugo")); // crueldad 1
   place(board, "player", "furia", colmillo);
-  const weak = boardCard(cardById("amoladora_campamento"), { currentPower: 1, basePower: 1 });
+  const weak = boardCard(cardById("amoladora_de_campamento"), { currentPower: 1, basePower: 1 });
   const strong = boardCard(cardById("mandoble_quebrantamuros"));
   place(board, "enemy", "furia", weak);
   place(board, "enemy", "furia", strong);
@@ -300,8 +300,8 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
 
   // 11b: con escudo (Coraza absorbe)
   const board2 = emptyBoard();
-  place(board2, "player", "furia", boardCard(cardById("colmillo_verdugo")));
-  const shielded = boardCard(cardById("adarga_centinela"), { currentPower: 1, basePower: 1 });
+  place(board2, "player", "furia", boardCard(cardById("colmillo_del_verdugo")));
+  const shielded = boardCard(cardById("adarga_del_centinela"), { currentPower: 1, basePower: 1 });
   shielded.shieldRemaining = 2;
   place(board2, "enemy", "furia", shielded);
   const res2 = applyEndTurnEffects(board2, "player");
@@ -315,8 +315,8 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
 console.log("\n🔵 LEGADO (on_death)");
 {
   const board = emptyBoard();
-  const amoladora = boardCard(cardById("amoladora_campamento")); // p1 — el más débil
-  const colmillo = boardCard(cardById("colmillo_verdugo")); // p4
+  const amoladora = boardCard(cardById("amoladora_de_campamento")); // p1 — el más débil
+  const colmillo = boardCard(cardById("colmillo_del_verdugo")); // p4
   place(board, "player", "furia", amoladora);
   place(board, "player", "furia", colmillo);
 
@@ -333,11 +333,11 @@ console.log("\n🔗 CADENA Remate → on_death (Legado)");
 {
   const board = emptyBoard();
   const enemyVet = boardCard(cardById("veterano_caido"), { currentPower: 2, basePower: 2 });
-  const enemyWeak = boardCard(cardById("amoladora_campamento"), { currentPower: 1, basePower: 1 });
+  const enemyWeak = boardCard(cardById("amoladora_de_campamento"), { currentPower: 1, basePower: 1 });
   place(board, "enemy", "furia", enemyVet);
   place(board, "enemy", "furia", enemyWeak);
 
-  const hand = asHand(cardById("hacha_ejecucion")); // remate 2
+  const hand = asHand(cardById("hacha_de_ejecucion")); // remate 2
   const res = playCard(board, [hand], 10, "player", "furia", hand, null, NO_TRAP);
   check("Hacha destruye al Veterano rival (p2 ≤ 2)", res.removedCards.length === 1 && res.removedCards[0].uid === enemyVet.uid);
 
@@ -372,7 +372,7 @@ console.log("\n🏁 computeFinalResult");
 {
   const board = emptyBoard();
   place(board, "player", "armas", boardCard(cardById("mandoble_quebrantamuros"))); // p7 con sinergia? no: place directo = p5
-  place(board, "enemy", "proteccion", boardCard(cardById("adarga_centinela")));
+  place(board, "enemy", "proteccion", boardCard(cardById("adarga_del_centinela")));
   const r = computeFinalResult(board);
   check("Player gana armas, enemy gana proteccion, furia empate", r.playerWins === 1 && r.enemyWins === 1 && r.draws === 1);
 }

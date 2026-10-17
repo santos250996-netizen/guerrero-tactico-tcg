@@ -41,7 +41,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "espada_duelista",
+    id: "espada_del_duelista",
     name: "Espada del Duelista",
     category: "Ataque",
     subtypes: ["armas"],
@@ -55,7 +55,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "start_turn",
   },
   {
-    id: "amoladora_campamento",
+    id: "amoladora_de_campamento",
     name: "Amoladora de Campamento",
     category: "Ítem",
     subtypes: ["armas"],
@@ -69,7 +69,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "start_turn",
   },
   {
-    id: "cuerno_guerra",
+    id: "cuerno_de_guerra",
     name: "Cuerno de Guerra",
     category: "Acción",
     subtypes: ["armas"],
@@ -85,7 +85,7 @@ export const ALL_CARDS: CardDef[] = [
 
   // ----------------------- CARRIL PROTECCIÓN -----------------------
   {
-    id: "adarga_centinela",
+    id: "adarga_del_centinela",
     name: "Adarga del Centinela",
     category: "Ítem",
     subtypes: ["proteccion"],
@@ -99,7 +99,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "estandarte_cohorte",
+    id: "estandarte_de_la_cohorte",
     name: "Estandarte de la Cohorte",
     category: "Ítem",
     subtypes: ["proteccion"],
@@ -113,7 +113,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "oracion_bastion",
+    id: "oracion_del_bastion",
     name: "Oración del Bastión",
     category: "Acción",
     subtypes: ["proteccion"],
@@ -126,7 +126,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "start_turn",
   },
   {
-    id: "martillo_veterano",
+    id: "martillo_del_veterano",
     name: "Martillo del Veterano",
     category: "Ataque",
     subtypes: ["proteccion"],
@@ -156,7 +156,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "colmillo_verdugo",
+    id: "colmillo_del_verdugo",
     name: "Colmillo del Verdugo",
     category: "Ataque",
     subtypes: ["furia"],
@@ -170,7 +170,7 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "end_turn",
   },
   {
-    id: "hacha_ejecucion",
+    id: "hacha_de_ejecucion",
     name: "Hacha de Ejecución",
     category: "Ataque",
     subtypes: ["furia"],
