@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pacto de Guerra</string>
+    <string name="title_activity_main">Pacto de Guerra</string>
+    <string name="package_name">com.pacto.guerra</string>
+    <string name="custom_url_scheme">com.pacto.guerra</string>
+</resources>

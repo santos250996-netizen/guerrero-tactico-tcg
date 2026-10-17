@@ -1,0 +1,263 @@
+"use client";
+import { motion } from "framer-motion";
+import { Dialog, DialogContent, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
+import type { CardDef } from "@/lib/game/types";
+import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
+import { Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CostBadge, PowerBadge } from "./CardBadges";
+import { useState } from "react";
+import type { PowerLogEntry } from "@/lib/game/types";
+
+// Rarity text color (used in the rarity pill label in the preview header)
+const RARITY_TEXT_COLOR: Record<string, string> = {
+  common: "text-emerald-300",
+  rare: "text-sky-300",
+  epic: "text-violet-300",
+  legendary: "text-amber-300",
+};
+
+// PowerLogEntry kind → emoji + label + color (for the Registro de Modificadores panel)
+const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { emoji: string; label: string; text: string; bg: string; border: string }> = {
+  synergy:   { emoji: "🔗", label: "Sinergia",       text: "text-sky-300",     bg: "bg-sky-950/70",     border: "border-sky-500/40" },
+  field:      { emoji: "🗺️", label: "Campo",          text: "text-amber-300",  bg: "bg-amber-950/70",   border: "border-amber-500/40" },
+  effect:     { emoji: "✨", label: "Efecto",         text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
+  buff:       { emoji: "⬆️", label: "Mejora",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+  debuff:     { emoji: "⬇️", label: "Reducción",      text: "text-rose-300",   bg: "bg-rose-950/70",    border: "border-rose-500/40" },
+  trap:       { emoji: "🪤", label: "Trampa",        text: "text-rose-400",   bg: "bg-rose-950/80",   border: "border-rose-400/50" },
+  despertar:  { emoji: "🔥", label: "Despertar",     text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
+  passive:    { emoji: "♾️", label: "Pasivo",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+  start_turn: { emoji: "🌅", label: "Inicio turno",   text: "text-amber-300",  bg: "bg-amber-950/70",  border: "border-amber-500/40" },
+  end_turn:   { emoji: "🌇", label: "Fin turno",      text: "text-violet-300", bg: "bg-violet-950/70", border: "border-violet-500/40" },
+  on_death:   { emoji: "💀", label: "Al morir",       text: "text-rose-300",   bg: "bg-rose-950/70",   border: "border-rose-500/40" },
+  hand:       { emoji: "✋", label: "En mano",        text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
+};
+
+export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef | null; open: boolean; onOpenChange: (o: boolean) => void }) {
+  if (!card) return null;
+  const cat = CATEGORY_META[card.category];
+  const rar = RARITY_META[card.rarity];
+  const trigger = card.trigger ?? "on_play";
+  const triggerMeta = TRIGGER_META[trigger];
+  const keyword = card.keyword ?? "none";
+  const keywordMeta = KEYWORD_META[keyword];
+  const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
+
+  // ====== POWER MODIFIERS COMPUTATION ======
+  // Effective power = currentPower (board) or power + handBonus (hand) or just power.
+  const basePower = card.basePower ?? card.power;
+  const effectivePower = card.currentPower ?? (card.power + (card.handBonus ?? 0));
+  const powerDelta = effectivePower - basePower;
+  const isBuffed = powerDelta > 0;
+  const isDebuffed = powerDelta < 0;
+
+  // Unified modifiers list — board cards use `powerLog`, hand cards use `handBonusSources`.
+  // Each entry: { source, delta, kind }
+  type ModEntry = { source: string; delta: number; kind: PowerLogEntry["kind"] };
+  const modifiers: ModEntry[] = [];
+  if (card.powerLog && card.powerLog.length > 0) {
+    for (const e of card.powerLog) modifiers.push({ source: e.source, delta: e.delta, kind: e.kind });
+  } else if (card.handBonusSources && card.handBonusSources.length > 0) {
+    for (const e of card.handBonusSources) modifiers.push({ source: e.source, delta: e.delta, kind: "hand" });
+  } else if (card.handBonus && card.handBonus !== 0) {
+    // Fallback if sources weren't broken down — show a single aggregate entry.
+    modifiers.push({ source: keyword !== "none" ? keywordMeta.label : "Bonificador en mano", delta: card.handBonus, kind: "hand" });
+  }
+
+  // Close handler — single tap anywhere (including the card) closes the modal.
+  const close = () => onOpenChange(false);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* Darker, full-blocking overlay — intercepts ALL pointer events so the user
+          can't tap on underlying hand cards / lanes while the preview is open.
+          Tapping anywhere on the overlay (i.e. outside the card) closes the modal. */}
+      <DialogOverlay
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+        onClick={close}
+      />
+      <DialogContent
+        showCloseButton={false}
+        // Center the card in the viewport (override the default which is fine, but
+        // we want a transparent background so only the card itself is visible).
+        className="border-transparent bg-transparent p-0 shadow-none left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] sm:max-w-xs max-w-[calc(100%-1rem)] gap-0"
+        // Tapping on the dialog content area (which is transparent) should also close
+        onClick={close}
+      >
+        <DialogTitle className="sr-only">{card.name}</DialogTitle>
+        <motion.div
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.7, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 280, damping: 22 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            close();
+          }}
+          className={cn(
+            "relative mx-auto flex w-56 cursor-pointer flex-col overflow-hidden rounded-2xl border-2 shadow-2xl shadow-black/90",
+            "bg-zinc-950",
+            // Auto-grow height: base 28rem + extra for the Registro panel when there are modifiers.
+            modifiers.length > 0 ? "h-[34rem]" : "h-[28rem]",
+            card.rarity === "common" ? "border-emerald-500"
+            : card.rarity === "rare" ? "border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)]"
+            : card.rarity === "epic" ? "border-violet-400 shadow-[0_0_18px_rgba(168,85,247,0.4)]"
+            : "border-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.5)]",
+          )}
+          style={{
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 8px rgba(0,0,0,0.6), 0 18px 40px rgba(0,0,0,0.8)",
+          }}
+        >
+          {/* Full-bleed art */}
+          <img
+            src={`/cards/${card.id}.png`}
+            alt={card.name}
+            className="absolute inset-0 h-full w-full object-cover"
+            draggable={false}
+          />
+
+          {/* Dark gradient at the bottom for legibility */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
+
+          {/* Cost badge (top-left) — crystal */}
+          <div className="absolute left-2 top-2 z-30">
+            <CostBadge cost={card.cost} size="lg" />
+          </div>
+
+          {/* Power badge (top-right) — shield, shows EFFECTIVE power (currentPower on board, power+handBonus in hand). */}
+          <div className="absolute right-2 top-2 z-30 flex flex-col items-end gap-0.5">
+            <PowerBadge power={effectivePower} size="lg" />
+            {/* Delta chip — only when effective ≠ base */}
+            {powerDelta !== 0 && (
+              <div className={cn(
+                "rounded-full border px-1.5 py-0.5 text-[9px] font-black tabular-nums whitespace-nowrap backdrop-blur-sm shadow-md",
+                isBuffed
+                  ? "border-emerald-300/70 bg-emerald-900/80 text-emerald-200"
+                  : "border-rose-300/70 bg-rose-900/80 text-rose-200"
+              )}>
+                {isBuffed ? "+" : ""}{powerDelta}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom info panel overlay */}
+          <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 py-2.5">
+            {/* Top row of bottom panel: card type (left) + ALL subtype icons (right) */}
+            <div className="flex items-center justify-between gap-1">
+              <span
+                className={cn(
+                  "rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                  cat.bgClass,
+                  cat.textClass,
+                  cat.borderClass
+                )}
+              >
+                {cat.label}
+              </span>
+              <div className="flex items-center gap-0.5">
+                {subtypeMetas.map((lm) => (
+                  <span
+                    key={lm.title}
+                    title={lm.title}
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-sm leading-none backdrop-blur-sm"
+                  >
+                    {lm.emoji}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Card name */}
+            <div className="text-center text-base font-black uppercase tracking-wider text-amber-300 [text-shadow:1px_1px_0_#000,0_0_6px_rgba(0,0,0,0.9)] leading-tight">
+              {card.name}
+            </div>
+
+            {/* Trigger + Keyword chips — when the effect fires + which keyword */}
+            <div className="flex justify-center gap-1.5 flex-wrap">
+              <span
+                title={triggerMeta.description}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                  triggerMeta.color
+                )}
+              >
+                <span>{triggerMeta.emoji}</span>
+                {triggerMeta.label}
+              </span>
+              {keyword !== "none" && (
+                <span
+                  title={keywordMeta.description + (keywordMeta.hasValue && card.keywordValue ? ` (X=${card.keywordValue})` : "")}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                    keywordMeta.color
+                  )}
+                >
+                  <span>{keywordMeta.emoji}</span>
+                  {keywordMeta.label}{keywordMeta.hasValue && card.keywordValue ? ` [${card.keywordValue}]` : ""}
+                </span>
+              )}
+            </div>
+
+            {/* Effect explanation — blood-stained parchment style.
+                Content: the card's per-card `text` field (specific behavior description
+                in Spanish). The old generic TRIGGER_META/KEYWORD_META descriptions were
+                removed because the `text` field is more specific and already mentions
+                exact numbers and conditions. The umbralCondition line is kept because
+                it's dynamic (depends on the card's powerThreshold) and not always
+                encoded in the `text` field. */}
+            <div
+              className="rounded-md border border-red-900/40 px-2 py-1.5 text-[11px] leading-snug shadow-inner backdrop-blur-sm"
+              style={{
+                fontFamily: "Georgia, 'Times New Roman', serif",
+                background: "linear-gradient(to bottom, rgba(245, 230, 210, 0.95) 0%, rgba(220, 200, 175, 0.95) 40%, rgba(200, 170, 140, 0.92) 100%)",
+                color: "#3b0a0a",
+                boxShadow: "inset 0 0 12px rgba(120, 20, 20, 0.25), inset 0 0 3px rgba(80, 10, 10, 0.4)",
+                backgroundImage: "linear-gradient(to bottom, rgba(245, 230, 210, 0.95) 0%, rgba(220, 200, 175, 0.95) 40%, rgba(200, 170, 140, 0.92) 100%), radial-gradient(ellipse at 20% 30%, rgba(120, 20, 20, 0.15) 0%, transparent 40%), radial-gradient(ellipse at 80% 70%, rgba(100, 15, 15, 0.12) 0%, transparent 35%)",
+              }}
+            >
+              {card.text && (
+                <div className="italic">{card.text}</div>
+              )}
+              {card.umbralCondition && (
+                <div className="mt-1">
+                  <span className="font-bold">🔥 Umbral:</span>{" "}
+                  <span>Se activa al alcanzar o superar {card.umbralCondition.powerThreshold} puntos de poder.</span>
+                </div>
+              )}
+            </div>
+
+            {/* ====== REGISTRO DE MODIFICADORES ====== */}
+            {modifiers.length > 0 && (
+              <div className="mt-1 px-0.5">
+                <ul className="space-y-0.5">
+                  {modifiers.map((m, i) => {
+                    const km = KIND_META[m.kind] ?? KIND_META.effect;
+                    const positive = m.delta > 0;
+                    return (
+                      <li key={i} className="flex items-center gap-1 text-[10px] leading-none">
+                        <span className="shrink-0 text-[10px]">{km.emoji}</span>
+                        <span className="flex-1 truncate text-zinc-400">{m.source}</span>
+                        <span className={cn("shrink-0 font-bold tabular-nums", positive ? "text-emerald-400" : "text-rose-400")}>
+                          {positive ? "+" : ""}{m.delta}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-0.5 flex items-center justify-end gap-1 border-t border-white/5 pt-0.5 text-[10px] font-bold tabular-nums">
+                  <span className="text-zinc-600">{basePower}</span>
+                  <span className="text-zinc-700">→</span>
+                  <span className={cn(isBuffed ? "text-emerald-400" : isDebuffed ? "text-rose-400" : "text-zinc-300")}>
+                    {effectivePower}
+                  </span>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </motion.div>
+      </DialogContent>
+    </Dialog>
+  );
+}

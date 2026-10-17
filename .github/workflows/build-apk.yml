@@ -1,0 +1,77 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: gradle
+
+      - name: Setup Android SDK
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip curl
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          cd /tmp
+          curl -fSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o commandlinetools.zip
+          unzip -q commandlinetools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "cmdline-tools;latest"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+
+      - name: Verify environment
+        run: |
+          node -v
+          bun --version
+          echo "=== package.json exists? ==="
+          ls -la package.json
+          echo "=== bun.lock exists? ==="
+          ls -la bun.lock
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build web (Next.js static export)
+        run: bun run build
+
+      - name: Sync Capacitor
+        run: bunx @capacitor/cli sync android
+
+      - name: Build Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: guerrero-tactico-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 90

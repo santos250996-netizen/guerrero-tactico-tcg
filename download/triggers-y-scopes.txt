@@ -1,0 +1,72 @@
+================================================================================
+GUERRERO TÁCTICO TCG — DISPARADORES (TRIGGERS)
+================================================================================
+
+Los Disparadores son los "detectores" del motor del juego. Evalúan si
+se cumple una condición para dar paso a la ejecución de una Keyword.
+
+REGLA DE ORO:
+  [Evento del Juego] ---> DISPARADOR (Trigger) ---> KEYWORD (Acción + Alcance)
+
+CATÁLOGO DE TRIGGERS Y MODIFICADORES (Mod_Trigger):
+
+01. ON_PLAY (×1.0)
+    Se activa una única vez en el momento exacto en que la carta es
+    jugada a la mesa.
+
+02. PASSIVE (×1.1)
+    Efecto continuo o condicional activo mientras la carta permanezca
+    en mesa/mano.
+
+03. START_TURN (×1.0)
+    Se activa automáticamente al inicio de tu turno.
+
+04. END_TURN (×1.0)
+    Se activa automáticamente al finalizar tu turno.
+
+05. ON_DEATH (×1.0)
+    Se activa en el momento en que la carta es destruida o sacrificada.
+
+06. REACTION (×1.2)
+    Se activa como respuesta a una acción específica realizada por el
+    rival (juega carta, aplica reducción o destruye un aliado).
+
+07. DESPERTAR / ON_POWER_THRESHOLD [X] (×1.1)
+    Se activa al alcanzar o superar X puntos de poder en el tablero.
+    One-shot por partida.
+
+08. OFRENDA (×1.0)
+    Marca a esta carta como objetivo prioritario para ser destruida por
+    efectos de Sacrificio. No aplica un efecto en sí — es una marca.
+    Se activa cuando la carta es SACRIFICADA (no destruida).
+
+================================================================================
+ALCANCES (SCOPES) Y MULTIPLICADORES (Mod_Scope)
+================================================================================
+
+  • PROPIO (×1.0): Afecta únicamente a la propia carta.
+  • CARRIL LOCAL (×1.2): Afecta a cartas en su mismo carril.
+  • CARRIL LOCAL + ADYACENTE (×1.4): Afecta a su carril y al carril vecino.
+  • MANO (×1.2): Afecta a cartas que aún están en la mano.
+  • GLOBAL (×1.5): Afecta a cualquier carril o zona del tablero.
+
+================================================================================
+MOD_ONCE (duración del efecto)
+================================================================================
+
+  • MOD_ONCE_SINGLE = 1.0 (Efecto único, one-shot)
+  • MOD_ONCE_PER_TURN = 0.8 (Efecto que se repite indefinidamente, por turno)
+    Se deriva del trigger:
+    - passive, start_turn, end_turn → MOD_ONCE_PER_TURN = 0.8
+    - on_play, on_death, despertar, reaction, ofrenda → MOD_ONCE_SINGLE = 1.0
+
+================================================================================
+EVENTOS DEL SISTEMA DE REACTION (Etapa 4)
+================================================================================
+
+  • card_played: Cuando una carta entra al tablero
+  • debuff_applied: Cuando un debuff impacta a una carta (post-prevención)
+  • card_destroyed: Cuando una carta es destruida/sacrificada
+
+Las keywords con trigger=reaction disparan via applyReactionEffects()
+que escucha estos eventos.
