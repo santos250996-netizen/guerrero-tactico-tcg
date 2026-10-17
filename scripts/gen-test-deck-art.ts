@@ -1,6 +1,13 @@
 import ZAI from 'z-ai-web-dev-sdk';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
+
+// Full spec in scripts/design-pattern.md
+// Pipeline: generate 864x1152 -> downscale LANCZOS to 432x576 (cards display at max 224px)
+const GEN_SIZE = '864x1152' as const;
+const TARGET_W = 432;
+const TARGET_H = 576;
 
 // Base prompt suffix for ALL card art (from design-pattern.md)
 const BASE_PROMPT = `Stylized realism, visible brushstrokes, NOT photorealistic, NOT 3D render, full art no borders no frame full bleed, Hearthstone card art style, vibrant saturated colors reflecting the scene's theme, dramatic lighting with strong rim light, high contrast, epic heroic mood, Blizzard Entertainment concept art, flat color zones in shadows, exaggerated heroic proportions, fantasy card game illustration, NO text in image.`;
@@ -92,16 +99,21 @@ async function main() {
     try {
       const response = await zai.images.generations.create({
         prompt: fullPrompt,
-        size: '864x1152',
+        size: GEN_SIZE,
       });
 
       if (!response.data || !response.data[0] || !response.data[0].base64) {
         throw new Error('No image data in response');
       }
 
-      const buffer = Buffer.from(response.data[0].base64, 'base64');
+      const raw = Buffer.from(response.data[0].base64, 'base64');
+      // design-pattern.md: downscale to 432x576 with LANCZOS3 before saving
+      const buffer = await sharp(raw)
+        .resize(TARGET_W, TARGET_H, { kernel: 'lanczos3' })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
       fs.writeFileSync(outPath, buffer);
-      console.log(`✅ ${card.name} → ${outPath} (${(buffer.length / 1024).toFixed(0)} KB)`);
+      console.log(`✅ ${card.name} → ${outPath} 432x576 (${(buffer.length / 1024).toFixed(0)} KB)`);
       ok++;
     } catch (err: any) {
       console.error(`❌ ${card.name} — ${err.message}`);
