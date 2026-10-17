@@ -10,7 +10,7 @@ interface ClassDef {
   subtypes: string;
   keywords: string[];
   icon: React.ReactNode;
-  color: "amber" | "orange" | "violet";
+  color: "amber" | "violet" | "emerald";
   unlocked: boolean;
   desc: string;
   // Short tagline shown as a Cinzel subtitle under the class name

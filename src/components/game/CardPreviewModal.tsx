@@ -39,7 +39,6 @@ const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { icon: LucideIcon; 
   buff:       { icon: TrendingUp,   label: "Mejora",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
   debuff:     { icon: TrendingDown, label: "Reducción",      text: "text-rose-300",   bg: "bg-rose-950/70",   border: "border-rose-500/40" },
   trap:       { icon: Target,       label: "Trampa",        text: "text-rose-400",   bg: "bg-rose-950/80",   border: "border-rose-400/50" },
-  despertar:  { icon: Flame,        label: "Despertar",     text: "text-fuchsia-300",bg: "bg-fuchsia-950/70",border: "border-fuchsia-500/40" },
   passive:    { icon: InfinityIcon, label: "Pasivo",         text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
   start_turn: { icon: Sunrise,      label: "Inicio turno",   text: "text-amber-300",  bg: "bg-amber-950/70",  border: "border-amber-500/40" },
   end_turn:   { icon: Sunset,       label: "Fin turno",      text: "text-violet-300", bg: "bg-violet-950/70", border: "border-violet-500/40" },
@@ -232,12 +231,6 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             >
               {card.text && (
                 <div className="italic">{card.text}</div>
-              )}
-              {card.umbralCondition && (
-                <div className="mt-1">
-                  <span className="font-bold"><Flame className="mr-0.5 inline h-3 w-3" />Umbral:</span>{" "}
-                  <span>Se activa al alcanzar o superar {card.umbralCondition.powerThreshold} puntos de poder.</span>
-                </div>
               )}
             </div>
 

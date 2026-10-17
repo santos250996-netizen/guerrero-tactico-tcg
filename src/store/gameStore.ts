@@ -19,11 +19,7 @@ import {
   STARTING_HAND_SIZE,
   applyEndTurnEffects,
   applyOnDeathEffects,
-  applyPassiveEffects,
-  applyReactionEffects,
   applyStartTurnEffects,
-  checkRetorno,
-  checkUmbralTriggers,
   computeFinalResult,
   emptyLaneTraps,
   getLaneBonusPower,
@@ -36,8 +32,6 @@ import {
   rollLaneBonuses,
   type AIPlay,
   type Board,
-  type CardPlayedEvent,
-  type CardDestroyedEvent,
   type LaneTraps,
   type TrapState,
   type TriggerResult,
@@ -74,6 +68,7 @@ interface UndoSnapshot {
   laneTraps: LaneTraps;
   nextTurnEnergyPenalty: number;
   gameStats: GameStats;
+  playsThisTurn: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,6 +78,8 @@ interface GameStoreState {
   turn: number;
   energy: number;
   maxEnergy: number;
+  /** Cards the PLAYER has played this turn (reset each turn) — drives Ímpetu. */
+  playsThisTurn: number;
   phase: GamePhase;
   result: GameResult | null;
   finalResult: FinalResult | null;
@@ -293,6 +290,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   turn: 1,
   energy: 1,
   maxEnergy: 1,
+  playsThisTurn: 0,
   phase: "playing",
   result: null,
   finalResult: null,
@@ -340,6 +338,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       turn: 1,
       energy: 1,
       maxEnergy: 1,
+      playsThisTurn: 0,
       phase: "playing",
       result: null,
       finalResult: null,
@@ -387,9 +386,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (!card) return false;
     const laneBonus = laneBonuses[lane];
     if (!isCardCostAllowed(card.cost, laneBonus)) return false;
-    // Etapa 4: account for Celeridad costReduction on the hand card.
     const baseCost = Math.max(1, card.cost - (card.costReduction ?? 0));
-    if (getFinalCost(baseCost, laneBonus, card.effectId, card.keywordValue) > energy) return false;
+    if (getFinalCost(baseCost, laneBonus) > energy) return false;
     if (board[lane].player.length >= getLaneMaxCards(laneBonus)) return false;
     return true;
   },
@@ -412,12 +410,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       });
       return;
     }
-    // Etapa 4: account for Celeridad costReduction on the hand card.
     const baseCost = Math.max(1, card.cost - (card.costReduction ?? 0));
-    const effCost = getFinalCost(baseCost, laneBonus, card.effectId, card.keywordValue);
+    const effCost = getFinalCost(baseCost, laneBonus);
     if (effCost > state.energy) {
       set({
-        invalidPlayMsg: `Sin energía suficiente para "${card.name}" (necesita ${effCost}${laneBonus?.kind === "cost_neg" || laneBonus?.kind === "cost_pos" ? " ajustado por bono" : ""}${card.effectId === "sobrecarga" ? ` (Sobrecarga: -${card.keywordValue ?? 1})` : ""}, tienes ${state.energy}).`,
+        invalidPlayMsg: `Sin energía suficiente para "${card.name}" (necesita ${effCost}${laneBonus?.kind === "cost_neg" || laneBonus?.kind === "cost_pos" ? " ajustado por bono" : ""}, tienes ${state.energy}).`,
       });
       return;
     }
@@ -438,6 +435,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         laneTraps: state.laneTraps,
         nextTurnEnergyPenalty: state.nextTurnEnergyPenalty,
         gameStats: { ...state.gameStats },
+        playsThisTurn: state.playsThisTurn,
       };
 
       const res = playCard(
@@ -448,7 +446,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         lane,
         card,
         laneBonus,
-        activeTrap
+        activeTrap,
+        state.playsThisTurn + 1
       );
 
       // Sounds: card play, then buff/debuff/remove/trap as appropriate
@@ -525,6 +524,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         "play"
       );
       for (const m of res.mutations) {
+        // Shield-only mutations (Amparo) log as "Escudo +X" instead of "Debuff 0"
+        if (m.powerDelta === 0 && m.shieldDelta !== undefined && m.shieldDelta !== 0) {
+          log = pushLog(
+            log,
+            state.turn,
+            m.side === "player" ? "player" : "enemy",
+            `Escudo +${m.shieldDelta} en ${m.lane}.`,
+            "buff"
+          );
+          continue;
+        }
         const verb = m.powerDelta > 0 ? "buff" : "debuff";
         const sign = m.powerDelta > 0 ? "+" : "";
         log = pushLog(
@@ -542,15 +552,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           rc.side === "player" ? "player" : "enemy",
           `Carta destruida en ${rc.lane} (${rc.reason}).`,
           "debuff"
-        );
-      }
-      for (const mc of res.movedCards) {
-        log = pushLog(
-          log,
-          state.turn,
-          "player",
-          `Aliado movido de ${mc.fromLane} a ${mc.toLane}.`,
-          "info"
         );
       }
       if (res.trapTriggered) {
@@ -573,9 +574,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       }
 
       // ====== TRIGGER DISPATCH ======
-      // 1. ON_DEATH: for each card destroyed by this play, fire its on_death effect.
-      //    We need the dying card's full state (including trigger/effectId) which
-      //    we can recover from the pre-mutation board (state.board).
+      // ON_DEATH: for each card destroyed by this play, fire its on_death effect.
+      // The dying card's full state is recovered from the pre-mutation board.
       let triggerBoard = res.board;
       for (const rc of res.removedCards) {
         const deadCard = state.board[rc.lane][rc.side].find((c) => c.uid === rc.uid);
@@ -583,35 +583,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         const deathRes = applyOnDeathEffects(triggerBoard, rc.side, rc.lane, deadCard);
         triggerBoard = deathRes.board;
         log = pushTriggerLogs(log, state.turn, deathRes);
-
-        // ====== ETAPA 4: emit card_destroyed event ======
-        // Reaction cards on the same side as the destroyed card may respond
-        // (e.g. an ally of the sacrificed card could retaliate — future keyword).
-        const destroyEvent: CardDestroyedEvent = {
-          type: "card_destroyed",
-          side: rc.side,
-          lane: rc.lane,
-          cardUid: rc.uid,
-          cardName: deadCard.name,
-          cardCategory: deadCard.category,
-          reason: rc.reason,
-        };
-        const rxnRes = applyReactionEffects(triggerBoard, rc.side, destroyEvent);
-        log = pushTriggerLogs(log, state.turn, rxnRes);
       }
-      // 2. UMBRAL: check all umbral triggers on the resulting board.
-      const umbralRes = checkUmbralTriggers(triggerBoard, res.hand);
-      triggerBoard = umbralRes.board;
-      log = pushTriggerLogs(log, state.turn, umbralRes);
-
-      // ====== CHECK RETORNO (power-drop trigger) ======
-      // After all effects from the play, check if any card's power dropped to ≤ its
-      // retorno keywordValue. If so, it returns to hand with cost 0.
-      const retornoLogs: { side: "player" | "enemy" | "system"; text: string }[] = [];
-      const retornoRes = checkRetorno(triggerBoard, res.hand, "player", retornoLogs);
-      triggerBoard = retornoRes.board;
-      res.hand = retornoRes.hand;
-      log = pushTriggerLogs(log, state.turn, { logs: retornoLogs });
 
       // ====== POWER LOG TRACKING ======
       const playedUid = res.playedCard.uid;
@@ -637,27 +609,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         }
       }
 
-      // ====== ETAPA 4: emit card_played event ======
-      // Reaction cards on the ENEMY side may respond to the player's card_played
-      // (e.g. an enemy Centinela could gain +X when the player plays an Ataque).
-      // applyReactionEffects mutates triggerBoard in place — no return value.
-      const playedEvent: CardPlayedEvent = {
-        type: "card_played",
-        side: "player",
-        lane,
-        cardUid: res.playedCard.uid,
-        cardName: card.name,
-        cardCategory: card.category,
-        cardSubtypes: card.subtypes,
-      };
-      const rxnRes = applyReactionEffects(triggerBoard, "enemy", playedEvent);
-      log = pushTriggerLogs(log, state.turn, rxnRes);
-
-      // ====== Push keyword effect logs (celeridad target, eco target, etc.) ======
-      if (res.kwLogs && res.kwLogs.length > 0) {
-        log = pushTriggerLogs(log, state.turn, { logs: res.kwLogs });
-      }
-
       set({
         board: triggerBoard,
         hand: res.hand,
@@ -667,6 +618,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         floatingNumbers,
         gameStats: stats,
         undoSnapshot,
+        playsThisTurn: state.playsThisTurn + 1,
         legendaryBurst: card.rarity === "legendary",
         selectedCardUid: null,
         invalidPlayMsg: null,
@@ -721,18 +673,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const playerEndRes = applyEndTurnEffects(freshState.board, "player", freshState.hand);
     let triggerBoard = playerEndRes.board;
     let triggerLogs: LogEntry[] = pushTriggerLogs(freshState.log, freshState.turn, playerEndRes);
-    // UMBRAL check after player's end_turn effects
-    const playerEndUmbral = checkUmbralTriggers(triggerBoard, freshState.hand);
-    triggerBoard = playerEndUmbral.board;
-    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, playerEndUmbral);
 
     // ====== TRIGGER: START_TURN (enemy) ======
     const enemyStartRes = applyStartTurnEffects(triggerBoard, "enemy");
     triggerBoard = enemyStartRes.board;
     triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, enemyStartRes);
-    const enemyStartUmbral = checkUmbralTriggers(triggerBoard, freshState.hand);
-    triggerBoard = enemyStartUmbral.board;
-    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, enemyStartUmbral);
 
     // 2. Build the enemy hand: draw 3 random cards from a fresh shuffled pile.
     const resolvedDeck = resolveDeck(freshState);
@@ -815,6 +760,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           "play"
         );
         for (const m of res.mutations) {
+          // Shield-only mutations (Amparo) log as "Escudo +X" instead of "0"
+          if (m.powerDelta === 0 && m.shieldDelta !== undefined && m.shieldDelta !== 0) {
+            log = pushLog(
+              log,
+              freshState.turn,
+              m.side === "player" ? "player" : "enemy",
+              `Escudo +${m.shieldDelta} en ${m.lane} (${m.side === "player" ? "tú" : "rival"}).`,
+              "buff"
+            );
+            continue;
+          }
           const sign = m.powerDelta > 0 ? "+" : "";
           log = pushLog(
             log,
@@ -862,40 +818,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           const deathRes = applyOnDeathEffects(workBoard, rc.side, rc.lane, deadCard);
           workBoard = deathRes.board;
           log = pushTriggerLogs(log, freshState.turn, deathRes);
-
-          // ====== ETAPA 4: emit card_destroyed event (enemy play) ======
-          const destroyEvent: CardDestroyedEvent = {
-            type: "card_destroyed",
-            side: rc.side,
-            lane: rc.lane,
-            cardUid: rc.uid,
-            cardName: deadCard.name,
-            cardCategory: deadCard.category,
-            reason: rc.reason,
-          };
-          const deathRxnRes = applyReactionEffects(workBoard, rc.side, destroyEvent);
-          log = pushTriggerLogs(log, freshState.turn, deathRxnRes);
         }
-        // UMBRAL: check after each enemy play.
-        const enemyUmbralRes = checkUmbralTriggers(workBoard, freshState.hand);
-        workBoard = enemyUmbralRes.board;
-        log = pushTriggerLogs(log, freshState.turn, enemyUmbralRes);
-
-        // ====== ETAPA 4: emit card_played event (enemy play) ======
-        // Reaction cards on the PLAYER side may respond to the enemy's card_played.
-        // E.g. an ally Centinela could gain +X when the rival plays an Ataque card.
-        // applyReactionEffects mutates workBoard in place.
-        const enemyPlayedEvent: CardPlayedEvent = {
-          type: "card_played",
-          side: "enemy",
-          lane: play.lane,
-          cardUid: res.playedCard.uid,
-          cardName: play.card.name,
-          cardCategory: play.card.category,
-          cardSubtypes: play.card.subtypes,
-        };
-        const enemyRxnRes = applyReactionEffects(workBoard, "player", enemyPlayedEvent);
-        log = pushTriggerLogs(log, freshState.turn, enemyRxnRes);
       } catch {
         // ignore failed plays
       }
@@ -906,9 +829,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const enemyEndRes = applyEndTurnEffects(workBoard, "enemy");
     workBoard = enemyEndRes.board;
     log = pushTriggerLogs(log, freshState.turn, enemyEndRes);
-    const enemyEndUmbral = checkUmbralTriggers(workBoard, freshState.hand);
-    workBoard = enemyEndUmbral.board;
-    log = pushTriggerLogs(log, freshState.turn, enemyEndUmbral);
 
     // 4. Advance turn, apply Sobrecarga energy penalty
     const newTurn = freshState.turn + 1;
@@ -940,6 +860,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         aiTurnPhase: "idle",
         log,
         gameStats,
+        playsThisTurn: 0,
       });
       return;
     }
@@ -950,31 +871,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (newHand.length < MAX_HAND_SIZE && newDrawPile.length > 0) {
       const drawn = newDrawPile.pop()!;
       newHand.push({ ...drawn, uid: uuidv4(), handBonus: 0 });
-    }
-
-    // ====== RENOVACIÓN: discard 1, draw X ======
-    // Check for end_turn cards with keyword=renovacion on the player's board.
-    // Each one discards 1 card from hand (weakest) and draws X from drawPile.
-    for (const lane of LANE_IDS) {
-      for (const card of workBoard[lane].player) {
-        if (card.keyword === "renovacion" && card.keywordValue && card.trigger === "end_turn") {
-          if (newHand.length > 1) {
-            // Discard weakest
-            let weakestIdx = 0;
-            for (let i = 1; i < newHand.length; i++) {
-              if (newHand[i].power < newHand[weakestIdx].power) weakestIdx = i;
-            }
-            const discarded = newHand.splice(weakestIdx, 1)[0];
-            log = pushLog(log, newTurn, "player", `🌙 ${card.name} (Renovación): descartó ${discarded.name}`, "info");
-            // Draw X from drawPile
-            for (let i = 0; i < card.keywordValue && newDrawPile.length > 0; i++) {
-              const drawn = newDrawPile.pop()!;
-              newHand.push({ ...drawn, uid: uuidv4(), handBonus: 0 });
-              log = pushLog(log, newTurn, "player", `🌙 ${card.name} (Renovación): robó ${drawn.name}`, "info");
-            }
-          }
-        }
-      }
     }
 
     log = pushLog(
@@ -990,16 +886,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const playerStartRes = applyStartTurnEffects(workBoard, "player", newHand);
     workBoard = playerStartRes.board;
     log = pushTriggerLogs(log, newTurn, playerStartRes);
-    const playerStartUmbral = checkUmbralTriggers(workBoard, newHand);
-    workBoard = playerStartUmbral.board;
-    log = pushTriggerLogs(log, newTurn, playerStartUmbral);
-
-    // ====== CHECK RETORNO (start_turn: sangrado may have dropped power) ======
-    const startRetornoLogs: { side: "player" | "enemy" | "system"; text: string }[] = [];
-    const startRetornoRes = checkRetorno(workBoard, newHand, "player", startRetornoLogs);
-    workBoard = startRetornoRes.board;
-    newHand = startRetornoRes.hand;
-    log = pushTriggerLogs(log, newTurn, { logs: startRetornoLogs });
 
     // ====== RE-ROLL LANE BONUSES AT TURN 4 ======
     // User spec: at the start of turn 4, do another random roll of lane bonuses
@@ -1033,6 +919,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       aiTurnPhase: "idle",
       log,
       gameStats,
+      playsThisTurn: 0,
     });
   },
 
@@ -1054,6 +941,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       laneTraps: snap.laneTraps,
       nextTurnEnergyPenalty: snap.nextTurnEnergyPenalty,
       gameStats: snap.gameStats,
+      playsThisTurn: snap.playsThisTurn,
       undoSnapshot: null,
       selectedCardUid: null,
       invalidPlayMsg: null,

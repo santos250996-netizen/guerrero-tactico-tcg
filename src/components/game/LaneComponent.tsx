@@ -112,12 +112,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     phase === "playing" &&
     selectedCard !== null &&
     isCardCostAllowed(selectedCard.cost, laneBonus) &&
-    (() => {
-      const sc = selectedCard!;
-      let c = getEffectiveCost(sc.cost, laneBonus);
-      if (sc.effectId === "sobrecarga") c = Math.max(1, c - 1);
-      return c <= energy;
-    })() &&
+    getEffectiveCost(selectedCard.cost, laneBonus) <= energy &&
     laneState.player.length < maxCards;
 
   const cardFitsLane =
@@ -204,7 +199,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.enemy[i];
           if (card) {
-            return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, umbralCondition: bc.umbralCondition, powerLog: bc.powerLog, basePower: bc.basePower, currentPower: bc.currentPower })} />;
+            return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, powerLog: bc.powerLog, basePower: bc.basePower, currentPower: bc.currentPower })} />;
           }
           return <div key={`enemy-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
         })}
@@ -279,7 +274,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.player[i];
           if (card) {
-            return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, umbralCondition: bc.umbralCondition, powerLog: bc.powerLog, basePower: bc.basePower, currentPower: bc.currentPower })} />;
+            return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, powerLog: bc.powerLog, basePower: bc.basePower, currentPower: bc.currentPower })} />;
           }
           return <div key={`player-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
         })}

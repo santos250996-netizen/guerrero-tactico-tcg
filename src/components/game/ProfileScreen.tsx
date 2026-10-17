@@ -9,6 +9,14 @@ import type { CardDef } from "@/lib/game/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RARITY_META } from "@/lib/game/types";
 
+/** Hex colors for the tiny rarity dot on card thumbnails. */
+const RARITY_DOT_COLOR: Record<CardDef["rarity"], string> = {
+  common: "#34d399", // emerald-400
+  rare: "#38bdf8", // sky-400
+  epic: "#c084fc", // violet-400
+  legendary: "#fbbf24", // amber-400
+};
+
 interface ProfileData {
   username: string;
   level: number;
@@ -596,7 +604,7 @@ function CardAvatarOption({
       {!locked && (
         <span
           className="absolute left-0.5 top-0.5 h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: rarity.color }}
+          style={{ backgroundColor: RARITY_DOT_COLOR[card.rarity] ?? "#a1a1aa" }}
           title={rarity.label}
         />
       )}

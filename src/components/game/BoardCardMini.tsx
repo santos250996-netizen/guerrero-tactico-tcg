@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import type { BoardCard } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META } from "@/lib/game/types";
+import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BoardCardMiniProps {
@@ -69,6 +70,17 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
       )}>
         {card.currentPower}
       </div>
+
+      {/* Shield badge (top-center) — remaining shield pool (Coraza/Amparo) */}
+      {(card.shieldRemaining ?? 0) > 0 && (
+        <div
+          title={`Escudo: absorbe ${card.shieldRemaining} puntos de reducción`}
+          className="absolute left-1/2 top-0.5 z-20 flex h-4 -translate-x-1/2 items-center gap-0.5 rounded-full border border-sky-200/90 bg-gradient-to-b from-sky-400 to-sky-700 px-1 text-[8px] font-black text-white shadow-md"
+        >
+          <Shield className="h-2 w-2" />
+          {card.shieldRemaining}
+        </div>
+      )}
 
       {/* Floating effect chips on right side (from powerLog) — removed, replaced by 2B below */}
 

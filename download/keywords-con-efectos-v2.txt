@@ -1,0 +1,157 @@
+================================================================================
+PACTO DE GUERRA TCG — COMPENDIO DE KEYWORDS V2 (12 TOTALES, 2026-10)
+================================================================================
+Sistema aprobado por el usuario. Reemplaza a las 33 keywords del V1.
+
+  6 NEUTRALES  → cualquier clase, cualquier carril (exclusiveSubtype = undefined)
+  6 DE CLASE   → exclusivas por spec del Guerrero (2 ARMAS, 2 PROTECCIÓN, 2 FURIA)
+
+TRIGGERS (solo 4):  on_play | start_turn | end_turn | on_death
+SCOPES:  PROPIO ×1.0 | CARRIL_LOCAL ×1.2 | CARRIL+ADY ×1.4 | MANO ×1.2 | GLOBAL ×1.5
+MOD_ONCE:  one-shot ×1.0 | peri-turno (start/end_turn) ×0.8
+CURVA:     poder total ≈ coste × 2 (ver src/lib/game/balance.ts)
+
+RECURSOS DE CARTA (BoardCard):
+  shieldRemaining → escudo absorbente (Coraza/Amparo). Pool finito, SIN refresco.
+  debuffTaken     → reducciones sufridas. Purificación las restaura y pone a 0.
+
+REGLA DE ESCUDOS: solo applyDebuff consulta escudos (Crueldad). Las mutaciones
+directas de on_play (Hender Armadura) los IGNORAN por diseño (perforación).
+
+FUENTE DE DESTRUCCIÓN: Remate [X] (mata enemigas ≤X). Sin ella, las keywords
+on_death jamás se dispararían (hallazgo de diseño 2026-10).
+
+================================================================================
+NEUTRALES (6) — SET A "FUNDAMENTOS"
+================================================================================
+
+01. 📈 Fervor [X]
+    Trigger: start_turn | Scope: PROPIO | Clase: ninguna (neutral)
+    Efecto: Al inicio de cada uno de tus turnos, gana +X de poder permanente
+    (acumulativo).
+    Counterplay: destruir la fuente corta el crecimiento.
+    Carta: Amoladora de Campamento [1] (Ítem · armas · rara)
+
+02. 🛡️ Coraza [X]
+    Trigger: on_play | Scope: PROPIO | Clase: ninguna (neutral)
+    Efecto: Gana un escudo que absorbe las próximas X reducciones de poder
+    que reciba (pool finito, se agota, no se renueva).
+    Counterplay: debuffs repetidos agotan el pool.
+    Carta: Adarga del Centinela [2] (Ítem · proteccion · común)
+
+03. ⭐ Insignia [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL | Clase: ninguna (neutral)
+    Efecto: Otorga +X de poder permanente al aliado más débil del carril.
+    Counterplay: no hace nada si el carril está vacío.
+    Carta: Martillo del Veterano [3] (Ataque · proteccion · común)
+
+04. 🪓 Remate [X]
+    Trigger: on_play | Scope: CARRIL_LOCAL | Clase: ninguna (neutral)
+    Efecto: Destruye la carta enemiga del carril con poder ≤ X (la MÁS FUERTE
+    que cumpla).
+    Counterplay: mantener las cartas por encima de X.
+    Carta: Hacha de Ejecución [2] (Ataque · furia · común)
+
+05. 🌱 Legado [X]
+    Trigger: on_death | Scope: CARRIL_LOCAL | Clase: ninguna (neutral)
+    Efecto: Último Aliento — al morir, el aliado más débil del carril gana +X
+    de poder permanente.
+    Counterplay: matarla con el carril vacío desperdicia el efecto.
+    Carta: Veterano Caído [3] (Ataque · furia · épica)
+
+06. 🏰 Fortaleza [X]
+    Trigger: end_turn | Scope: CARRIL_LOCAL | Clase: ninguna (neutral)
+    Efecto: Al final de tu turno, todas tus cartas de este carril ganan +X.
+    Counterplay: matar la fuente antes del cierre del turno.
+    Carta: Cuerno de Guerra [1] (Acción · armas · legendaria)
+
+================================================================================
+CLASE GUERRERO (6) — 2 POR SPEC
+================================================================================
+
+--- ARMAS (identidad: anti-defensa y duelos) -----------------------------------
+
+07. ⚔️ Hender Armadura [X]                      [exclusiveSubtype: "armas"]
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Reduce en X el poder del enemigo más fuerte del carril. LOS ESCUDOS
+    NO LO IMPIDEN (perforación de armadura).
+    Counterplay: no apilar escudos; matar la carta antes de que juegue.
+    Carta: Mandoble Quebrantamuros [3] (Ataque · armas · rara)
+
+08. 🤺 Duelista [X]                             [exclusiveSubtype: "armas"]
+    Trigger: start_turn | Scope: PROPIO
+    Efecto: Al inicio de tu turno, gana +X mientras sea tu única carta en el
+    carril.
+    Counterplay: jugar CUALQUIER carta propia en ese carril frena el crecimiento.
+    Carta: Espada del Duelista [1] (Ataque · armas · épica)
+
+--- PROTECCIÓN (identidad: escudos de área y limpieza) -------------------------
+
+09. 🛡️ Amparo [X]                               [exclusiveSubtype: "proteccion"]
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Tus demás cartas del carril ganan un escudo de X puntos
+    (no se escuda a sí misma).
+    Counterplay: debuffs > escudos; el pool se agota.
+    Carta: Estandarte de la Cohorte [2] (Ítem · proteccion · épica)
+
+10. ✨ Purificación (sin X)                     [exclusiveSubtype: "proteccion"]
+    Trigger: start_turn | Scope: CARRIL_LOCAL
+    Efecto: Al inicio de tu turno, elimina las reducciones de poder acumuladas
+    (debuffTaken) de tus cartas en este carril.
+    Counterplay: los debuffs de end_turn pegan justo antes de que limpies.
+    Carta: Oración del Bastión (Acción · proteccion · épica)
+
+--- FURIA (identidad: recompensa el tempo, castigo constante) ------------------
+
+11. ⚡ Ímpetu [X]                               [exclusiveSubtype: "furia"]
+    Trigger: on_play | Scope: PROPIO
+    Efecto: Gana +X por cada carta que hayas jugado este turno (incluida esta).
+    Counterplay: turnos de una sola carta la anulan.
+    Carta: Berserker Recluta [1] (Ataque · furia · rara)
+
+12. 🎯 Crueldad [X]                             [exclusiveSubtype: "furia"]
+    Trigger: end_turn | Scope: CARRIL_LOCAL
+    Efecto: Al final de tu turno, reduce en X el poder del enemigo MÁS DÉBIL
+    del carril (pasa por applyDebuff: los escudos absorben).
+    Counterplay: solo cartas fuertes en carril = poco valor.
+    Carta: Colmillo del Verdugo [1] (Ataque · furia · épica)
+
+================================================================================
+MAZO DE PRUEBA — ESPEJO (12 cartas, jugador e IA usan el mismo)
+================================================================================
+Cobertura: 12/12 keywords · 4/4 triggers (on_play ×6, start_turn ×3,
+end_turn ×2, on_death ×1) · curva 1×2, 2×3, 3×5, 4×1, 5×1.
+
+  ARMAS:       Mandoble Quebrantamuros (Hender, on_play, c5)
+               Espada del Duelista     (Duelista, start_turn, c3)
+               Amoladora de Campamento (Fervor, start_turn, c1)
+               Cuerno de Guerra        (Fortaleza, end_turn, c3)
+  PROTECCIÓN:  Adarga del Centinela    (Coraza, on_play, c2)
+               Estandarte de la Cohorte(Amparo, on_play, c3)
+               Oración del Bastión     (Purificación, start_turn, c3)
+               Martillo del Veterano   (Insignia, on_play, c3)
+  FURIA:       Berserker Recluta       (Ímpetu, on_play, c2)
+               Colmillo del Verdugo    (Crueldad, end_turn, c4)
+               Hacha de Ejecución      (Remate, on_play, c1)
+               Veterano Caído          (Legado, on_death, c2)
+
+CADENA DE MUERTE TESTEABLE:
+  Hacha de Ejecución (Remate ≤2) destruye al Veterano Caído rival →
+  su Legado dispara → +3 al aliado más débil del carril rival.
+
+================================================================================
+PIPELINE DE IMPLEMENTACIÓN (cumplido 2026-10)
+================================================================================
+  1. Diseño (este documento)                        ✓
+  2. types.ts: Keyword/EffectId/KEYWORD_META        ✓ (exclusiveSubtype)
+  3. engine.ts: reescrito (limpieza total, 0 cases muertos)  ✓
+  4. cards.ts: 12 cartas + WARRIOR_DECK espejo      ✓
+  5. tests: scripts/test-keywords-v2.ts (34 asserts) ✓
+  6. UI: badges KEYWORD_META + badge de escudo Shield en BoardCardMini  ✓
+  7. Arte: 12 imágenes generadas (scripts/gen-test-deck-art.ts)  ✓
+  8. E2E espejo en navegador: 2 partidas completas, 0 errores JS,
+     persistencia BD verificada (LOSS 17-22 y su revancha)      ✓
+
+SCRIPTS LEGACY: los del sistema V1 (33 keywords) se archivaron en
+scripts/legacy/ — NO restaurar; el V2 usa test-keywords-v2.ts.
+================================================================================

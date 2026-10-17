@@ -1,0 +1,1167 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { create } from "zustand";
+     4→     4→import type {
+     5→     5→  BoardCard,
+     6→     6→  CardDef,
+     7→     7→  FinalResult,
+     8→     8→  GamePhase,
+     9→     9→  GameResult,
+    10→    10→  HandCard,
+    11→    11→  LaneBonuses,
+    12→    12→  LaneId,
+    13→    13→  PowerLogEntry,
+    14→    14→} from "@/lib/game/types";
+    15→    15→import { KEYWORD_META } from "@/lib/game/types";
+    16→    16→import {
+    17→    17→  MAX_HAND_SIZE,
+    18→    18→  MAX_TURNS,
+    19→    19→  STARTING_HAND_SIZE,
+    20→    20→  applyEndTurnEffects,
+    21→    21→  applyOnDeathEffects,
+    22→    22→  applyPassiveEffects,
+    23→    23→  applyReactionEffects,
+    24→    24→  applyStartTurnEffects,
+    25→    25→  checkRetorno,
+    26→    26→  checkUmbralTriggers,
+    27→    27→  computeFinalResult,
+    28→    28→  emptyLaneTraps,
+    29→    29→  getLaneBonusPower,
+    30→    30→  getFinalCost,
+    31→    31→  getLaneMaxCards,
+    32→    32→  isCardCostAllowed,
+    33→    33→  LANE_IDS,
+    34→    34→  planEnemyTurn,
+    35→    35→  playCard,
+    36→    36→  rollLaneBonuses,
+    37→    37→  type AIPlay,
+    38→    38→  type Board,
+    39→    39→  type CardPlayedEvent,
+    40→    40→  type CardDestroyedEvent,
+    41→    41→  type LaneTraps,
+    42→    42→  type TrapState,
+    43→    43→  type TriggerResult,
+    44→    44→} from "@/lib/game/engine";
+    45→    45→import { ALL_CARDS, buildDrawPileFrom, WARRIOR_DECK } from "@/lib/game/cards";
+    46→    46→import { sfx } from "@/lib/sound";
+    47→    47→import { useSettings } from "@/lib/settings";
+    48→    48→import { v4 as uuidv4 } from "uuid";
+    49→    49→
+    50→    50→// ---------------------------------------------------------------------------
+    51→    51→// Auxiliary types
+    52→    52→// ---------------------------------------------------------------------------
+    53→    53→
+    54→    54→export interface FloatingNumber {
+    55→    55→  id: string;
+    56→    56→  uid: string;
+    57→    57→  value: number;
+    58→    58→}
+    59→    59→
+    60→    60→export interface GameStats {
+    61→    61→  cardsPlayedByPlayer: number;
+    62→    62→  cardsPlayedByEnemy: number;
+    63→    63→  buffsApplied: number;
+    64→    64→  debuffsToEnemy: number;
+    65→    65→  enemyCardsDestroyed: number;
+    66→    66→  laneTurnarounds: number;
+    67→    67→  totalEnergyUsed: number;
+    68→    68→}
+    69→    69→
+    70→    70→interface UndoSnapshot {
+    71→    71→  board: Board;
+    72→    72→  hand: HandCard[];
+    73→    73→  energy: number;
+    74→    74→  laneTraps: LaneTraps;
+    75→    75→  nextTurnEnergyPenalty: number;
+    76→    76→  gameStats: GameStats;
+    77→    77→}
+    78→    78→
+    79→    79→// ---------------------------------------------------------------------------
+    80→    80→
+    81→    81→interface GameStoreState {
+    82→    82→  // Core game state
+    83→    83→  turn: number;
+    84→    84→  energy: number;
+    85→    85→  maxEnergy: number;
+    86→    86→  phase: GamePhase;
+    87→    87→  result: GameResult | null;
+    88→    88→  finalResult: FinalResult | null;
+    89→    89→
+    90→    90→  // Cards
+    91→    91→  drawPile: HandCard[];
+    92→    92→  hand: HandCard[];
+    93→    93→  board: Board;
+    94→    94→
+    95→    95→  // Per-game lane bonuses (2 lanes have one, 1 has none)
+    96→    96→  laneBonuses: LaneBonuses;
+    97→    97→
+    98→    98→  // Flash overlay state — when set, each lane with a non-null entry shows a
+    99→    99→  // brief animated flash explaining the bonus (e.g. "1 VS 1" for limit_1).
+   100→   100→  // Auto-cleared after 1.5s by the flashLaneBonuses helper.
+   101→   101→  laneBonusFlashes: LaneBonuses;
+   102→   102→
+   103→   103→  // Traps (Trampa Etérea) per lane
+   104→   104→  laneTraps: LaneTraps;
+   105→   105→
+   106→   106→  // Sobrecarga penalty to apply to the player's NEXT turn energy
+   107→   107→  nextTurnEnergyPenalty: number;
+   108→   108→
+   109→   109→  // Floating numbers (visual feedback for buffs/debuffs)
+   110→   110→  floatingNumbers: FloatingNumber[];
+   111→   111→
+   112→   112→  // AI turn UI phase
+   113→   113→  aiTurnPhase: "idle" | "banner" | "thinking";
+   114→   114→
+   115→   115→  // Card preview (deck editor)
+   116→   116→  previewCard: CardDef | null;
+   117→   117→
+   118→   118→  // Game stats
+   119→   119→  gameStats: GameStats;
+   120→   120→
+   121→   121→  // Single-level undo snapshot (saved before each player play)
+   122→   122→  undoSnapshot: UndoSnapshot | null;
+   123→   123→
+   124→   124→  // Legendary burst animation trigger
+   125→   125→  legendaryBurst: boolean;
+   126→   126→
+   127→   127→  // View switch (game / editor)
+   128→   128→  view: "main-menu" | "class-select" | "game" | "editor" | "profile";
+   129→   129→
+   130→   130→  // Deck editor state
+   131→   131→  cardPool: CardDef[];
+   132→   132→  deckCardIds: string[];
+   133→   133→  deckDirty: boolean;
+   134→   134→  deckSaveStatus: "idle" | "saving" | "ok" | "err";
+   135→   135→  deckLoading: boolean;
+   136→   136→  // Contextual return target when leaving DeckEditor ("game" header button vs "class-select" flow)
+   137→   137→  deckEditorReturn: "game" | "class-select" | "main-menu";
+   138→   138→
+   139→   139→  // UI state
+   140→   140→  selectedCardUid: string | null;
+   141→   141→  draggingCardUid: string | null;
+   142→   142→  invalidPlayMsg: string | null;
+   143→   143→  lastEnemyPlays: AIPlay[];
+   144→   144→  log: LogEntry[];
+   145→   145→
+   146→   146→  // Actions
+   147→   147→  initGame: () => void;
+   148→   148→  selectCard: (uid: string | null) => void;
+   149→   149→  setDraggingCard: (uid: string | null) => void;
+   150→   150→  playSelectedCardIntoLane: (lane: LaneId) => void;
+   151→   151→  endTurn: () => Promise<void>;
+   152→   152→  canPlaySelected: (lane: LaneId) => boolean;
+   153→   153→  resetGame: () => void;
+   154→   154→  dismissInvalidMsg: () => void;
+   155→   155→  undoLastPlay: () => void;
+   156→   156→  clearFloatingNumbers: () => void;
+   157→   157→
+   158→   158→  // View + preview
+   159→   159→  setView: (view: "main-menu" | "class-select" | "game" | "editor" | "profile") => void;
+   160→   160→  setDeckEditorReturn: (target: "game" | "class-select" | "main-menu") => void;
+   161→   161→  setPreviewCard: (c: CardDef | null) => void;
+   162→   162→
+   163→   163→  // Deck editor actions
+   164→   164→  loadDeckAndPool: () => Promise<void>;
+   165→   165→  swapCardInDeck: (index: number, cardId: string) => void;
+   166→   166→  saveDeck: () => Promise<void>;
+   167→   167→  resetDeck: () => Promise<void>;
+   168→   168→}
+   169→   169→
+   170→   170→export interface LogEntry {
+   171→   171→  id: string;
+   172→   172→  turn: number;
+   173→   173→  side: "player" | "enemy" | "system";
+   174→   174→  text: string;
+   175→   175→  kind: "play" | "buff" | "debuff" | "info" | "end";
+   176→   176→}
+   177→   177→
+   178→   178→const MAX_LOG_ENTRIES = 30;
+   179→   179→
+   180→   180→function emptyBoard(): Board {
+   181→   181→  return {
+   182→   182→    armas: { player: [], enemy: [] },
+   183→   183→    proteccion: { player: [], enemy: [] },
+   184→   184→    furia: { player: [], enemy: [] },
+   185→   185→  };
+   186→   186→}
+   187→   187→
+   188→   188→function emptyGameStats(): GameStats {
+   189→   189→  return {
+   190→   190→    cardsPlayedByPlayer: 0,
+   191→   191→    cardsPlayedByEnemy: 0,
+   192→   192→    buffsApplied: 0,
+   193→   193→    debuffsToEnemy: 0,
+   194→   194→    enemyCardsDestroyed: 0,
+   195→   195→    laneTurnarounds: 0,
+   196→   196→    totalEnergyUsed: 0,
+   197→   197→  };
+   198→   198→}
+   199→   199→
+   200→   200→function freshHandFromPile(pile: HandCard[], n: number): HandCard[] {
+   201→   201→  const out: HandCard[] = [];
+   202→   202→  for (let i = 0; i < n && pile.length > 0; i++) {
+   203→   203→    const card = pile.pop()!;
+   204→   204→    out.push({ ...card, uid: uuidv4(), handBonus: 0 });
+   205→   205→  }
+   206→   206→  // ensureCost1 guarantee: if the starting hand has no cost-1 card, swap in
+   207→   207→  // one from the pile (so the player can always play something on turn 1).
+   208→   208→  if (!out.some((c) => c.cost === 1) && pile.length > 0) {
+   209→   209→    const idx = pile.findIndex((c) => c.cost === 1);
+   210→   210→    if (idx >= 0) {
+   211→   211→      const replacement = pile.splice(idx, 1)[0];
+   212→   212→      // Swap out the highest-cost card to make room
+   213→   213→      let swapIdx = 0;
+   214→   214→      for (let i = 1; i < out.length; i++) {
+   215→   215→        if (out[i].cost > out[swapIdx].cost) swapIdx = i;
+   216→   216→      }
+   217→   217→      pile.push(out[swapIdx]);
+   218→   218→      out[swapIdx] = { ...replacement, uid: uuidv4(), handBonus: 0 };
+   219→   219→    }
+   220→   220→  }
+   221→   221→  return out;
+   222→   222→}
+   223→   223→
+   224→   224→function pushLog(
+   225→   225→  list: LogEntry[],
+   226→   226→  turn: number,
+   227→   227→  side: LogEntry["side"],
+   228→   228→  text: string,
+   229→   229→  kind: LogEntry["kind"] = "info"
+   230→   230→): LogEntry[] {
+   231→   231→  const entry: LogEntry = {
+   232→   232→    id: uuidv4(),
+   233→   233→    turn,
+   234→   234→    side,
+   235→   235→    text,
+   236→   236→    kind,
+   237→   237→  };
+   238→   238→  return [entry, ...list].slice(0, MAX_LOG_ENTRIES);
+   239→   239→}
+   240→   240→
+   241→   241→/**
+   242→   242→ * Push all log entries from a TriggerResult onto the game log.
+   243→   243→ * Used by the turn-lifecycle hooks (start_turn, end_turn, on_death, umbral).
+   244→   244→ */
+   245→   245→function pushTriggerLogs(
+   246→   246→  list: LogEntry[],
+   247→   247→  turn: number,
+   248→   248→  result: { logs: TriggerResult["logs"] }
+   249→   249→): LogEntry[] {
+   250→   250→  let next = list;
+   251→   251→  for (const l of result.logs) {
+   252→   252→    next = pushLog(next, turn, l.side, l.text, "info");
+   253→   253→  }
+   254→   254→  return next;
+   255→   255→}
+   256→   256→
+   257→   257→function sleep(ms: number): Promise<void> {
+   258→   258→  return new Promise((resolve) => setTimeout(resolve, ms));
+   259→   259→}
+   260→   260→
+   261→   261→/**
+   262→   262→ * Resolve the player's deck from the loaded card pool + deck card IDs.
+   263→   263→ * Falls back to WARRIOR_DECK if the pool/deck isn't loaded or has missing cards.
+   264→   264→ */
+   265→   265→function resolveDeck(state: GameStoreState): CardDef[] {
+   266→   266→  const { cardPool, deckCardIds } = state;
+   267→   267→  if (cardPool.length > 0 && deckCardIds.length > 0) {
+   268→   268→    const resolved = deckCardIds
+   269→   269→      .map((id) => cardPool.find((c) => c.id === id))
+   270→   270→      .filter((c): c is CardDef => Boolean(c));
+   271→   271→    if (resolved.length === deckCardIds.length) {
+   272→   272→      return resolved;
+   273→   273→    }
+   274→   274→  }
+   275→   275→  return WARRIOR_DECK;
+   276→   276→}
+   277→   277→
+   278→   278→/**
+   279→   279→ * Trigger a brief visual flash on each lane showing its current bonus.
+   280→   280→ * Used when lane bonuses are (re-)rolled — at game start (initGame) and
+   281→   281→ * at the start of turn 4 (re-roll). Auto-clears after 1.5s.
+   282→   282→ */
+   283→   283→export function flashLaneBonuses(bonuses: LaneBonuses) {
+   284→   284→  useGameStore.setState({ laneBonusFlashes: { ...bonuses } });
+   285→   285→  setTimeout(() => {
+   286→   286→    useGameStore.setState({
+   287→   287→      laneBonusFlashes: { armas: null, proteccion: null, furia: null },
+   288→   288→    });
+   289→   289→  }, 1500);
+   290→   290→}
+   291→   291→
+   292→   292→export const useGameStore = create<GameStoreState>((set, get) => ({
+   293→   293→  turn: 1,
+   294→   294→  energy: 1,
+   295→   295→  maxEnergy: 1,
+   296→   296→  phase: "playing",
+   297→   297→  result: null,
+   298→   298→  finalResult: null,
+   299→   299→  drawPile: [],
+   300→   300→  hand: [],
+   301→   301→  board: emptyBoard(),
+   302→   302→  laneBonuses: { armas: null, proteccion: null, furia: null },
+   303→   303→  laneBonusFlashes: { armas: null, proteccion: null, furia: null },
+   304→   304→  laneTraps: emptyLaneTraps(),
+   305→   305→  nextTurnEnergyPenalty: 0,
+   306→   306→  floatingNumbers: [],
+   307→   307→  aiTurnPhase: "idle",
+   308→   308→  previewCard: null,
+   309→   309→  gameStats: emptyGameStats(),
+   310→   310→  undoSnapshot: null,
+   311→   311→  legendaryBurst: false,
+   312→   312→  view: "main-menu",
+   313→   313→  cardPool: [],
+   314→   314→  deckCardIds: [],
+   315→   315→  deckDirty: false,
+   316→   316→  deckSaveStatus: "idle",
+   317→   317→  deckLoading: false,
+   318→   318→  deckEditorReturn: "main-menu",
+   319→   319→  selectedCardUid: null,
+   320→   320→  draggingCardUid: null,
+   321→   321→  invalidPlayMsg: null,
+   322→   322→  lastEnemyPlays: [],
+   323→   323→  log: [],
+   324→   324→
+   325→   325→  initGame: () => {
+   326→   326→    const resolvedDeck = resolveDeck(get());
+   327→   327→    const pile = buildDrawPileFrom(resolvedDeck).map((c) => ({
+   328→   328→      ...c,
+   329→   329→      uid: "",
+   330→   330→      handBonus: 0,
+   331→   331→    }));
+   332→   332→    const drawPile = pile.map((c) => ({ ...c, uid: uuidv4() }));
+   333→   333→    const hand = freshHandFromPile(drawPile, STARTING_HAND_SIZE);
+   334→   334→    const laneBonuses = rollLaneBonuses();
+   335→   335→    const bonusSummary = LANE_IDS.map((ln) => {
+   336→   336→      const b = laneBonuses[ln];
+   337→   337→      return b ? `${ln}: ${b.label}` : `${ln}: sin bono`;
+   338→   338→    }).join(" · ");
+   339→   339→    set({
+   340→   340→      turn: 1,
+   341→   341→      energy: 1,
+   342→   342→      maxEnergy: 1,
+   343→   343→      phase: "playing",
+   344→   344→      result: null,
+   345→   345→      finalResult: null,
+   346→   346→      drawPile,
+   347→   347→      hand,
+   348→   348→      board: emptyBoard(),
+   349→   349→      laneBonuses,
+   350→   350→      laneTraps: emptyLaneTraps(),
+   351→   351→      nextTurnEnergyPenalty: 0,
+   352→   352→      floatingNumbers: [],
+   353→   353→      aiTurnPhase: "idle",
+   354→   354→      previewCard: null,
+   355→   355→      gameStats: emptyGameStats(),
+   356→   356→      undoSnapshot: null,
+   357→   357→      legendaryBurst: false,
+   358→   358→      selectedCardUid: null,
+   359→   359→      invalidPlayMsg: null,
+   360→   360→      lastEnemyPlays: [],
+   361→   361→      log: pushLog(
+   362→   362→        pushLog([], 1, "system", "¡Comienza la batalla! Tienes 6 turnos.", "info"),
+   363→   363→        1,
+   364→   364→        "system",
+   365→   365→        `Bonos de carril: ${bonusSummary}.`,
+   366→   366→        "info"
+   367→   367→      ),
+   368→   368→    });
+   369→   369→    // Trigger visual flash on each lane showing its bonus
+   370→   370→    flashLaneBonuses(laneBonuses);
+   371→   371→  },
+   372→   372→
+   373→   373→  selectCard: (uid) => {
+   374→   374→    const cur = get().selectedCardUid;
+   375→   375→    set({ selectedCardUid: cur === uid ? null : uid, invalidPlayMsg: null });
+   376→   376→    if (useSettings.getState().soundOn) sfx.select();
+   377→   377→  },
+   378→   378→
+   379→   379→  setDraggingCard: (uid) => {
+   380→   380→    set({ draggingCardUid: uid });
+   381→   381→  },
+   382→   382→
+   383→   383→  canPlaySelected: (lane) => {
+   384→   384→    const { selectedCardUid, hand, board, energy, laneBonuses } = get();
+   385→   385→    if (!selectedCardUid) return false;
+   386→   386→    const card = hand.find((c) => c.uid === selectedCardUid);
+   387→   387→    if (!card) return false;
+   388→   388→    const laneBonus = laneBonuses[lane];
+   389→   389→    if (!isCardCostAllowed(card.cost, laneBonus)) return false;
+   390→   390→    // Etapa 4: account for Celeridad costReduction on the hand card.
+   391→   391→    const baseCost = Math.max(1, card.cost - (card.costReduction ?? 0));
+   392→   392→    if (getFinalCost(baseCost, laneBonus, card.effectId, card.keywordValue) > energy) return false;
+   393→   393→    if (board[lane].player.length >= getLaneMaxCards(laneBonus)) return false;
+   394→   394→    return true;
+   395→   395→  },
+   396→   396→
+   397→   397→  playSelectedCardIntoLane: (lane) => {
+   398→   398→    const state = get();
+   399→   399→    if (state.phase !== "playing") return;
+   400→   400→    if (!state.selectedCardUid) return;
+   401→   401→
+   402→   402→    const card = state.hand.find((c) => c.uid === state.selectedCardUid);
+   403→   403→    if (!card) return;
+   404→   404→
+   405→   405→    const laneBonus = state.laneBonuses[lane];
+   406→   406→    const activeTrap = state.laneTraps[lane];
+   407→   407→
+   408→   408→    // Pre-flight checks with friendly messages (before playCard throws)
+   409→   409→    if (!isCardCostAllowed(card.cost, laneBonus)) {
+   410→   410→      set({
+   411→   411→        invalidPlayMsg: `"${card.name}" no se puede jugar en ${lane}: el bono exige coste exacto.`,
+   412→   412→      });
+   413→   413→      return;
+   414→   414→    }
+   415→   415→    // Etapa 4: account for Celeridad costReduction on the hand card.
+   416→   416→    const baseCost = Math.max(1, card.cost - (card.costReduction ?? 0));
+   417→   417→    const effCost = getFinalCost(baseCost, laneBonus, card.effectId, card.keywordValue);
+   418→   418→    if (effCost > state.energy) {
+   419→   419→      set({
+   420→   420→        invalidPlayMsg: `Sin energía suficiente para "${card.name}" (necesita ${effCost}${laneBonus?.kind === "cost_neg" || laneBonus?.kind === "cost_pos" ? " ajustado por bono" : ""}${card.effectId === "sobrecarga" ? ` (Sobrecarga: -${card.keywordValue ?? 1})` : ""}, tienes ${state.energy}).`,
+   421→   421→      });
+   422→   422→      return;
+   423→   423→    }
+   424→   424→    const maxCards = getLaneMaxCards(laneBonus);
+   425→   425→    if (state.board[lane].player.length >= maxCards) {
+   426→   426→      set({
+   427→   427→        invalidPlayMsg: `El carril ${lane} está lleno (máx. ${maxCards} por bando).`,
+   428→   428→      });
+   429→   429→      return;
+   430→   430→    }
+   431→   431→
+   432→   432→    try {
+   433→   433→      // Capture undo snapshot BEFORE the play
+   434→   434→      const undoSnapshot: UndoSnapshot = {
+   435→   435→        board: state.board,
+   436→   436→        hand: state.hand,
+   437→   437→        energy: state.energy,
+   438→   438→        laneTraps: state.laneTraps,
+   439→   439→        nextTurnEnergyPenalty: state.nextTurnEnergyPenalty,
+   440→   440→        gameStats: { ...state.gameStats },
+   441→   441→      };
+   442→   442→
+   443→   443→      const res = playCard(
+   444→   444→        state.board,
+   445→   445→        state.hand,
+   446→   446→        state.energy,
+   447→   447→        "player",
+   448→   448→        lane,
+   449→   449→        card,
+   450→   450→        laneBonus,
+   451→   451→        activeTrap
+   452→   452→      );
+   453→   453→
+   454→   454→      // Sounds: card play, then buff/debuff/remove/trap as appropriate
+   455→   455→      if (useSettings.getState().soundOn) {
+   456→   456→        sfx.cardPlay();
+   457→   457→        const hasBuff = res.mutations.some((m) => m.powerDelta > 0);
+   458→   458→        const hasDebuff = res.mutations.some((m) => m.powerDelta < 0);
+   459→   459→        const hasRemove = res.removedCards.length > 0;
+   460→   460→        if (hasBuff) sfx.buff();
+   461→   461→        if (hasDebuff) sfx.debuff();
+   462→   462→        if (hasRemove) sfx.remove();
+   463→   463→        if (res.trapTriggered) sfx.trapTrigger();
+   464→   464→      }
+   465→   465→
+   466→   466→      // Floating numbers from mutations
+   467→   467→      const floatingNumbers: FloatingNumber[] = res.mutations.map((m) => ({
+   468→   468→        id: uuidv4(),
+   469→   469→        uid: m.uid,
+   470→   470→        value: m.powerDelta,
+   471→   471→      }));
+   472→   472→
+   473→   473→      // Track game stats
+   474→   474→      const stats: GameStats = { ...state.gameStats };
+   475→   475→      stats.cardsPlayedByPlayer++;
+   476→   476→      stats.buffsApplied += res.mutations.filter((m) => m.powerDelta > 0).length;
+   477→   477→      stats.debuffsToEnemy += res.mutations.filter(
+   478→   478→        (m) => m.powerDelta < 0 && m.side === "enemy"
+   479→   479→      ).length;
+   480→   480→      stats.enemyCardsDestroyed += res.removedCards.filter(
+   481→   481→        (rc) => rc.side === "enemy"
+   482→   482→      ).length;
+   483→   483→      stats.totalEnergyUsed += effCost;
+   484→   484→      // Lane turnaround: was losing or tied, now winning
+   485→   485→      const oldPlayerPower = state.board[lane].player.reduce(
+   486→   486→        (a, c) => a + c.currentPower,
+   487→   487→        0
+   488→   488→      );
+   489→   489→      const oldEnemyPower = state.board[lane].enemy.reduce(
+   490→   490→        (a, c) => a + c.currentPower,
+   491→   491→        0
+   492→   492→      );
+   493→   493→      const newPlayerPower = res.board[lane].player.reduce(
+   494→   494→        (a, c) => a + c.currentPower,
+   495→   495→        0
+   496→   496→      );
+   497→   497→      const newEnemyPower = res.board[lane].enemy.reduce(
+   498→   498→        (a, c) => a + c.currentPower,
+   499→   499→        0
+   500→   500→      );
+   501→   501→      if (oldPlayerPower <= oldEnemyPower && newPlayerPower > newEnemyPower) {
+   502→   502→        stats.laneTurnarounds++;
+   503→   503→      }
+   504→   504→
+   505→   505→      // Update lane traps: clear if triggered (consumed), set if newTrap
+   506→   506→      let newLaneTraps: LaneTraps = state.laneTraps;
+   507→   507→      if (res.trapTriggered) {
+   508→   508→        newLaneTraps = { ...newLaneTraps, [lane]: null };
+   509→   509→      }
+   510→   510→      if (res.newTrap) {
+   511→   511→        newLaneTraps = { ...newLaneTraps, [lane]: res.newTrap };
+   512→   512→      }
+   513→   513→
+   514→   514→      // Energy penalty for next turn (Sobrecarga)
+   515→   515→      let nextTurnEnergyPenalty = state.nextTurnEnergyPenalty;
+   516→   516→      if (res.energyNextTurnDelta) {
+   517→   517→        nextTurnEnergyPenalty += res.energyNextTurnDelta;
+   518→   518→      }
+   519→   519→
+   520→   520→      let log = pushLog(
+   521→   521→        state.log,
+   522→   522→        state.turn,
+   523→   523→        "player",
+   524→   524→        `Juega "${card.name}" en ${lane} (Poder ${res.playedCard.currentPower}).`,
+   525→   525→        "play"
+   526→   526→      );
+   527→   527→      for (const m of res.mutations) {
+   528→   528→        const verb = m.powerDelta > 0 ? "buff" : "debuff";
+   529→   529→        const sign = m.powerDelta > 0 ? "+" : "";
+   530→   530→        log = pushLog(
+   531→   531→          log,
+   532→   532→          state.turn,
+   533→   533→          m.side === "player" ? "player" : "enemy",
+   534→   534→          `${verb === "buff" ? "Buff" : "Debuff"} ${sign}${m.powerDelta} en ${m.lane}.`,
+   535→   535→          verb as "buff" | "debuff"
+   536→   536→        );
+   537→   537→      }
+   538→   538→      for (const rc of res.removedCards) {
+   539→   539→        log = pushLog(
+   540→   540→          log,
+   541→   541→          state.turn,
+   542→   542→          rc.side === "player" ? "player" : "enemy",
+   543→   543→          `Carta destruida en ${rc.lane} (${rc.reason}).`,
+   544→   544→          "debuff"
+   545→   545→        );
+   546→   546→      }
+   547→   547→      for (const mc of res.movedCards) {
+   548→   548→        log = pushLog(
+   549→   549→          log,
+   550→   550→          state.turn,
+   551→   551→          "player",
+   552→   552→          `Aliado movido de ${mc.fromLane} a ${mc.toLane}.`,
+   553→   553→          "info"
+   554→   554→        );
+   555→   555→      }
+   556→   556→      if (res.trapTriggered) {
+   557→   557→        log = pushLog(
+   558→   558→          log,
+   559→   559→          state.turn,
+   560→   560→          "system",
+   561→   561→          `¡Trampa activada en ${lane}! -${activeTrap?.value ?? 0} al poder.`,
+   562→   562→          "debuff"
+   563→   563→        );
+   564→   564→      }
+   565→   565→      if (res.newTrap) {
+   566→   566→        log = pushLog(
+   567→   567→          log,
+   568→   568→          state.turn,
+   569→   569→          "player",
+   570→   570→          `Trampa colocada en ${lane}.`,
+   571→   571→          "info"
+   572→   572→        );
+   573→   573→      }
+   574→   574→
+   575→   575→      // ====== TRIGGER DISPATCH ======
+   576→   576→      // 1. ON_DEATH: for each card destroyed by this play, fire its on_death effect.
+   577→   577→      //    We need the dying card's full state (including trigger/effectId) which
+   578→   578→      //    we can recover from the pre-mutation board (state.board).
+   579→   579→      let triggerBoard = res.board;
+   580→   580→      for (const rc of res.removedCards) {
+   581→   581→        const deadCard = state.board[rc.lane][rc.side].find((c) => c.uid === rc.uid);
+   582→   582→        if (!deadCard) continue;
+   583→   583→        const deathRes = applyOnDeathEffects(triggerBoard, rc.side, rc.lane, deadCard);
+   584→   584→        triggerBoard = deathRes.board;
+   585→   585→        log = pushTriggerLogs(log, state.turn, deathRes);
+   586→   586→
+   587→   587→        // ====== ETAPA 4: emit card_destroyed event ======
+   588→   588→        // Reaction cards on the same side as the destroyed card may respond
+   589→   589→        // (e.g. an ally of the sacrificed card could retaliate — future keyword).
+   590→   590→        const destroyEvent: CardDestroyedEvent = {
+   591→   591→          type: "card_destroyed",
+   592→   592→          side: rc.side,
+   593→   593→          lane: rc.lane,
+   594→   594→          cardUid: rc.uid,
+   595→   595→          cardName: deadCard.name,
+   596→   596→          cardCategory: deadCard.category,
+   597→   597→          reason: rc.reason,
+   598→   598→        };
+   599→   599→        const rxnRes = applyReactionEffects(triggerBoard, rc.side, destroyEvent);
+   600→   600→        log = pushTriggerLogs(log, state.turn, rxnRes);
+   601→   601→      }
+   602→   602→      // 2. UMBRAL: check all umbral triggers on the resulting board.
+   603→   603→      const umbralRes = checkUmbralTriggers(triggerBoard, res.hand);
+   604→   604→      triggerBoard = umbralRes.board;
+   605→   605→      log = pushTriggerLogs(log, state.turn, umbralRes);
+   606→   606→
+   607→   607→      // ====== CHECK RETORNO (power-drop trigger) ======
+   608→   608→      // After all effects from the play, check if any card's power dropped to ≤ its
+   609→   609→      // retorno keywordValue. If so, it returns to hand with cost 0.
+   610→   610→      const retornoLogs: { side: "player" | "enemy" | "system"; text: string }[] = [];
+   611→   611→      const retornoRes = checkRetorno(triggerBoard, res.hand, "player", retornoLogs);
+   612→   612→      triggerBoard = retornoRes.board;
+   613→   613→      res.hand = retornoRes.hand;
+   614→   614→      log = pushTriggerLogs(log, state.turn, { logs: retornoLogs });
+   615→   615→
+   616→   616→      // ====== POWER LOG TRACKING ======
+   617→   617→      const playedUid = res.playedCard.uid;
+   618→   618→      const _playedOnBoard = triggerBoard[lane]["player" as "player" | "enemy"].find(c => c.uid === playedUid)
+   619→   619→        ?? triggerBoard[lane]["enemy" as "player" | "enemy"].find(c => c.uid === playedUid);
+   620→   620→      if (_playedOnBoard) {
+   621→   621→        const pLog: PowerLogEntry[] = [];
+   622→   622→        if (card.handBonus) pLog.push({ source: card.keyword ? KEYWORD_META[card.keyword].label : "Bonificador en mano", delta: card.handBonus, kind: "hand" });
+   623→   623→        if (card.subtypes.includes(lane)) pLog.push({ source: "Sinergia", delta: 2, kind: "synergy" });
+   624→   624→        const lbGain = getLaneBonusPower(card.category, laneBonus);
+   625→   625→        if (lbGain > 0) pLog.push({ source: laneBonus?.label ?? "Campo", delta: lbGain, kind: "field" });
+   626→   626→        const effBonus = res.playedCard.currentPower - card.power - card.handBonus - (card.subtypes.includes(lane) ? 2 : 0) - lbGain;
+   627→   627→        if (effBonus !== 0) pLog.push({ source: "Efecto propio", delta: effBonus, kind: "effect" });
+   628→   628→        if (res.trapTriggered && activeTrap) pLog.push({ source: "Trampa enemiga", delta: -activeTrap.value, kind: "trap" });
+   629→   629→        _playedOnBoard.powerLog = pLog;
+   630→   630→      }
+   631→   631→      for (const m of res.mutations) {
+   632→   632→        const arr = triggerBoard[m.lane][m.side];
+   633→   633→        const tgt = arr.find(c => c.uid === m.uid);
+   634→   634→        if (tgt) {
+   635→   635→          if (!tgt.powerLog) tgt.powerLog = [];
+   636→   636→          tgt.powerLog.push({ source: card.name, delta: m.powerDelta, kind: m.powerDelta > 0 ? "buff" : "debuff" });
+   637→   637→        }
+   638→   638→      }
+   639→   639→
+   640→   640→      // ====== ETAPA 4: emit card_played event ======
+   641→   641→      // Reaction cards on the ENEMY side may respond to the player's card_played
+   642→   642→      // (e.g. an enemy Centinela could gain +X when the player plays an Ataque).
+   643→   643→      // applyReactionEffects mutates triggerBoard in place — no return value.
+   644→   644→      const playedEvent: CardPlayedEvent = {
+   645→   645→        type: "card_played",
+   646→   646→        side: "player",
+   647→   647→        lane,
+   648→   648→        cardUid: res.playedCard.uid,
+   649→   649→        cardName: card.name,
+   650→   650→        cardCategory: card.category,
+   651→   651→        cardSubtypes: card.subtypes,
+   652→   652→      };
+   653→   653→      const rxnRes = applyReactionEffects(triggerBoard, "enemy", playedEvent);
+   654→   654→      log = pushTriggerLogs(log, state.turn, rxnRes);
+   655→   655→
+   656→   656→      // ====== Push keyword effect logs (celeridad target, eco target, etc.) ======
+   657→   657→      if (res.kwLogs && res.kwLogs.length > 0) {
+   658→   658→        log = pushTriggerLogs(log, state.turn, { logs: res.kwLogs });
+   659→   659→      }
+   660→   660→
+   661→   661→      set({
+   662→   662→        board: triggerBoard,
+   663→   663→        hand: res.hand,
+   664→   664→        energy: res.remainingEnergy,
+   665→   665→        laneTraps: newLaneTraps,
+   666→   666→        nextTurnEnergyPenalty,
+   667→   667→        floatingNumbers,
+   668→   668→        gameStats: stats,
+   669→   669→        undoSnapshot,
+   670→   670→        legendaryBurst: card.rarity === "legendary",
+   671→   671→        selectedCardUid: null,
+   672→   672→        invalidPlayMsg: null,
+   673→   673→        log,
+   674→   674→      });
+   675→   675→
+   676→   676→      // Clear floating numbers after they've had time to animate
+   677→   677→      setTimeout(() => {
+   678→   678→        get().clearFloatingNumbers();
+   679→   679→      }, 1500);
+   680→   680→
+   681→   681→      // Clear legendary burst after the animation completes
+   682→   682→      if (card.rarity === "legendary") {
+   683→   683→        setTimeout(() => {
+   684→   684→          set({ legendaryBurst: false });
+   685→   685→        }, 1900);
+   686→   686→      }
+   687→   687→    } catch (e) {
+   688→   688→      set({
+   689→   689→        invalidPlayMsg: (e as Error).message,
+   690→   690→      });
+   691→   691→    }
+   692→   692→  },
+   693→   693→
+   694→   694→  endTurn: async () => {
+   695→   695→    const state = get();
+   696→   696→    if (state.phase !== "playing") return;
+   697→   697→
+   698→   698→    // Pasar button click sound
+   699→   699→    if (useSettings.getState().soundOn) sfx.click();
+   700→   700→
+   701→   701→    // 0. Show banner, freeze the board
+   702→   702→    set({
+   703→   703→      aiTurnPhase: "banner",
+   704→   704→      phase: "enemy",
+   705→   705→      selectedCardUid: null,
+   706→   706→      invalidPlayMsg: null,
+   707→   707→    });
+   708→   708→    if (useSettings.getState().soundOn) sfx.turnPass();
+   709→   709→    await sleep(1500);
+   710→   710→
+   711→   711→    // 1. Switch to "thinking" phase
+   712→   712→    set({ aiTurnPhase: "thinking" });
+   713→   713→    if (useSettings.getState().soundOn) sfx.enemyTurn();
+   714→   714→    await sleep(450);
+   715→   715→
+   716→   716→    // Re-read state after the async waits
+   717→   717→    const freshState = get();
+   718→   718→
+   719→   719→    // ====== TRIGGER: END_TURN (player) ======
+   720→   720→    // Player just pressed "Pasar" — fire their end_turn effects before AI plays.
+   721→   721→    const playerEndRes = applyEndTurnEffects(freshState.board, "player", freshState.hand);
+   722→   722→    let triggerBoard = playerEndRes.board;
+   723→   723→    let triggerLogs: LogEntry[] = pushTriggerLogs(freshState.log, freshState.turn, playerEndRes);
+   724→   724→    // UMBRAL check after player's end_turn effects
+   725→   725→    const playerEndUmbral = checkUmbralTriggers(triggerBoard, freshState.hand);
+   726→   726→    triggerBoard = playerEndUmbral.board;
+   727→   727→    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, playerEndUmbral);
+   728→   728→
+   729→   729→    // ====== TRIGGER: START_TURN (enemy) ======
+   730→   730→    const enemyStartRes = applyStartTurnEffects(triggerBoard, "enemy");
+   731→   731→    triggerBoard = enemyStartRes.board;
+   732→   732→    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, enemyStartRes);
+   733→   733→    const enemyStartUmbral = checkUmbralTriggers(triggerBoard, freshState.hand);
+   734→   734→    triggerBoard = enemyStartUmbral.board;
+   735→   735→    triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, enemyStartUmbral);
+   736→   736→
+   737→   737→    // 2. Build the enemy hand: draw 3 random cards from a fresh shuffled pile.
+   738→   738→    const resolvedDeck = resolveDeck(freshState);
+   739→   739→    const enemyEnergy = freshState.maxEnergy;
+   740→   740→    const enemyHand: HandCard[] = [];
+   741→   741→    const deckPool = [...buildDrawPileFrom(resolvedDeck)];
+   742→   742→    for (let i = 0; i < 3 && deckPool.length > 0; i++) {
+   743→   743→      const idx = Math.floor(Math.random() * deckPool.length);
+   744→   744→      const c = deckPool.splice(idx, 1)[0];
+   745→   745→      enemyHand.push({ ...c, uid: uuidv4(), handBonus: 0 });
+   746→   746→    }
+   747→   747→
+   748→   748→    // 3. Plan and execute the AI plays on the actual board, respecting lane
+   749→   749→    //    bonuses AND lane traps. Use the post-trigger board as starting point.
+   750→   750→    const plan = planEnemyTurn(
+   751→   751→      triggerBoard,
+   752→   752→      enemyHand,
+   753→   753→      enemyEnergy,
+   754→   754→      freshState.laneBonuses,
+   755→   755→      freshState.laneTraps
+   756→   756→    );
+   757→   757→    let workBoard = triggerBoard;
+   758→   758→    let workEnemyHand = [...enemyHand];
+   759→   759→    let workEnergy = enemyEnergy;
+   760→   760→    let workTraps: LaneTraps = { ...freshState.laneTraps };
+   761→   761→    let log = triggerLogs;
+   762→   762→    let gameStats: GameStats = { ...freshState.gameStats };
+   763→   763→
+   764→   764→    for (const play of plan) {
+   765→   765→      try {
+   766→   766→        const prePlayBoard = workBoard;
+   767→   767→        const res = playCard(
+   768→   768→          workBoard,
+   769→   769→          workEnemyHand,
+   770→   770→          workEnergy,
+   771→   771→          "enemy",
+   772→   772→          play.lane,
+   773→   773→          play.card,
+   774→   774→          freshState.laneBonuses[play.lane],
+   775→   775→          workTraps[play.lane]
+   776→   776→        );
+   777→   777→        workBoard = res.board;
+   778→   778→        workEnemyHand = res.hand;
+   779→   779→        workEnergy = res.remainingEnergy;
+   780→   780→
+   781→   781→        // Update traps: clear if triggered, set if newTrap
+   782→   782→        if (res.trapTriggered) {
+   783→   783→          workTraps = { ...workTraps, [play.lane]: null };
+   784→   784→        }
+   785→   785→        if (res.newTrap) {
+   786→   786→          workTraps = { ...workTraps, [play.lane]: res.newTrap };
+   787→   787→        }
+   788→   788→
+   789→   789→        // Sound: enemy card play + buffs/debuffs/remove/trap
+   790→   790→        if (useSettings.getState().soundOn) {
+   791→   791→          sfx.cardPlay();
+   792→   792→          if (res.mutations.some((m) => m.powerDelta > 0)) sfx.buff();
+   793→   793→          if (res.mutations.some((m) => m.powerDelta < 0)) sfx.debuff();
+   794→   794→          if (res.removedCards.length > 0) sfx.remove();
+   795→   795→          if (res.trapTriggered) sfx.trapTrigger();
+   796→   796→        }
+   797→   797→
+   798→   798→        // Enemy stats
+   799→   799→        gameStats.cardsPlayedByEnemy++;
+   800→   800→        gameStats.buffsApplied += res.mutations.filter(
+   801→   801→          (m) => m.powerDelta > 0
+   802→   802→        ).length;
+   803→   803→        // debuffs to PLAYER cards count as "debuffs to enemy" from enemy's
+   804→   804→        // perspective — we still keep a single "debuffsToEnemy" counter that
+   805→   805→        // tracks debuffs applied TO the enemy side, so for enemy plays we
+   806→   806→        // don't increment it (the enemy isn't debuffing itself).
+   807→   807→        // (Player cards destroyed by enemy plays don't increment
+   808→   808→        // `enemyCardsDestroyed` either — that stat is player-centric.)
+   809→   809→
+   810→   810→        log = pushLog(
+   811→   811→          log,
+   812→   812→          freshState.turn,
+   813→   813→          "enemy",
+   814→   814→          `Rival juega "${play.card.name}" en ${play.lane} (Poder ${res.playedCard.currentPower}).`,
+   815→   815→          "play"
+   816→   816→        );
+   817→   817→        for (const m of res.mutations) {
+   818→   818→          const sign = m.powerDelta > 0 ? "+" : "";
+   819→   819→          log = pushLog(
+   820→   820→            log,
+   821→   821→            freshState.turn,
+   822→   822→            m.side === "player" ? "player" : "enemy",
+   823→   823→            `${sign}${m.powerDelta} en ${m.lane} (${m.side === "player" ? "tú" : "rival"}).`,
+   824→   824→            m.powerDelta > 0 ? "buff" : "debuff"
+   825→   825→          );
+   826→   826→        }
+   827→   827→        for (const rc of res.removedCards) {
+   828→   828→          log = pushLog(
+   829→   829→            log,
+   830→   830→            freshState.turn,
+   831→   831→            rc.side === "player" ? "player" : "enemy",
+   832→   832→            `Carta destruida en ${rc.lane} (${rc.reason}).`,
+   833→   833→            "debuff"
+   834→   834→          );
+   835→   835→        }
+   836→   836→        if (res.trapTriggered) {
+   837→   837→          log = pushLog(
+   838→   838→            log,
+   839→   839→            freshState.turn,
+   840→   840→            "system",
+   841→   841→            `¡Trampa enemiga activada en ${play.lane}!`,
+   842→   842→            "debuff"
+   843→   843→          );
+   844→   844→        }
+   845→   845→        if (res.newTrap) {
+   846→   846→          log = pushLog(
+   847→   847→            log,
+   848→   848→            freshState.turn,
+   849→   849→            "enemy",
+   850→   850→            `Trampa enemiga colocada en ${play.lane}.`,
+   851→   851→            "info"
+   852→   852→          );
+   853→   853→        }
+   854→   854→
+   855→   855→        // ====== TRIGGER DISPATCH (enemy play) ======
+   856→   856→        // ON_DEATH: for each card destroyed by the enemy's play.
+   857→   857→        // Look up the dying card in the PRE-play board (prePlayBoard) because
+   858→   858→        // workBoard (= res.board) has already had removedCards filtered out.
+   859→   859→        for (const rc of res.removedCards) {
+   860→   860→          const deadCard = prePlayBoard[rc.lane][rc.side].find((c) => c.uid === rc.uid);
+   861→   861→          if (!deadCard) continue;
+   862→   862→          const deathRes = applyOnDeathEffects(workBoard, rc.side, rc.lane, deadCard);
+   863→   863→          workBoard = deathRes.board;
+   864→   864→          log = pushTriggerLogs(log, freshState.turn, deathRes);
+   865→   865→
+   866→   866→          // ====== ETAPA 4: emit card_destroyed event (enemy play) ======
+   867→   867→          const destroyEvent: CardDestroyedEvent = {
+   868→   868→            type: "card_destroyed",
+   869→   869→            side: rc.side,
+   870→   870→            lane: rc.lane,
+   871→   871→            cardUid: rc.uid,
+   872→   872→            cardName: deadCard.name,
+   873→   873→            cardCategory: deadCard.category,
+   874→   874→            reason: rc.reason,
+   875→   875→          };
+   876→   876→          const deathRxnRes = applyReactionEffects(workBoard, rc.side, destroyEvent);
+   877→   877→          log = pushTriggerLogs(log, freshState.turn, deathRxnRes);
+   878→   878→        }
+   879→   879→        // UMBRAL: check after each enemy play.
+   880→   880→        const enemyUmbralRes = checkUmbralTriggers(workBoard, freshState.hand);
+   881→   881→        workBoard = enemyUmbralRes.board;
+   882→   882→        log = pushTriggerLogs(log, freshState.turn, enemyUmbralRes);
+   883→   883→
+   884→   884→        // ====== ETAPA 4: emit card_played event (enemy play) ======
+   885→   885→        // Reaction cards on the PLAYER side may respond to the enemy's card_played.
+   886→   886→        // E.g. an ally Centinela could gain +X when the rival plays an Ataque card.
+   887→   887→        // applyReactionEffects mutates workBoard in place.
+   888→   888→        const enemyPlayedEvent: CardPlayedEvent = {
+   889→   889→          type: "card_played",
+   890→   890→          side: "enemy",
+   891→   891→          lane: play.lane,
+   892→   892→          cardUid: res.playedCard.uid,
+   893→   893→          cardName: play.card.name,
+   894→   894→          cardCategory: play.card.category,
+   895→   895→          cardSubtypes: play.card.subtypes,
+   896→   896→        };
+   897→   897→        const enemyRxnRes = applyReactionEffects(workBoard, "player", enemyPlayedEvent);
+   898→   898→        log = pushTriggerLogs(log, freshState.turn, enemyRxnRes);
+   899→   899→      } catch {
+   900→   900→        // ignore failed plays
+   901→   901→      }
+   902→   902→    }
+   903→   903→
+   904→   904→    // ====== TRIGGER: END_TURN (enemy) ======
+   905→   905→    // Enemy just finished playing — fire their end_turn effects before turn advances.
+   906→   906→    const enemyEndRes = applyEndTurnEffects(workBoard, "enemy");
+   907→   907→    workBoard = enemyEndRes.board;
+   908→   908→    log = pushTriggerLogs(log, freshState.turn, enemyEndRes);
+   909→   909→    const enemyEndUmbral = checkUmbralTriggers(workBoard, freshState.hand);
+   910→   910→    workBoard = enemyEndUmbral.board;
+   911→   911→    log = pushTriggerLogs(log, freshState.turn, enemyEndUmbral);
+   912→   912→
+   913→   913→    // 4. Advance turn, apply Sobrecarga energy penalty
+   914→   914→    const newTurn = freshState.turn + 1;
+   915→   915→    const newMaxEnergy = Math.min(MAX_TURNS, freshState.maxEnergy + 1);
+   916→   916→    const newEnergy = Math.max(0, newMaxEnergy + freshState.nextTurnEnergyPenalty);
+   917→   917→
+   918→   918→    if (newTurn > MAX_TURNS) {
+   919→   919→      // Game over
+   920→   920→      const finalResult = computeFinalResult(workBoard);
+   921→   921→      log = pushLog(
+   922→   922→        log,
+   923→   923→        MAX_TURNS,
+   924→   924→        "system",
+   925→   925→        `Fin del juego: ${finalResult.result === "WIN" ? "¡Victoria!" : finalResult.result === "LOSS" ? "Derrota" : "Empate"} (${finalResult.playerWins}-${finalResult.enemyWins}, E ${finalResult.draws}).`,
+   926→   926→        "end"
+   927→   927→      );
+   928→   928→      if (useSettings.getState().soundOn) {
+   929→   929→        if (finalResult.result === "WIN") sfx.victory();
+   930→   930→        else if (finalResult.result === "LOSS") sfx.defeat();
+   931→   931→      }
+   932→   932→      set({
+   933→   933→        board: workBoard,
+   934→   934→        phase: "ended",
+   935→   935→        result: finalResult.result,
+   936→   936→        finalResult,
+   937→   937→        lastEnemyPlays: plan,
+   938→   938→        laneTraps: workTraps,
+   939→   939→        nextTurnEnergyPenalty: 0,
+   940→   940→        aiTurnPhase: "idle",
+   941→   941→        log,
+   942→   942→        gameStats,
+   943→   943→      });
+   944→   944→      return;
+   945→   945→    }
+   946→   946→
+   947→   947→    // 5. Draw a card, refill energy, etc.
+   948→   948→    const newDrawPile = [...freshState.drawPile];
+   949→   949→    let newHand = [...freshState.hand];
+   950→   950→    if (newHand.length < MAX_HAND_SIZE && newDrawPile.length > 0) {
+   951→   951→      const drawn = newDrawPile.pop()!;
+   952→   952→      newHand.push({ ...drawn, uid: uuidv4(), handBonus: 0 });
+   953→   953→    }
+   954→   954→
+   955→   955→    // ====== RENOVACIÓN: discard 1, draw X ======
+   956→   956→    // Check for end_turn cards with keyword=renovacion on the player's board.
+   957→   957→    // Each one discards 1 card from hand (weakest) and draws X from drawPile.
+   958→   958→    for (const lane of LANE_IDS) {
+   959→   959→      for (const card of workBoard[lane].player) {
+   960→   960→        if (card.keyword === "renovacion" && card.keywordValue && card.trigger === "end_turn") {
+   961→   961→          if (newHand.length > 1) {
+   962→   962→            // Discard weakest
+   963→   963→            let weakestIdx = 0;
+   964→   964→            for (let i = 1; i < newHand.length; i++) {
+   965→   965→              if (newHand[i].power < newHand[weakestIdx].power) weakestIdx = i;
+   966→   966→            }
+   967→   967→            const discarded = newHand.splice(weakestIdx, 1)[0];
+   968→   968→            log = pushLog(log, newTurn, "player", `🌙 ${card.name} (Renovación): descartó ${discarded.name}`, "info");
+   969→   969→            // Draw X from drawPile
+   970→   970→            for (let i = 0; i < card.keywordValue && newDrawPile.length > 0; i++) {
+   971→   971→              const drawn = newDrawPile.pop()!;
+   972→   972→              newHand.push({ ...drawn, uid: uuidv4(), handBonus: 0 });
+   973→   973→              log = pushLog(log, newTurn, "player", `🌙 ${card.name} (Renovación): robó ${drawn.name}`, "info");
+   974→   974→            }
+   975→   975→          }
+   976→   976→        }
+   977→   977→      }
+   978→   978→    }
+   979→   979→
+   980→   980→    log = pushLog(
+   981→   981→      log,
+   982→   982→      newTurn,
+   983→   983→      "system",
+   984→   984→      `Turno ${newTurn} — Energía ${newEnergy}/${newMaxEnergy}${freshState.nextTurnEnergyPenalty ? ` (penalización ${freshState.nextTurnEnergyPenalty})` : ""}.`,
+   985→   985→      "info"
+   986→   986→    );
+   987→   987→
+   988→   988→    // ====== TRIGGER: START_TURN (player) ======
+   989→   989→    // Player's new turn begins — fire their start_turn effects before they play.
+   990→   990→    const playerStartRes = applyStartTurnEffects(workBoard, "player", newHand);
+   991→   991→    workBoard = playerStartRes.board;
+   992→   992→    log = pushTriggerLogs(log, newTurn, playerStartRes);
+   993→   993→    const playerStartUmbral = checkUmbralTriggers(workBoard, newHand);
+   994→   994→    workBoard = playerStartUmbral.board;
+   995→   995→    log = pushTriggerLogs(log, newTurn, playerStartUmbral);
+   996→   996→
+   997→   997→    // ====== CHECK RETORNO (start_turn: sangrado may have dropped power) ======
+   998→   998→    const startRetornoLogs: { side: "player" | "enemy" | "system"; text: string }[] = [];
+   999→   999→    const startRetornoRes = checkRetorno(workBoard, newHand, "player", startRetornoLogs);
+  1000→  1000→    workBoard = startRetornoRes.board;
+  1001→  1001→    newHand = startRetornoRes.hand;
+  1002→  1002→    log = pushTriggerLogs(log, newTurn, { logs: startRetornoLogs });
+  1003→  1003→
+  1004→  1004→    // ====== RE-ROLL LANE BONUSES AT TURN 4 ======
+  1005→  1005→    // User spec: at the start of turn 4, do another random roll of lane bonuses
+  1006→  1006→    // so the player needs to adapt their strategy mid-match (was static before).
+  1007→  1007→    let newLaneBonuses = freshState.laneBonuses;
+  1008→  1008→    if (newTurn === 4) {
+  1009→  1009→      newLaneBonuses = rollLaneBonuses();
+  1010→  1010→      const bonusSummary = LANE_IDS.map((ln) => {
+  1011→  1011→        const b = newLaneBonuses[ln];
+  1012→  1012→        return b ? `${ln}: ${b.label}` : `${ln}: sin bono`;
+  1013→  1013→      }).join(" · ");
+  1014→  1014→      log = pushLog(log, newTurn, "system", `🔮 ¡Bonos re-rollados! ${bonusSummary}`, "buff");
+  1015→  1015→      // Trigger visual flash on each lane showing the new bonus
+  1016→  1016→      flashLaneBonuses(newLaneBonuses);
+  1017→  1017→    }
+  1018→  1018→
+  1019→  1019→    set({
+  1020→  1020→      board: workBoard,
+  1021→  1021→      turn: newTurn,
+  1022→  1022→      energy: newEnergy,
+  1023→  1023→      maxEnergy: newMaxEnergy,
+  1024→  1024→      drawPile: newDrawPile,
+  1025→  1025→      hand: newHand,
+  1026→  1026→      phase: "playing",
+  1027→  1027→      selectedCardUid: null,
+  1028→  1028→      invalidPlayMsg: null,
+  1029→  1029→      lastEnemyPlays: plan,
+  1030→  1030→      laneTraps: workTraps,
+  1031→  1031→      laneBonuses: newLaneBonuses,
+  1032→  1032→      nextTurnEnergyPenalty: 0,
+  1033→  1033→      aiTurnPhase: "idle",
+  1034→  1034→      log,
+  1035→  1035→      gameStats,
+  1036→  1036→    });
+  1037→  1037→  },
+  1038→  1038→
+  1039→  1039→  resetGame: () => {
+  1040→  1040→    get().initGame();
+  1041→  1041→  },
+  1042→  1042→
+  1043→  1043→  dismissInvalidMsg: () => set({ invalidPlayMsg: null }),
+  1044→  1044→
+  1045→  1045→  clearFloatingNumbers: () => set({ floatingNumbers: [] }),
+  1046→  1046→
+  1047→  1047→  undoLastPlay: () => {
+  1048→  1048→    const snap = get().undoSnapshot;
+  1049→  1049→    if (!snap) return;
+  1050→  1050→    set({
+  1051→  1051→      board: snap.board,
+  1052→  1052→      hand: snap.hand,
+  1053→  1053→      energy: snap.energy,
+  1054→  1054→      laneTraps: snap.laneTraps,
+  1055→  1055→      nextTurnEnergyPenalty: snap.nextTurnEnergyPenalty,
+  1056→  1056→      gameStats: snap.gameStats,
+  1057→  1057→      undoSnapshot: null,
+  1058→  1058→      selectedCardUid: null,
+  1059→  1059→      invalidPlayMsg: null,
+  1060→  1060→      floatingNumbers: [],
+  1061→  1061→      legendaryBurst: false,
+  1062→  1062→    });
+  1063→  1063→  },
+  1064→  1064→
+  1065→  1065→  setView: (view) => set({ view }),
+  1066→  1066→
+  1067→  1067→  setDeckEditorReturn: (target) => set({ deckEditorReturn: target }),
+  1068→  1068→
+  1069→  1069→  setPreviewCard: (c) => set({ previewCard: c }),
+  1070→  1070→
+  1071→  1071→  loadDeckAndPool: async () => {
+  1072→  1072→    set({ deckLoading: true });
+  1073→  1073→    try {
+  1074→  1074→      // Use ALL_CARDS directly from cards.ts (no API route needed — works in static export / APK)
+  1075→  1075→      const cardPool: CardDef[] = ALL_CARDS;
+  1076→  1076→      
+  1077→  1077→      // Load deck from localStorage (fallback to WARRIOR_DECK ids)
+  1078→  1078→      let deckCardIds: string[] = WARRIOR_DECK.map((c) => c.id);
+  1079→  1079→      try {
+  1080→  1080→        const saved = localStorage.getItem("guerrero-tactico-deck");
+  1081→  1081→        if (saved) {
+  1082→  1082→          const parsed = JSON.parse(saved);
+  1083→  1083→          if (Array.isArray(parsed?.cardIds) && parsed.cardIds.length === 12) {
+  1084→  1084→            deckCardIds = parsed.cardIds;
+  1085→  1085→          }
+  1086→  1086→        }
+  1087→  1087→      } catch {
+  1088→  1088→        // localStorage not available — use default deck
+  1089→  1089→      }
+  1090→  1090→      
+  1091→  1091→      set({
+  1092→  1092→        cardPool,
+  1093→  1093→        deckCardIds,
+  1094→  1094→        deckDirty: false,
+  1095→  1095→        deckSaveStatus: "idle",
+  1096→  1096→        deckLoading: false,
+  1097→  1097→      });
+  1098→  1098→    } catch (e) {
+  1099→  1099→      console.error("loadDeckAndPool error:", e);
+  1100→  1100→      set({ deckLoading: false, deckSaveStatus: "err" });
+  1101→  1101→    }
+  1102→  1102→  },
+  1103→  1103→
+  1104→  1104→  swapCardInDeck: (index, cardId) => {
+  1105→  1105→    // Allow placing a card into ANY of the 12 deck slots, even if the slot is
+  1106→  1106→    // beyond the current deckCardIds length (e.g. user emptied the deck then
+  1107→  1107→    // clicks slot 5 — we pad with empty strings up to that index).
+  1108→  1108→    if (index < 0 || index >= 12) return;
+  1109→  1109→    const { deckCardIds } = get();
+  1110→  1110→    if (deckCardIds[index] === cardId) return;
+  1111→  1111→    // Prevent duplicates (deck is 12 unique cards) — if the card is already in
+  1112→  1112→    // the deck at a DIFFERENT slot, move it from the old slot to the new one
+  1113→  1113→    // (old slot becomes empty). This is the "drag-to-rearrange" UX.
+  1114→  1114→    const next = [...deckCardIds];
+  1115→  1115→    // Pad with empty strings up to the target index so we can place at any slot
+  1116→  1116→    while (next.length <= index) next.push("");
+  1117→  1117→    if (deckCardIds.includes(cardId)) {
+  1118→  1118→      const existingIdx = deckCardIds.indexOf(cardId);
+  1119→  1119→      next[existingIdx] = "";  // clear old slot
+  1120→  1120→    }
+  1121→  1121→    next[index] = cardId;
+  1122→  1122→    // Always store exactly 12 entries (pad/truncate to 12)
+  1123→  1123→    while (next.length < 12) next.push("");
+  1124→  1124→    set({ deckCardIds: next.slice(0, 12), deckDirty: true, deckSaveStatus: "idle" });
+  1125→  1125→  },
+  1126→  1126→
+  1127→  1127→  saveDeck: async () => {
+  1128→  1128→    const { deckCardIds } = get();
+  1129→  1129→    if (deckCardIds.length !== 12) return;
+  1130→  1130→    set({ deckSaveStatus: "saving" });
+  1131→  1131→    try {
+  1132→  1132→      // Save to localStorage (no API route needed — works in static export / APK)
+  1133→  1133→      localStorage.setItem("guerrero-tactico-deck", JSON.stringify({ cardIds: deckCardIds }));
+  1134→  1134→      set({ deckSaveStatus: "ok", deckDirty: false });
+  1135→  1135→      setTimeout(() => {
+  1136→  1136→        if (get().deckSaveStatus === "ok") set({ deckSaveStatus: "idle" });
+  1137→  1137→      }, 2000);
+  1138→  1138→    } catch (e) {
+  1139→  1139→      console.error("saveDeck error:", e);
+  1140→  1140→      set({ deckSaveStatus: "err" });
+  1141→  1141→    }
+  1142→  1142→  },
+  1143→  1143→
+  1144→  1144→  resetDeck: async () => {
+  1145→  1145→    set({ deckSaveStatus: "saving" });
+  1146→  1146→    try {
+  1147→  1147→      // Clear localStorage and reload default deck
+  1148→  1148→      localStorage.removeItem("guerrero-tactico-deck");
+  1149→  1149→      await get().loadDeckAndPool();
+  1150→  1150→      set({ deckSaveStatus: "idle", deckDirty: false });
+  1151→  1151→    } catch (e) {
+  1152→  1152→      console.error("resetDeck error:", e);
+  1153→  1153→      set({ deckSaveStatus: "err" });
+  1154→  1154→    }
+  1155→  1155→  },
+  1156→  1156→}));
+  1157→  1157→
+  1158→  1158→// Convenience selector for lane scores
+  1159→  1159→export function laneScores(board: Board, lane: LaneId) {
+  1160→  1160→  const p = board[lane].player.reduce((a, c) => a + c.currentPower, 0);
+  1161→  1161→  const e = board[lane].enemy.reduce((a, c) => a + c.currentPower, 0);
+  1162→  1162→  return { player: p, enemy: e };
+  1163→  1163→}
+  1164→  1164→
+  1165→  1165→// Re-export BoardCard type for components
+  1166→  1166→export type { BoardCard };
+  1167→  1167→
