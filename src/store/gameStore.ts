@@ -40,6 +40,7 @@ import {
   type TriggerResult,
 } from "@/lib/game/engine";
 import { ALL_CARDS, buildDrawPileFrom, CLASS_DECKS, cardPoolForClass, WARRIOR_DECK } from "@/lib/game/cards";
+import { emitFx, eventsFromPlayResult, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -265,6 +266,20 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Pausa de pacing SOLO si las animaciones están activas (si no, instantáneo). */
+async function fxPause(ms: number): Promise<void> {
+  if (useSettings.getState().animationsOn) {
+    await sleep(ms);
+  }
+}
+
+/** Emite una tanda de eventos FX (el layer decide si pinta según settings). */
+function fireFx(events: FxEvent[] | null | undefined): void {
+  if (useSettings.getState().animationsOn) {
+    emitFx(events);
+  }
+}
+
 /**
  * Resolve the player's deck from the loaded card pool + deck card IDs.
  * Mago/Asesino siempre usan su mazo espejo; Guerrero permite custom de BD.
@@ -470,6 +485,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         state.playsThisTurn + 1
       );
 
+      // ====== FX (emitidos ANTES del set(): los rects de cartas destruidas
+      // siguen en el DOM y el anclaje es preciso) ======
+      fireFx(eventsFromPlayResult(res, lane, "player"));
+
       // Sounds: card play, then buff/debuff/remove/trap as appropriate
       if (useSettings.getState().soundOn) {
         sfx.cardPlay();
@@ -603,6 +622,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         const deathRes = applyOnDeathEffects(triggerBoard, rc.side, rc.lane, deadCard);
         triggerBoard = deathRes.board;
         log = pushTriggerLogs(log, state.turn, deathRes);
+        // FX de Último Aliento (Legado / Combustión) — aún antes del set()
+        fireFx(deathRes.fx);
       }
 
       // ====== POWER LOG TRACKING ======
@@ -727,6 +748,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     let log = triggerLogs;
     let gameStats: GameStats = { ...freshState.gameStats };
 
+    // ====== SECUENCIA CINEMATOGRÁFICA (solo con animaciones activas) ======
+    // 1º: efectos de fin de turno del jugador (Fortaleza/Ventisca/Contagio…)
+    set({ board: triggerBoard });
+    fireFx(playerEndRes.fx);
+    await fxPause(750);
+    // 2º: efectos de inicio de turno del rival (Escarcha/Veneno del rival)
+    fireFx(enemyStartRes.fx);
+    await fxPause(750);
+
     for (const play of plan) {
       try {
         const prePlayBoard = workBoard;
@@ -829,6 +859,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           );
         }
 
+        // ====== FX de la jugada del rival (emitidos ANTES del set) ======
+        fireFx(eventsFromPlayResult(res, play.lane, "enemy"));
+
         // ====== TRIGGER DISPATCH (enemy play) ======
         // ON_DEATH: for each card destroyed by the enemy's play.
         // Look up the dying card in the PRE-play board (prePlayBoard) because
@@ -839,7 +872,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           const deathRes = applyOnDeathEffects(workBoard, rc.side, rc.lane, deadCard);
           workBoard = deathRes.board;
           log = pushTriggerLogs(log, freshState.turn, deathRes);
+          fireFx(deathRes.fx);
         }
+
+        // Reveal progresivo: la carta del rival aparece YA (no al final del turno)
+        set({ board: workBoard });
+        await fxPause(720);
       } catch {
         // ignore failed plays
       }
@@ -850,6 +888,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const enemyEndRes = applyEndTurnEffects(workBoard, "enemy", [], freshState.activeLanes);
     workBoard = enemyEndRes.board;
     log = pushTriggerLogs(log, freshState.turn, enemyEndRes);
+
+    // FX del cierre del turno rival (Ventisca/Contagio/Sobrecarga del rival)
+    set({ board: workBoard });
+    fireFx(enemyEndRes.fx);
+    await fxPause(750);
 
     // 4. Advance turn, apply Sobrecarga energy penalty
     const newTurn = freshState.turn + 1;
@@ -922,6 +965,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       // Trigger visual flash on each lane showing the new bonus
       flashLaneBonuses(newLaneBonuses);
     }
+
+    // ====== FX de inicio de MI turno (Fervor/Escarcha/Purificación…) ======
+    fireFx(playerStartRes.fx);
 
     set({
       board: workBoard,

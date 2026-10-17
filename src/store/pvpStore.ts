@@ -10,6 +10,7 @@
 import { create } from "zustand";
 import type { PvpClientView, PvpSide } from "@/lib/game/pvp";
 import type { CardDef, GameClass } from "@/lib/game/types";
+import { emitFx, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
 
@@ -162,6 +163,24 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       legendaryBurst,
       connectionLost: false,
     });
+
+    // ====== VFX: eventos FX de la acción (DESPUÉS del set: los carriles ya
+    // están en el DOM). Mapeo: lado absoluto a/b → player/enemy propio y
+    // lanePos → carril propio de esa posición (el board viaja con MIS claves).
+    if (la && la.seq > prevSeq && la.fx && la.fx.length > 0 && useSettings.getState().animationsOn) {
+      const mapped: FxEvent[] = la.fx.map((f) => ({
+        kind: f.kind,
+        keyword: f.keyword,
+        lanePos: f.lanePos,
+        lane: view.you.lanes[f.lanePos] ?? view.you.lanes[0],
+        side: f.side === mine ? "player" : "enemy",
+        sourceUid: f.sourceUid,
+        targetUids: f.targetUids,
+        value: f.value,
+        delayMs: Math.max(f.delayMs ?? 0, 120), // margen para el re-render
+      }));
+      emitFx(mapped);
+    }
 
     if (newFloats.length > 0) {
       set({ floatingNumbers: [...get().floatingNumbers, ...newFloats] });

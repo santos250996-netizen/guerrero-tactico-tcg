@@ -32,6 +32,7 @@ import type {
   Keyword,
 } from "./types";
 import { CLASS_META, KEYWORD_META, LANE_BONUS_POOL } from "./types";
+import type { FxEvent } from "./fx";
 import { v4 as uuidv4 } from "uuid";
 
 export type Board = Record<LaneId, LaneState>;
@@ -542,6 +543,8 @@ export interface PlayResult {
   trapTriggered: boolean;
   newTrap?: TrapState;
   energyNextTurnDelta?: number;
+  /** Escudos que absorbieron debuffs honestos (Golpe Certero / Llamarada) — para VFX. */
+  shieldAbsorbed: { side: "player" | "enemy"; lane: LaneId; uid: string; absorbed: number }[];
 }
 
 /**
@@ -613,6 +616,7 @@ export function playCard(
     newBoard[ln] = { player: [...board[ln].player], enemy: [...board[ln].enemy] };
   }
 
+  const shieldAbsorbed: PlayResult["shieldAbsorbed"] = [];
   for (const m of effect.mutations) {
     const arr = newBoard[m.lane][m.side];
     const idx = arr.findIndex((c) => c.uid === m.uid);
@@ -620,7 +624,10 @@ export function playCard(
       // Honest on_play debuffs route through applyDebuff so shields absorb
       // (Golpe Certero). Direct mutations keep piercing (Hender Armadura).
       if (m.viaDebuff && m.powerDelta < 0) {
-        applyDebuff(newBoard, m.side, m.lane, m.uid, m.powerDelta, handCard.name, "debuff");
+        const dr = applyDebuff(newBoard, m.side, m.lane, m.uid, m.powerDelta, handCard.name, "debuff");
+        if (dr.absorbedByShield > 0) {
+          shieldAbsorbed.push({ side: m.side, lane: m.lane, uid: m.uid, absorbed: dr.absorbedByShield });
+        }
         continue;
       }
       const cur = arr[idx];
@@ -695,6 +702,7 @@ export function playCard(
     removedCards: effect.removedCards,
     trapTriggered,
     newTrap: undefined,
+    shieldAbsorbed,
   };
 }
 
@@ -984,6 +992,13 @@ export interface TriggerResult {
   board: Board;
   /** Human-readable log entries (one per fired card). */
   logs: { side: "player" | "enemy" | "system"; text: string }[];
+  /** Eventos visuales para FxLayer (solo cliente los pinta). */
+  fx: FxEvent[];
+}
+
+/** Crea un TriggerResult vacío con el board dado. */
+function triggerResult(board: Board): TriggerResult {
+  return { board, logs: [], fx: [] };
 }
 
 /**
@@ -997,7 +1012,8 @@ export function applyStartTurnEffects(
   lanes: LaneId[] = LANE_IDS
 ): TriggerResult {
   const newBoard = cloneBoard(board);
-  const logs: TriggerResult["logs"] = [];
+  const result = triggerResult(newBoard);
+  const { logs, fx } = result;
 
   for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
@@ -1011,6 +1027,7 @@ export function applyStartTurnEffects(
           if (x > 0) {
             applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Fervor)`, "start_turn");
             logs.push({ side, text: `🌅 ${card.name} (Fervor): +${x} permanente` });
+            fx.push({ kind: "keyword", keyword: "fervor", lane, side, targetUids: [card.uid], value: x });
           }
           break;
         }
@@ -1020,6 +1037,7 @@ export function applyStartTurnEffects(
           if (x > 0 && ownLane.length === 1) {
             applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Duelista)`, "start_turn");
             logs.push({ side, text: `⚔️ ${card.name} (Duelista): +${x} (única carta del carril)` });
+            fx.push({ kind: "keyword", keyword: "duelista", lane, side, targetUids: [card.uid], value: x });
           }
           break;
         }
@@ -1028,6 +1046,7 @@ export function applyStartTurnEffects(
         case "purificacion": {
           let restored = 0;
           const restoredNames: string[] = [];
+          const restoredUids: string[] = [];
           for (const ally of ownLane) {
             const taken = ally.debuffTaken ?? 0;
             if (taken > 0) {
@@ -1038,6 +1057,7 @@ export function applyStartTurnEffects(
               }
               restored += taken;
               restoredNames.push(ally.name);
+              restoredUids.push(ally.uid);
             }
           }
           if (restored > 0) {
@@ -1045,6 +1065,7 @@ export function applyStartTurnEffects(
               side,
               text: `✨ ${card.name} (Purificación): restauró ${restored} puntos a ${restoredNames.join(", ")}`,
             });
+            fx.push({ kind: "keyword", keyword: "purificacion", lane, side, targetUids: restoredUids, value: restored });
           }
           break;
         }
@@ -1060,6 +1081,7 @@ export function applyStartTurnEffects(
               newBoard[lane][side][idx] = { ...cur, shieldRemaining: after };
               if (after > before) {
                 logs.push({ side, text: `❄️ ${card.name} (Escarcha): escudo restaurado a ${after}` });
+                fx.push({ kind: "keyword", keyword: "escarcha", lane, side, targetUids: [card.uid], value: after - before });
               }
             }
           }
@@ -1082,6 +1104,7 @@ export function applyStartTurnEffects(
                 { bypassShield: true }
               );
               logs.push({ side, text: `🧪 ${card.name} (Veneno): −${x} a ${target.name} (perfora escudos)` });
+              fx.push({ kind: "keyword", keyword: "veneno", lane, side: enemySideOf(side), targetUids: [target.uid], value: x });
             }
           }
           break;
@@ -1093,7 +1116,7 @@ export function applyStartTurnEffects(
     }
   }
 
-  return { board: newBoard, logs };
+  return result;
 }
 
 /**
@@ -1108,7 +1131,8 @@ export function applyEndTurnEffects(
   lanes: LaneId[] = LANE_IDS
 ): TriggerResult {
   const newBoard = cloneBoard(board);
-  const logs: TriggerResult["logs"] = [];
+  const result = triggerResult(newBoard);
+  const { logs, fx } = result;
   const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
 
   for (const lane of lanes) {
@@ -1120,10 +1144,12 @@ export function applyEndTurnEffects(
         // ---- FORTALEZA [X]: +X a todas tus cartas de este carril ----
         case "fortaleza": {
           if (x > 0) {
+            const allyUids = newBoard[lane][side].map((a) => a.uid);
             for (const ally of newBoard[lane][side]) {
               applyPowerDelta(newBoard, side, lane, ally.uid, x, `${card.name} (Fortaleza)`, "end_turn");
             }
             logs.push({ side, text: `🏰 ${card.name} (Fortaleza): +${x} a ${newBoard[lane][side].length} carta(s) del carril` });
+            fx.push({ kind: "keyword", keyword: "fortaleza", lane, side, targetUids: allyUids, value: x });
           }
           break;
         }
@@ -1145,9 +1171,14 @@ export function applyEndTurnEffects(
               );
               if (res.absorbedByShield > 0 && res.appliedDelta === 0) {
                 logs.push({ side, text: `🎯 ${card.name} (Crueldad): BLOQUEADO por escudo de ${target.name}` });
+                fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
               } else {
                 const absorbedNote = res.absorbedByShield > 0 ? ` (${res.absorbedByShield} absorbido por escudo)` : "";
                 logs.push({ side, text: `🎯 ${card.name} (Crueldad): ${res.appliedDelta} a ${target.name}${absorbedNote}` });
+                fx.push({ kind: "keyword", keyword: "crueldad", lane, side: enemySide, targetUids: [target.uid], value: x });
+                if (res.absorbedByShield > 0) {
+                  fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
+                }
               }
             }
           }
@@ -1164,6 +1195,7 @@ export function applyEndTurnEffects(
       if (card.trigger !== "end_turn" || card.keyword !== "ventisca") continue;
       const x = card.keywordValue ?? 0;
       if (x > 0 && newBoard[lane][enemySide].length > 0) {
+        const enemyUids: string[] = [];
         for (const enemy of [...newBoard[lane][enemySide]]) {
           applyDebuff(
             newBoard,
@@ -1174,8 +1206,10 @@ export function applyEndTurnEffects(
             `${card.name} (Ventisca)`,
             "end_turn"
           );
+          enemyUids.push(enemy.uid);
         }
         logs.push({ side, text: `❄️ ${card.name} (Ventisca): −${x} a ${newBoard[lane][enemySide].length} enemigo(s) del carril` });
+        fx.push({ kind: "keyword", keyword: "ventisca", lane, side: enemySide, targetUids: enemyUids, value: x });
       }
     }
 
@@ -1206,6 +1240,12 @@ export function applyEndTurnEffects(
         );
         const blockedNote = res.absorbedByShield > 0 && res.appliedDelta === 0 ? " (BLOQUEADO por escudo)" : "";
         logs.push({ side, text: `🧪 ${card.name} (Contagio): ${res.appliedDelta} a ${target.name}${blockedNote}` });
+        if (res.appliedDelta < 0 || res.absorbedByShield > 0) {
+          fx.push({ kind: "keyword", keyword: "contagio", lane, side: enemySide, targetUids: [target.uid], value: x });
+          if (res.absorbedByShield > 0) {
+            fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
+          }
+        }
       }
     }
   }
@@ -1221,11 +1261,12 @@ export function applyEndTurnEffects(
           newBoard[lane][side][idx] = { ...newBoard[lane][side][idx], powerDecay: 0 };
         }
         logs.push({ side, text: `⚡ ${card.name}: Sobrecarga se disipa (−${decay})` });
+        fx.push({ kind: "keyword", keyword: "sobrecarga", lane, side, targetUids: [card.uid], value: decay });
       }
     }
   }
 
-  return { board: newBoard, logs };
+  return result;
 }
 
 function enemySideOf(side: "player" | "enemy"): "player" | "enemy" {
@@ -1245,10 +1286,11 @@ export function applyOnDeathEffects(
   deadCard: BoardCard
 ): TriggerResult {
   const newBoard = cloneBoard(board);
-  const logs: TriggerResult["logs"] = [];
+  const result = triggerResult(newBoard);
+  const { logs, fx } = result;
 
   if (deadCard.trigger !== "on_death") {
-    return { board: newBoard, logs };
+    return result;
   }
 
   const x = deadCard.keywordValue ?? 0;
@@ -1259,6 +1301,7 @@ export function applyOnDeathEffects(
     if (target) {
       applyPowerDelta(newBoard, side, lane, target.uid, x, `${deadCard.name} (Legado)`, "on_death");
       logs.push({ side, text: `💀 ${deadCard.name} (Legado): +${x} a ${target.name}` });
+      fx.push({ kind: "keyword", keyword: "legado", lane, side, sourceUid: deadCard.uid, targetUids: [target.uid], value: x });
     }
   }
 
@@ -1269,8 +1312,9 @@ export function applyOnDeathEffects(
       // Mutación directa: la explosión no pasa por applyDebuff → perfora escudos
       applyPowerDelta(newBoard, enemySideOf(side), lane, target.uid, -2 * x, `${deadCard.name} (Combustión)`, "on_death");
       logs.push({ side, text: `🔥 ${deadCard.name} (Combustión): −${2 * x} a ${target.name} (explota, perfora escudos)` });
+      fx.push({ kind: "keyword", keyword: "combustion", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: [target.uid], value: 2 * x });
     }
   }
 
-  return { board: newBoard, logs };
+  return result;
 }

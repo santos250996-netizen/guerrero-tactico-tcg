@@ -26,6 +26,7 @@ import { CLASS_META, LANE_META } from "@/lib/game/types";
 import { PvpLane } from "./PvpLane";
 import { PvpHandBar } from "./PvpHandBar";
 import { CardPreviewModal } from "../CardPreviewModal";
+import { FxLayer } from "../FxLayer";
 import { Confetti } from "../Confetti";
 import { LegendaryBurst } from "../LegendaryBurst";
 import { SettingsModal } from "../SettingsModal";
@@ -169,6 +170,7 @@ export function PvpGame() {
       {/* ══ Overlays ══ */}
       <PvpTurnBanner banner={turnBanner} />
       <PvpFloatingNumbersLayer floats={floatingNumbers} />
+      <FxLayer />
       <Confetti trigger={view.phase === "ended" && view.finalResult?.result === "WIN"} />
       <LegendaryBurst trigger={legendaryBurst} onDone={() => usePvpStore.setState({ legendaryBurst: false })} />
 

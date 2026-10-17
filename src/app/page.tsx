@@ -18,6 +18,7 @@ import { SettingsModal } from "@/components/game/SettingsModal";
 import { CardPreviewModal } from "@/components/game/CardPreviewModal";
 import { TurnTransitionBanner } from "@/components/game/TurnTransitionBanner";
 import { FloatingNumbersLayer } from "@/components/game/FloatingNumbers";
+import { FxLayer } from "@/components/game/FxLayer";
 import { Confetti } from "@/components/game/Confetti";
 import { LegendaryBurst } from "@/components/game/LegendaryBurst";
 import type { LaneId } from "@/lib/game/types";
@@ -105,6 +106,7 @@ export default function Home() {
       <TurnTransitionBanner visible={aiTurnPhase === "banner"} phase="transition" />
       <TurnTransitionBanner visible={aiTurnPhase === "thinking"} phase="thinking" />
       <FloatingNumbersLayer />
+      <FxLayer />
       <Confetti trigger={phase === "ended" && finalResult?.result === "WIN"} />
       <LegendaryBurst trigger={legendaryBurst} onDone={() => useGameStore.setState({ legendaryBurst: false })} />
 

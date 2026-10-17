@@ -79,7 +79,9 @@ export function PvpLane({ position, side }: PvpLaneProps) {
 
   return (
     <section
+      data-pvp-lane={`${side}-${position}`}
       data-lane-id={side === "me" ? myLaneId : undefined}
+      data-lane-recipe={laneId}
       className={cn(
         "relative flex h-full min-h-0 flex-col gap-0.5 overflow-hidden rounded-lg border p-1",
         colors.border,

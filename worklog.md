@@ -221,3 +221,25 @@ Work Log:
 Stage Summary:
 - PENDIENTE PARA PRÓXIMA SESIÓN: implementar el sistema FX según el diseño de arriba (todo el análisis ya está hecho, empezar escribiendo src/lib/game/fx.ts)
 - El estado commiteado = PvP local completo y funcionando (Task 9)
+---
+Task ID: 11
+Agent: Z.ai main agent
+Task: Efectos ambientales + VFX de las 24 keywords (Task 10 retomado y completado)
+
+Work Log:
+- src/lib/game/fx.ts (nuevo, puro sin DOM): FxEvent { kind: keyword|play|destroy|shieldBlock|trap, keyword, lane (solitario) | lanePos (PvP 0-2), side = bando dueño de las cartas afectadas, sourceUid, targetUids, value, delayMs } · fxBus pub/sub (emitFx/subscribeFx) · KEYWORD_FX (24 recetas) · LANE_AMBIENT (9 recetas) · eventsFromPlayResult(res, lane, actor) que agrupa mutaciones por bando, mapea destrucciones (Remate/Purga → target = carta muerta, NO la nueva), shieldBlocks y trampa
+- DECISIÓN: Canvas 2D propio en vez de Phaser 3 (misma arquitectura de capa única + recetas, ~1.2MB menos en el APK Capacitor, sin WebGL extra sobre el DOM)
+- engine.ts: TriggerResult.fx: FxEvent[] (helper triggerResult) — pushes en las 12 keywords periódicas: fervor/duelista/purificacion/escarcha/veneno (start), fortaleza/crueldad/ventisca/contagio/sobrecarga-decay (end), legado/combustion (death); Crueldad/Contagio bloqueadas → shieldBlock sin keyword fx; PlayResult.shieldAbsorbed[] (vía viaDebuff: Golpe Certero/Llamarada) → evento shieldBlock
+- gameStore: fireFx() (gated por settings.animationsOn) + fxPause(); eventos emitidos ANTES del set() en jugada del jugador y muertes encadenadas (rects precisos); SECUENCIA CINEMATOGRÁFICA en endTurn: fx fin-turno jugador → fx inicio-turno rival → cada jugada IA con reveal progresivo (set intermedio del board) + fx + pausa 720ms → fx fin-turno rival → fx inicio-turno jugador; con animaciones OFF todo es instantáneo
+- FxLayer.tsx (nuevo): canvas único fixed z-[45] pointer-events-none mixBlendMode screen, singleton por token de módulo, DPR≤2, rAF con dt, presupuesto 460 partículas; AMBIENTE: emitters anclados a [data-pvp-lane] (PvP) o [data-lane-id] (solitario) con re-sync 0.7s + data-lane-recipe para la receta; partículas continuas por carril (motas ámbar, brasas, nieve, burbujas, arcanos, bruma, chispas rojas, halos); VFX: primitivas burst/ring/slash/column/converge/flake/bubble/star/hex/text + 29 recetas (24 keywords + shield_flash/trap_burst/play_dust/shatter); anclaje [data-card-uid] → carril → fallback; etiqueta flotante con KEYWORD_META.short por trigger; shake CSS (.fx-shake en globals.css) en destrucciones/explosiones; respeta animationsOn + prefers-reduced-motion
+- PvP: PvpLastActionFx { kind, keyword, lanePos, side a/b ABSOLUTO, ... } · fxRelToAbs() traduce el fx relativo del engine (side player/enemy del actor) → lanePos + lado absoluto; adjuntado a lastAction en handlePlay (buildPlayFx), handlePass (end del que pasa + start del otro) y advanceTurn/startPvpMatch (start del primero); fireStartTurn/fireEndTurn devuelven FxEvent[]
+- pvpStore.applyView: mapea la.fx → FxEvent local (side a/b → player/enemy propio, lanePos → view.you.lanes[pos]) y emitFx DESPUÉS del set() (carriles en DOM), delay mínimo 120ms para el re-render
+- Anclajes: PvpLane añade data-pvp-lane="me-X|rival-X" + data-lane-recipe (data-lane-id SOLO en side me para no romper el drag); page.tsx y PvpGame montan <FxLayer/>
+- Tests: scripts/test-fx.ts 51/51 (tabla de recetas completa, fx de los 4 triggers, condicionales Escarcha-llena/Duelista-acompañada/Contagio-limpio/Crueldad-bloqueada, shieldAbsorbed, self-scaling con delay 220, Remate→destroy del uid muerto, trampa); regresión V2 34/34 · V3 30/30 · PVP 51/51 · tsc src/ 0 errores · eslint touched files limpio
+- E2E navegador: solitario MAGO — 3 carriles + canvas a pantalla completa, ambiente visible (violeta arcano + nieve HIELO, muestreo de píxeles alpha 93→173 al jugar), Escarcha disparó en T2 ("escudo restaurado a 2"), reveal progresivo de la carta rival en t+3s (antes solo al final del turno), rechazo correcto en carril con bono; PvP 2 clientes (sala TJKW: HostFX mago vs RivalFX guerrero) — el servidor adjunta fx al lastAction (play + keyword remate con lanePos), el rival lo ve en su vista con burst; Hacha rechazada por bono COSTE +1 con mensaje exacto; toggle animationsOn=false → canvas 0 píxeles encendidos y turnos instantáneos; 0 errores JS en toda la sesión
+
+Stage Summary:
+- SISTEMA FX COMPLETO: ambiente continuo por carril (9 recetas temáticas) + VFX por keyword (24 recetas + genéricos destrucción/escudo/trampa/colocación), integrado en solitario y PvP con el mismo bus
+- Arquitectura: engine describe (FxEvent) → store emite → FxLayer pinta; el servidor PvP viaja ligero (solo lanePos + uids, nunca DOM)
+- El pacing del turno rival ahora es cinemático con animaciones activas (reveal carta a carta) y sigue instantáneo con animaciones off
+- Pendiente (de la lista global): historial PvP en perfil, custom decks Mago/Asesino en BD, equilibrado fino con datos reales, design pass impeccable

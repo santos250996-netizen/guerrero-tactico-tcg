@@ -49,7 +49,10 @@ import type {
   LaneBonus,
   LaneBonuses,
   LaneId,
+  Keyword,
 } from "./types";
+import type { FxEvent, FxKind } from "./fx";
+import { eventsFromPlayResult } from "./fx";
 import { CLASS_DECKS, buildDrawPileFrom, cardPoolForClass } from "./cards";
 import { v4 as uuidv4 } from "uuid";
 
@@ -106,6 +109,23 @@ export interface PvpFloatMutation {
   shieldDelta?: number;
 }
 
+/**
+ * Evento FX para el cliente (pvpStore → fxBus). A diferencia de FxEvent:
+ *   · `side` es ABSOLUTO (a/b) — el cliente lo voltea a su propia vista.
+ *   · `lanePos` (0-2) sustituye a `lane`: el carril viaja con claves propias
+ *     por jugador, así que por HTTP solo tiene sentido la POSICIÓN.
+ */
+export interface PvpLastActionFx {
+  kind: FxKind;
+  keyword?: Keyword;
+  lanePos: number;
+  side: PvpSide;
+  sourceUid?: string;
+  targetUids?: string[];
+  value?: number;
+  delayMs?: number;
+}
+
 export interface PvpLastAction {
   seq: number;
   side: PvpSide;
@@ -115,6 +135,8 @@ export interface PvpLastAction {
   playedUid?: string;
   playedRarity?: BoardCard["rarity"];
   mutations: PvpFloatMutation[];
+  /** Eventos visuales (VFX de keywords / destrucciones / escudos). */
+  fx?: PvpLastActionFx[];
   /** Lado cuyo turno acaba de comenzar (para el banner "TU TURNO"). */
   bannerFor?: PvpSide;
 }
@@ -339,6 +361,28 @@ function mapLogSide(rel: TriggerResult["logs"][number]["side"], actor: PvpSide):
   return rel === "player" ? actor : otherSide(actor);
 }
 
+/**
+ * Traduce eventos FX relativos del engine (side player/enemy desde el punto
+ * de vista de `actor`) a eventos absolutos con lanePos para la vista HTTP.
+ */
+function fxRelToAbs(fx: FxEvent[], actor: PvpSide, lanes: LaneId[]): PvpLastActionFx[] {
+  const out: PvpLastActionFx[] = [];
+  for (const f of fx) {
+    const lanePos = f.lane !== undefined ? Math.max(0, lanes.indexOf(f.lane)) : 0;
+    out.push({
+      kind: f.kind,
+      keyword: f.keyword,
+      lanePos,
+      side: f.side === "player" ? actor : otherSide(actor),
+      sourceUid: f.sourceUid,
+      targetUids: f.targetUids,
+      value: f.value,
+      delayMs: f.delayMs,
+    });
+  }
+  return out;
+}
+
 function pushTriggerLogs(state: PvpState, result: TriggerResult, actor: PvpSide): void {
   for (const l of result.logs) {
     pushLog(state, state.turn, mapLogSide(l.side, actor), l.text, "info");
@@ -349,18 +393,20 @@ function pushTriggerLogs(state: PvpState, result: TriggerResult, actor: PvpSide)
 // Disparadores de turno (start/end) para un lado
 // ---------------------------------------------------------------------------
 
-function fireStartTurn(state: PvpState, side: PvpSide): void {
+function fireStartTurn(state: PvpState, side: PvpSide): FxEvent[] {
   const board = toEngineBoard(state, side);
   const res = applyStartTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
   writeBack(state, side, res.board);
   pushTriggerLogs(state, res, side);
+  return res.fx;
 }
 
-function fireEndTurn(state: PvpState, side: PvpSide): void {
+function fireEndTurn(state: PvpState, side: PvpSide): FxEvent[] {
   const board = toEngineBoard(state, side);
   const res = applyEndTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
   writeBack(state, side, res.board);
   pushTriggerLogs(state, res, side);
+  return res.fx;
 }
 
 // ---------------------------------------------------------------------------
@@ -456,8 +502,15 @@ export function startPvpMatch(state: PvpState, now = Date.now()): void {
     .join(" · ");
   pushLog(state, 1, "system", `Bonos de carril (por pareja): ${bonusSummary}.`);
 
-  fireStartTurn(state, firstSide);
-  state.lastAction = { seq: ++state.actionSeq, side: firstSide, type: "pass", mutations: [], bannerFor: firstSide };
+  const startFx = fireStartTurn(state, firstSide);
+  state.lastAction = {
+    seq: ++state.actionSeq,
+    side: firstSide,
+    type: "pass",
+    mutations: [],
+    fx: fxRelToAbs(startFx, firstSide, state.players[firstSide].lanes),
+    bannerFor: firstSide,
+  };
   state.version++;
 }
 
@@ -567,24 +620,46 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
       powerDelta: m.powerDelta,
       shieldDelta: m.shieldDelta,
     })),
+    fx: buildPlayFx(res, side, action.lane, player.lanes),
   };
+}
+
+/**
+ * Construye los eventos FX de una jugada PvP: colocación, keyword on_play
+ * (agrupada por bando afectado), destrucciones, escudos y trampa.
+ */
+function buildPlayFx(
+  res: PlayResult,
+  actor: PvpSide,
+  lane: LaneId,
+  lanes: LaneId[]
+): PvpLastActionFx[] {
+  const events = eventsFromPlayResult(res, lane, "player");
+  const mapped = fxRelToAbs(events, actor, lanes);
+  // Las destrucciones con receta propia (Remate/Purga) ya viajan dentro de
+  // eventsFromPlayResult; el shatter genérico lo complementa el cliente.
+  return mapped;
 }
 
 function handlePass(state: PvpState, side: PvpSide): void {
   const player = state.players[side];
-  fireEndTurn(state, side);
+  const endFx = fireEndTurn(state, side);
   state.actedThisTurn[side] = true;
   pushLog(state, state.turn, side, `${player.name} pasa el turno.`, "info");
 
   const other = otherSide(side);
   if (!state.actedThisTurn[other]) {
     state.activeSide = other;
-    fireStartTurn(state, other);
+    const startFx = fireStartTurn(state, other);
     state.lastAction = {
       seq: ++state.actionSeq,
       side,
       type: "pass",
       mutations: [],
+      fx: [
+        ...fxRelToAbs(endFx, side, state.players[side].lanes),
+        ...fxRelToAbs(startFx, other, state.players[other].lanes),
+      ],
       bannerFor: other,
     };
     return;
@@ -637,12 +712,13 @@ function advanceTurn(state: PvpState): void {
     pushLog(state, newTurn, "system", "🎲 ¡Bonos de carril re-rollados!", "buff");
   }
 
-  fireStartTurn(state, first);
+  const startFx = fireStartTurn(state, first);
   state.lastAction = {
     seq: ++state.actionSeq,
     side: first,
     type: "pass",
     mutations: [],
+    fx: fxRelToAbs(startFx, first, state.players[first].lanes),
     bannerFor: first,
   };
 }
