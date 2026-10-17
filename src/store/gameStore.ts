@@ -95,6 +95,11 @@ interface GameStoreState {
   // Per-game lane bonuses (2 lanes have one, 1 has none)
   laneBonuses: LaneBonuses;
 
+  // Flash overlay state — when set, each lane with a non-null entry shows a
+  // brief animated flash explaining the bonus (e.g. "1 VS 1" for limit_1).
+  // Auto-cleared after 1.5s by the flashLaneBonuses helper.
+  laneBonusFlashes: LaneBonuses;
+
   // Traps (Trampa Etérea) per lane
   laneTraps: LaneTraps;
 
@@ -270,6 +275,20 @@ function resolveDeck(state: GameStoreState): CardDef[] {
   return WARRIOR_DECK;
 }
 
+/**
+ * Trigger a brief visual flash on each lane showing its current bonus.
+ * Used when lane bonuses are (re-)rolled — at game start (initGame) and
+ * at the start of turn 4 (re-roll). Auto-clears after 1.5s.
+ */
+export function flashLaneBonuses(bonuses: LaneBonuses) {
+  useGameStore.setState({ laneBonusFlashes: { ...bonuses } });
+  setTimeout(() => {
+    useGameStore.setState({
+      laneBonusFlashes: { armas: null, proteccion: null, furia: null },
+    });
+  }, 1500);
+}
+
 export const useGameStore = create<GameStoreState>((set, get) => ({
   turn: 1,
   energy: 1,
@@ -281,6 +300,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   hand: [],
   board: emptyBoard(),
   laneBonuses: { armas: null, proteccion: null, furia: null },
+  laneBonusFlashes: { armas: null, proteccion: null, furia: null },
   laneTraps: emptyLaneTraps(),
   nextTurnEnergyPenalty: 0,
   floatingNumbers: [],
@@ -346,6 +366,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         "info"
       ),
     });
+    // Trigger visual flash on each lane showing its bonus
+    flashLaneBonuses(laneBonuses);
   },
 
   selectCard: (uid) => {
@@ -990,6 +1012,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         return b ? `${ln}: ${b.label}` : `${ln}: sin bono`;
       }).join(" · ");
       log = pushLog(log, newTurn, "system", `🔮 ¡Bonos re-rollados! ${bonusSummary}`, "buff");
+      // Trigger visual flash on each lane showing the new bonus
+      flashLaneBonuses(newLaneBonuses);
     }
 
     set({

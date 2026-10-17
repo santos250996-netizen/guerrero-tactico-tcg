@@ -90,6 +90,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
   const energy = useGameStore((s) => s.energy);
   const phase = useGameStore((s) => s.phase);
   const laneBonuses = useGameStore((s) => s.laneBonuses);
+  const laneBonusFlash = useGameStore((s) => s.laneBonusFlashes[laneId]);
   const playSelectedCardIntoLane = useGameStore((s) => s.playSelectedCardIntoLane);
 
   const laneState = board[laneId];
@@ -282,6 +283,67 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
           return <div key={`player-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
         })}
       </div>
+
+      {/* Bonus flash overlay — brief animated effect shown when lane bonuses
+          are (re-)rolled (game start + turn 4 re-roll). Auto-clears after 1.5s
+          via flashLaneBonuses() helper in gameStore. */}
+      <AnimatePresence>
+        {laneBonusFlash && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          >
+            <LaneBonusFlashContent bonus={laneBonusFlash} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// LaneBonusFlashContent — renders the big text/effect for each bonus kind.
+// Each kind has a custom visual: limit_1 → "1 VS 1", cost_only_X → "MAX ⚡X",
+// cat_X → "+3 [emoji]", etc.
+// ──────────────────────────────────────────────────────────────
+function LaneBonusFlashContent({ bonus }: { bonus: import("@/lib/game/types").LaneBonus }) {
+  // Each bonus kind gets a custom visual
+  const FLASH_BY_KIND: Record<string, { big: string; sub: string; color: string }> = {
+    // Restrictive (amber) — show "X VS X" format per user spec
+    limit_1:     { big: "1", sub: "VS 1",    color: "text-amber-300" },
+    limit_3:     { big: "3", sub: "VS 3",    color: "text-amber-300" },
+    cost_only_1: { big: "⚡1", sub: "COSTE",   color: "text-amber-300" },
+    cost_only_3: { big: "⚡3", sub: "COSTE",   color: "text-amber-300" },
+    cost_only_5: { big: "⚡5", sub: "COSTE",   color: "text-amber-300" },
+    // Positive (emerald) — show the buff value
+    cost_neg:    { big: "-1", sub: "COSTE",   color: "text-emerald-300" },
+    cat_item:    { big: "+3", sub: "ÍTEM",    color: "text-emerald-300" },
+    cat_accion:  { big: "+3", sub: "ACCIÓN",  color: "text-emerald-300" },
+    cat_ataque:  { big: "+3", sub: "ATAQUE",  color: "text-emerald-300" },
+    // Penalty (rose)
+    cost_pos:    { big: "+1", sub: "COSTE",   color: "text-rose-300" },
+  };
+  const flash = FLASH_BY_KIND[bonus.kind] || { big: bonus.label, sub: "BONO", color: "text-zinc-300" };
+  return (
+    <div className="flex flex-col items-center gap-0.5 text-center">
+      <div
+        className={`text-5xl font-black tabular-nums leading-none ${flash.color}`}
+        style={{
+          fontFamily: 'var(--font-cinzel), serif',
+          textShadow: '0 0 12px currentColor, 0 2px 4px rgba(0,0,0,0.9)',
+        }}
+      >
+        {flash.big}
+      </div>
+      <div
+        className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300"
+        style={{ fontFamily: 'var(--font-cinzel), serif' }}
+      >
+        {flash.sub}
+      </div>
+    </div>
   );
 }

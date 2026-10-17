@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useGameStore } from "@/store/gameStore";
+import { useGameStore, flashLaneBonuses } from "@/store/gameStore";
 import { useSettings } from "@/lib/settings";
 import { HandBar } from "@/components/game/HandBar";
 import { LaneComponent } from "@/components/game/LaneComponent";
@@ -116,7 +116,16 @@ export default function Home() {
         showExitToMenu
         onOpenRules={() => { setSettingsOpen(false); setRulesOpen(true); }}
       />
-      <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
+      <OnboardingModal
+        open={showOnboarding}
+        onClose={() => {
+          setShowOnboarding(false);
+          // Re-trigger the lane bonus flash so the user sees the effects
+          // AFTER the onboarding modal closes (the initial flash triggered
+          // in initGame would have auto-cleared during the onboarding).
+          flashLaneBonuses(useGameStore.getState().laneBonuses);
+        }}
+      />
       <CardPreviewModal card={previewCard} open={previewCard !== null} onOpenChange={(o) => { if (!o) setPreviewCard(null); }} />
 
       {/* Registro de batalla modal */}
