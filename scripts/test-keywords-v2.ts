@@ -74,6 +74,12 @@ function emptyBoard(): Board {
     armas: { player: [], enemy: [] },
     proteccion: { player: [], enemy: [] },
     furia: { player: [], enemy: [] },
+    arcana: { player: [], enemy: [] },
+    fuego: { player: [], enemy: [] },
+    hielo: { player: [], enemy: [] },
+    veneno: { player: [], enemy: [] },
+    combate: { player: [], enemy: [] },
+    sigilo: { player: [], enemy: [] },
   };
 }
 

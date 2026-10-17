@@ -39,9 +39,14 @@ def to_filename(name: str) -> str:
 
 def main() -> None:
     text = CARDS_TS.read_text(encoding='utf-8')
-    # Solo cartas de ALL_CARDS: cortar antes de los presets de mazo
-    text = text.split('export const WARRIOR_DECK')[0]
-    cards = re.findall(r'id:\s*"([^"]+)"[\s\S]*?name:\s*"([^"]+)"', text)
+    # Solo cartas: cortar antes de los presets de mazo y deduplicar por id
+    text = text.split('export const PRESET_DECKS')[0]
+    seen: set[str] = set()
+    cards: list[tuple[str, str]] = []
+    for cid, name in re.findall(r'id:\s*"([^"]+)"[\s\S]*?name:\s*"([^"]+)"', text):
+        if cid not in seen:
+            seen.add(cid)
+            cards.append((cid, name))
     inherited = {p.stem for p in IMAGES.glob('*.png')} - V2_IDS
 
     problems, names = [], {}

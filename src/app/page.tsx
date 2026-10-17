@@ -19,7 +19,6 @@ import { TurnTransitionBanner } from "@/components/game/TurnTransitionBanner";
 import { FloatingNumbersLayer } from "@/components/game/FloatingNumbers";
 import { Confetti } from "@/components/game/Confetti";
 import { LegendaryBurst } from "@/components/game/LegendaryBurst";
-import { LANE_IDS } from "@/lib/game/engine";
 import type { LaneId } from "@/lib/game/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -37,6 +36,7 @@ export default function Home() {
   const previewCard = useGameStore((s) => s.previewCard);
   const setPreviewCard = useGameStore((s) => s.setPreviewCard);
   const finalResult = useGameStore((s) => s.finalResult);
+  const activeLanes = useGameStore((s) => s.activeLanes);
   const legendaryBurst = useGameStore((s) => s.legendaryBurst);
   const onboardingSeen = useSettings((s) => s.onboardingSeen);
 
@@ -88,7 +88,7 @@ export default function Home() {
             vertical space, stretching the lane sections to cover the gap
             between the (removed) header and the hand bar. */}
         <div className="grid h-full grid-cols-3 grid-rows-1 gap-1.5 min-h-0">
-          {LANE_IDS.map((lane: LaneId) => (
+          {activeLanes.map((lane: LaneId) => (
             <LaneComponent key={lane} laneId={lane} />
           ))}
         </div>

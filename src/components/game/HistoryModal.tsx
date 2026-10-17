@@ -9,8 +9,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Trophy, Skull, Equal } from "lucide-react";
-import { LANE_META } from "@/lib/game/types";
-import type { LaneId } from "@/lib/game/types";
+import { LANE_META, CLASS_META } from "@/lib/game/types";
+import type { LaneId, GameClass } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 
 interface HistoryModalProps {
@@ -33,6 +33,7 @@ interface MatchRow {
   laneProtE: number;
   laneFuriaP: number;
   laneFuriaE: number;
+  gameClass?: "guerrero" | "mago" | "asesino";
   createdAt: string;
 }
 
@@ -166,20 +167,13 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                   <span className="text-[10px] text-zinc-500">{dateStr}</span>
                 </div>
                 <div className="mt-1 grid grid-cols-3 gap-1 text-[10px]">
-                  {(["armas", "proteccion", "furia"] as LaneId[]).map((ln) => {
+                  {(CLASS_META[(m.gameClass as GameClass) ?? "guerrero"]?.lanes ??
+                    (["armas", "proteccion", "furia"] as LaneId[])
+                  ).map((ln, i) => {
                     const meta = LANE_META[ln];
-                    const p =
-                      ln === "armas"
-                        ? m.laneArmasP
-                        : ln === "proteccion"
-                          ? m.laneProtP
-                          : m.laneFuriaP;
-                    const e =
-                      ln === "armas"
-                        ? m.laneArmasE
-                        : ln === "proteccion"
-                          ? m.laneProtE
-                          : m.laneFuriaE;
+                    // Los scores están guardados posicionalmente (carril 1/2/3)
+                    const p = [m.laneArmasP, m.laneProtP, m.laneFuriaP][i];
+                    const e = [m.laneArmasE, m.laneProtE, m.laneFuriaE][i];
                     return (
                       <div
                         key={ln}

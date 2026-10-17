@@ -4,14 +4,53 @@ import {
   Swords, Shield, Flame, Zap, Sunrise, Sunset, Skull, Minus,
   TrendingUp, Award, Axe, Sprout, Castle, ShieldOff, ShieldPlus,
   Sparkles, ChevronsUp, Target,
+  Wand2, FlameKindling, Snowflake, FlaskConical, EyeOff, Sword,
+  Wind, Bug, Crosshair,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type CardCategory = "Ataque" | "Ítem" | "Acción";
 
-export type LaneId = "armas" | "proteccion" | "furia";
+/**
+ * Los 9 carriles del juego (3 por clase). Cada partida usa SOLO los 3 de la
+ * clase elegida — ver CLASS_META más abajo.
+ */
+export type LaneId =
+  | "armas" | "proteccion" | "furia" // Guerrero
+  | "arcana" | "fuego" | "hielo" // Mago
+  | "veneno" | "combate" | "sigilo"; // Asesino
 
 export type Subtype = LaneId;
+
+export type GameClass = "guerrero" | "mago" | "asesino";
+
+/** Definición de clase: carriles activos + identidad. */
+export const CLASS_META: Record<
+  GameClass,
+  { label: string; tagline: string; lanes: LaneId[]; icon: LucideIcon; color: string }
+> = {
+  guerrero: {
+    label: "Guerrero",
+    tagline: "Fuerza · Disciplina · Sangre",
+    lanes: ["armas", "proteccion", "furia"],
+    icon: Swords,
+    color: "amber",
+  },
+  mago: {
+    label: "Mago",
+    tagline: "Maná · Elementos · Burst",
+    lanes: ["arcana", "fuego", "hielo"],
+    icon: Wand2,
+    color: "violet",
+  },
+  asesino: {
+    label: "Asesino",
+    tagline: "Sigilo · Veneno · Precisión",
+    lanes: ["veneno", "combate", "sigilo"],
+    icon: EyeOff,
+    color: "emerald",
+  },
+};
 
 // ============================================================================
 // TRIGGERS — Only 4 remain after the simplification (user spec).
@@ -82,19 +121,25 @@ export const MOD_ONCE_SINGLE = 1.0; // Efecto único (Mod_Once = 1.0)
 export const MOD_ONCE_PER_TURN = 0.8; // Efecto que se repite indefinidamente (Mod_Once = 0.8 por turno)
 
 // ============================================================================
-// KEYWORD SYSTEM V2 (2026-10) — 12 keywords, diseño aprobado por el usuario.
+// KEYWORD SYSTEM V3 (2026-10) — 24 keywords, diseño aprobado por el usuario.
 //
 //   6 NEUTRALES (cualquier clase, cualquier carril):
 //     Fervor [X] · Coraza [X] · Insignia [X] · Remate [X] · Legado [X] · Fortaleza [X]
 //
-//   6 DE CLASE GUERRERO (exclusivas por spec/subtype):
+//   6 DE GUERRERO (exclusivas por spec/subtype):
 //     ARMAS:        Hender Armadura [X] · Duelista [X]
 //     PROTECCIÓN:   Amparo [X] · Purificación
 //     FURIA:        Ímpetu [X] · Crueldad [X]
 //
-// El `keyword` de la carta ES su effectId (mismo string). El engine resuelve
-// cada keyword en un único switch por trigger (on_play en computeEffect,
-// start_turn/end_turn/on_death en sus dispatchers).
+//   6 DE MAGO (spec V3 — Burst: poder alto y frágil):
+//     ARCANA:  Convergencia [X] · Sobrecarga [X]
+//     FUEGO:   Llamarada [X] · Combustión [X]
+//     HIELO:   Escarcha [X] · Ventisca [X]
+//
+//   6 DE ASESINO (spec V3 — Precisión condicional):
+//     VENENO:  Veneno [X] · Contagio [X]
+//     COMBATE: Refriega [X] · Golpe Certero [X]
+//     SIGILO:  Emboscada [X] · Purga [X]
 // ============================================================================
 export type Keyword =
   | "none"
@@ -111,7 +156,21 @@ export type Keyword =
   | "amparo" // Al Jugar: escudo X a tus demás cartas del carril (protección)
   | "purificacion" // Inicio de Turno: limpia las reducciones acumuladas del carril (protección)
   | "impetu" // Al Jugar: +X por cada carta jugada este turno (furia)
-  | "crueldad"; // Fin de Turno: −X al enemigo más débil del carril (furia)
+  | "crueldad" // Fin de Turno: −X al enemigo más débil del carril (furia)
+  // --- 6 de Mago ---
+  | "convergencia" // Al Jugar: +X por cada carta propia ya en el carril (arcana)
+  | "sobrecarga" // Al Jugar: +2X; Fin de Turno: −X (powerDecay) (arcana)
+  | "llamarada" // Al Jugar: −X a TODOS los enemigos del carril (fuego)
+  | "combustion" // Último Aliento: −2X al enemigo más fuerte, IGNORA escudos (fuego)
+  | "escarcha" // Inicio de Turno: escudo propio restaurado hasta X (hielo)
+  | "ventisca" // Fin de Turno: −X a TODOS los enemigos del carril (hielo)
+  // --- 6 de Asesino ---
+  | "veneno" // Inicio de Turno: −X al enemigo más fuerte, IGNORA escudos (veneno)
+  | "contagio" // Fin de Turno: −X al enemigo con más reducciones acumuladas (veneno)
+  | "refriega" // Al Jugar: +X por cada carta ENEMIGA ya en el carril (combate)
+  | "golpe_certero" // Al Jugar: −X al enemigo más fuerte (escudos SÍ absorben) (combate)
+  | "emboscada" // Al Jugar: +2X si es tu 1ª carta del turno, si no +X (sigilo)
+  | "purga"; // Al Jugar: destruye la carta enemiga MÁS DÉBIL con poder ≤ X (sigilo)
 
 /**
  * El effectId de una carta coincide con su keyword (mismo string) — el engine
@@ -216,6 +275,86 @@ export const KEYWORD_META: Record<
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "furia",
   },
+
+  // ------------------------------------------------------------------
+  // DE CLASE MAGO — exclusivas por spec (V3, Burst)
+  // ------------------------------------------------------------------
+  convergencia: {
+    label: "Convergencia", short: "CONVERG.", icon: Sparkles, color: "text-violet-300",
+    description: "Al Jugar: gana +X por cada carta tuya que ya esté en este carril.",
+    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "arcana",
+  },
+  sobrecarga: {
+    label: "Sobrecarga", short: "SOBREC.", icon: Zap, color: "text-violet-300",
+    description: "Al Jugar: gana +2X de poder. Fin de Turno: pierde X (la energía se disipa).",
+    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "arcana",
+  },
+  llamarada: {
+    label: "Llamarada", short: "LLAMARADA", icon: FlameKindling, color: "text-orange-300",
+    description: "Al Jugar: reduce en X el poder de TODAS las cartas enemigas de este carril.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "fuego",
+  },
+  combustion: {
+    label: "Combustión", short: "COMBUST.", icon: Flame, color: "text-orange-300",
+    description: "Último Aliento: reduce en 2X el poder del enemigo más fuerte del carril. Los escudos no lo impiden.",
+    trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "fuego",
+  },
+  escarcha: {
+    label: "Escarcha", short: "ESCARCHA", icon: Snowflake, color: "text-cyan-300",
+    description: "Inicio de Turno: tu escudo se restaura hasta X puntos (renovable, a diferencia de Coraza).",
+    trigger: "start_turn", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "hielo",
+  },
+  ventisca: {
+    label: "Ventisca", short: "VENTISCA", icon: Wind, color: "text-cyan-300",
+    description: "Fin de Turno: reduce en X el poder de TODAS las cartas enemigas de este carril.",
+    trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "hielo",
+  },
+
+  // ------------------------------------------------------------------
+  // DE CLASE ASESINO — exclusivas por spec (V3, Precisión condicional)
+  // ------------------------------------------------------------------
+  veneno: {
+    label: "Veneno", short: "VENENO", icon: FlaskConical, color: "text-lime-300",
+    description: "Inicio de Turno: reduce en X el poder del enemigo más fuerte. El veneno ignora los escudos.",
+    trigger: "start_turn", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "veneno",
+  },
+  contagio: {
+    label: "Contagio", short: "CONTAGIO", icon: Bug, color: "text-lime-300",
+    description: "Fin de Turno: reduce en X el poder del enemigo con más reducciones acumuladas (si ninguna tiene, no hace nada).",
+    trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "veneno",
+  },
+  refriega: {
+    label: "Refriega", short: "REFRIEGA", icon: Sword, color: "text-red-300",
+    description: "Al Jugar: gana +X por cada carta enemiga que ya esté en este carril.",
+    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "combate",
+  },
+  golpe_certero: {
+    label: "Golpe Certero", short: "CERTERO", icon: Crosshair, color: "text-red-300",
+    description: "Al Jugar: reduce en X el poder del enemigo más fuerte de este carril. Los escudos lo absorben (golpe honesto).",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "combate",
+  },
+  emboscada: {
+    label: "Emboscada", short: "EMBOSCAD.", icon: EyeOff, color: "text-indigo-300",
+    description: "Al Jugar: gana +2X si es tu primera carta del turno; si no, gana +X.",
+    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "sigilo",
+  },
+  purga: {
+    label: "Purga", short: "PURGA", icon: Skull, color: "text-indigo-300",
+    description: "Al Jugar: destruye la carta enemiga más débil de este carril con poder ≤ X.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "sigilo",
+  },
 };
 
 export type Rarity = "common" | "rare" | "epic" | "legendary";
@@ -283,6 +422,8 @@ export interface BoardCard {
   keywordValue?: number;
   /** Coraza / Amparo [X] — remaining shield pool (absorbs enemy debuff points; one-shot, no refresh). */
   shieldRemaining?: number;
+  /** Sobrecarga [X] — pending one-shot decay applied at end of the owner's turn. */
+  powerDecay?: number;
   /** Running total of debuff points taken from the enemy — Purificación restores exactly this. */
   debuffTaken?: number;
   /** Log of all power changes applied to this card (for the Registro button in preview). */
@@ -326,9 +467,18 @@ export const LANE_META: Record<
   LaneId,
   { title: string; icon: LucideIcon; color: string }
 > = {
+  // Guerrero
   armas: { title: "ARMAS", icon: Swords, color: "amber" },
   proteccion: { title: "PROTECCIÓN", icon: Shield, color: "sky" },
   furia: { title: "FURIA", icon: Flame, color: "rose" },
+  // Mago
+  arcana: { title: "ARCANA", icon: Wand2, color: "violet" },
+  fuego: { title: "FUEGO", icon: FlameKindling, color: "orange" },
+  hielo: { title: "HIELO", icon: Snowflake, color: "cyan" },
+  // Asesino
+  veneno: { title: "VENENO", icon: FlaskConical, color: "lime" },
+  combate: { title: "COMBATE", icon: Sword, color: "red" },
+  sigilo: { title: "SIGILO", icon: EyeOff, color: "indigo" },
 };
 
 // ---------------------------------------------------------------------------

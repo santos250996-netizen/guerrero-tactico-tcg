@@ -21,6 +21,7 @@ import type {
   CardDef,
   EffectId,
   FinalResult,
+  GameClass,
   HandCard,
   LaneBonus,
   LaneBonuses,
@@ -30,12 +31,22 @@ import type {
   PowerLogEntry,
   Keyword,
 } from "./types";
-import { KEYWORD_META, LANE_BONUS_POOL } from "./types";
+import { CLASS_META, KEYWORD_META, LANE_BONUS_POOL } from "./types";
 import { v4 as uuidv4 } from "uuid";
 
 export type Board = Record<LaneId, LaneState>;
 
 export const LANE_IDS: LaneId[] = ["armas", "proteccion", "furia"];
+export const ALL_LANE_IDS: LaneId[] = [
+  ...CLASS_META.guerrero.lanes,
+  ...CLASS_META.mago.lanes,
+  ...CLASS_META.asesino.lanes,
+];
+
+/** Carriles activos de una clase (el tablero de la partida usa solo estos 3). */
+export function lanesForClass(cls: GameClass): LaneId[] {
+  return CLASS_META[cls].lanes;
+}
 
 export const MAX_TURNS = 6;
 export const MAX_HAND_SIZE = 7;
@@ -54,22 +65,22 @@ export interface TrapState {
 export type LaneTraps = Record<LaneId, TrapState | null>;
 
 export function emptyLaneTraps(): LaneTraps {
-  return { armas: null, proteccion: null, furia: null };
+  return Object.fromEntries(ALL_LANE_IDS.map((ln) => [ln, null])) as LaneTraps;
 }
 
 // ---------------------------------------------------------------------------
 // Per-game lane bonuses: 2 random lanes get a bonus (no repeats), 1 has none
 // ---------------------------------------------------------------------------
 
-export function rollLaneBonuses(): LaneBonuses {
+export function rollLaneBonuses(lanes: LaneId[] = LANE_IDS): LaneBonuses {
   // Pick 2 random lanes (no repeats)
-  const lanes = [...LANE_IDS];
-  for (let i = lanes.length - 1; i > 0; i--) {
+  const pool_lanes = [...lanes];
+  for (let i = pool_lanes.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+    [pool_lanes[i], pool_lanes[j]] = [pool_lanes[j], pool_lanes[i]];
   }
-  const chosenLanes = lanes.slice(0, 2);
-  const remainingLane = lanes[2];
+  const chosenLanes = pool_lanes.slice(0, 2);
+  const remainingLane = pool_lanes[2];
 
   // Pick 2 random bonus kinds (no repeats)
   const pool = [...LANE_BONUS_POOL];
@@ -168,11 +179,11 @@ export function lowestPowerCard(cards: BoardCard[]): BoardCard | null {
 }
 
 function cloneBoard(board: Board): Board {
-  return {
-    armas: { player: [...board.armas.player], enemy: [...board.armas.enemy] },
-    proteccion: { player: [...board.proteccion.player], enemy: [...board.proteccion.enemy] },
-    furia: { player: [...board.furia.player], enemy: [...board.furia.enemy] },
-  };
+  const clone = {} as Board;
+  for (const ln of Object.keys(board) as LaneId[]) {
+    clone[ln] = { player: [...board[ln].player], enemy: [...board[ln].enemy] };
+  }
+  return clone;
 }
 
 /**
@@ -295,6 +306,11 @@ interface BoardMutation {
   powerDelta: number;
   /** Shield points granted (Amparo). Applied in addition to powerDelta. */
   shieldDelta?: number;
+  /** Route a NEGATIVE delta through applyDebuff (shields absorb it).
+   *  Without this flag, on_play debuffs are direct mutations (pierce shields,
+   *  e.g. Hender Armadura). With it, they behave like an honest debuff
+   *  (e.g. Golpe Certero). */
+  viaDebuff?: boolean;
 }
 
 interface RemovedCard {
@@ -397,10 +413,86 @@ function applyEffectLogic(
       break;
     }
 
+    // ---- CONVERGENCIA [X]: +X por cada carta propia ya en el carril ----
+    case "convergencia": {
+      if (x > 0) {
+        accum.bonusPower += x * allyLane.length;
+      }
+      break;
+    }
+
+    // ---- SOBRECARGA [X]: +2X ahora; el −X se cobra en end_turn (powerDecay) ----
+    case "sobrecarga": {
+      if (x > 0) {
+        accum.bonusPower += 2 * x;
+      }
+      break;
+    }
+
+    // ---- LLAMARADA [X]: −X a TODAS las cartas enemigas del carril ----
+    // viaDebuff: los escudos absorben su parte (fuego contra barreras).
+    case "llamarada": {
+      if (x > 0) {
+        for (const enemy of enemyLane) {
+          accum.mutations.push({
+            side: enemySide, lane, uid: enemy.uid, powerDelta: -x, viaDebuff: true,
+          });
+        }
+      }
+      break;
+    }
+
+    // ---- REFRIEGA [X]: +X por cada carta ENEMIGA ya en el carril ----
+    case "refriega": {
+      if (x > 0) {
+        accum.bonusPower += x * enemyLane.length;
+      }
+      break;
+    }
+
+    // ---- GOLPE CERTERO [X]: −X al enemigo más fuerte (escudos SÍ absorben) ----
+    case "golpe_certero": {
+      if (x > 0) {
+        const target = highestPowerCard(enemyLane);
+        if (target) {
+          accum.mutations.push({
+            side: enemySide, lane, uid: target.uid, powerDelta: -x, viaDebuff: true,
+          });
+        }
+      }
+      break;
+    }
+
+    // ---- EMBOSCADA [X]: +2X si es tu 1ª carta del turno; si no, +X ----
+    case "emboscada": {
+      if (x > 0) {
+        const first = (ctx.playsThisTurn ?? 1) === 1;
+        accum.bonusPower += first ? 2 * x : x;
+      }
+      break;
+    }
+
+    // ---- PURGA [X]: destruye la carta enemiga MÁS DÉBIL con poder ≤ X ----
+    case "purga": {
+      if (x > 0) {
+        const candidates = enemyLane.filter((c) => c.currentPower <= x);
+        const target = lowestPowerCard(candidates);
+        if (target) {
+          accum.removedCards.push({
+            side: enemySide,
+            lane,
+            uid: target.uid,
+            reason: "purga",
+          });
+        }
+      }
+      break;
+    }
+
     // ---- Keywords que disparan en OTROS triggers (no-op aquí) ----
-    // fervor / duelista / purificacion → start_turn
-    // fortaleza / crueldad → end_turn
-    // legado → on_death
+    // fervor / duelista / purificacion / escarcha / veneno → start_turn
+    // fortaleza / crueldad / ventisca / contagio → end_turn
+    // legado / combustion → on_death
     // coraza → escudo inicial otorgado en playCard (init del BoardCard)
     default:
       break;
@@ -515,17 +607,22 @@ export function playCard(
     trapTriggered = true;
   }
 
-  // Build a NEW board with mutations applied
-  const newBoard: Board = {
-    armas: { player: [...board.armas.player], enemy: [...board.armas.enemy] },
-    proteccion: { player: [...board.proteccion.player], enemy: [...board.proteccion.enemy] },
-    furia: { player: [...board.furia.player], enemy: [...board.furia.enemy] },
-  };
+  // Build a NEW board with mutations applied (generic over active lanes)
+  const newBoard: Board = {} as Board;
+  for (const ln of Object.keys(board) as LaneId[]) {
+    newBoard[ln] = { player: [...board[ln].player], enemy: [...board[ln].enemy] };
+  }
 
   for (const m of effect.mutations) {
     const arr = newBoard[m.lane][m.side];
     const idx = arr.findIndex((c) => c.uid === m.uid);
     if (idx >= 0) {
+      // Honest on_play debuffs route through applyDebuff so shields absorb
+      // (Golpe Certero). Direct mutations keep piercing (Hender Armadura).
+      if (m.viaDebuff && m.powerDelta < 0) {
+        applyDebuff(newBoard, m.side, m.lane, m.uid, m.powerDelta, handCard.name, "debuff");
+        continue;
+      }
       const cur = arr[idx];
       arr[idx] = {
         ...cur,
@@ -578,6 +675,8 @@ export function playCard(
     keywordValue: handCard.keywordValue,
     // Coraza: self shield granted on play (pool finito, sin refresco)
     shieldRemaining: keyword === "coraza" ? (handCard.keywordValue ?? 0) : undefined,
+    // Sobrecarga: pending one-shot decay charged at end of turn
+    powerDecay: keyword === "sobrecarga" ? (handCard.keywordValue ?? 0) : undefined,
     debuffTaken: 0,
   };
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
@@ -714,6 +813,26 @@ export function scoreAIPlay(
   if (card.keyword === "purificacion") {
     score += 3; // steady utility
   }
+  // ---- V3 keyword estimates the simulation can't see ----
+  if (card.keyword === "veneno") {
+    score += x * 2; // recurring piercing debuff to the strongest enemy
+  }
+  if (card.keyword === "ventisca") {
+    score += x * 1.5 * board[lane].player.length; // recurring AoE pressure
+  }
+  if (card.keyword === "contagio") {
+    const anyPoisoned = board[lane].player.some((c) => (c.debuffTaken ?? 0) > 0);
+    score += anyPoisoned ? x * 1.5 : 0.3; // conditional punish
+  }
+  if (card.keyword === "escarcha") {
+    score += x * 1.2; // renewable shield
+  }
+  if (card.keyword === "combustion") {
+    score += x * 2; // on_death explosion (2X pierce), discounted by condition
+  }
+  if (card.keyword === "llamarada") {
+    score += x * 1.2 * board[lane].player.length; // one-shot AoE (mutations also counted by sim)
+  }
 
   // 11. Avoid playing into a player-owned trap if it would kill the card
   if (sim.trapTriggered && sim.playedCard.currentPower <= 0) {
@@ -732,7 +851,8 @@ export function planEnemyTurn(
   hand: HandCard[],
   energy: number,
   laneBonuses: LaneBonuses,
-  laneTraps: LaneTraps
+  laneTraps: LaneTraps,
+  lanes: LaneId[] = LANE_IDS
 ): AIPlay[] {
   const plays: AIPlay[] = [];
   let workBoard: Board = board;
@@ -746,7 +866,7 @@ export function planEnemyTurn(
 
     let best: AIPlay | null = null;
     for (const card of workHand) {
-      for (const lane of LANE_IDS) {
+      for (const lane of lanes) {
         const laneBonus = laneBonuses[lane];
         if (!isCardCostAllowed(card.cost, laneBonus)) continue;
         const effectiveCost = getFinalCost(card.cost, laneBonus);
@@ -804,7 +924,7 @@ export function planEnemyTurn(
 // Final result computation
 // ---------------------------------------------------------------------------
 
-export function computeFinalResult(board: Board): FinalResult {
+export function computeFinalResult(board: Board, lanes: LaneId[] = LANE_IDS): FinalResult {
   let playerWins = 0;
   let enemyWins = 0;
   let draws = 0;
@@ -812,7 +932,7 @@ export function computeFinalResult(board: Board): FinalResult {
   let totalEnemy = 0;
   const laneOutcomes: LaneOutcome[] = [];
 
-  for (const lane of LANE_IDS) {
+  for (const lane of lanes) {
     const p = calcLanePower(board[lane].player);
     const e = calcLanePower(board[lane].enemy);
     totalPlayer += p;
@@ -868,18 +988,18 @@ export interface TriggerResult {
 
 /**
  * Fire all START_TURN effects on the board for the given side.
- * Keywords: Fervor (+X acumulativo), Duelista (+X si única en carril),
- * Purificación (limpia debuffs del carril).
+ * Keywords: Fervor, Duelista, Purificación (V2) · Escarcha, Veneno (V3).
  */
 export function applyStartTurnEffects(
   board: Board,
   side: "player" | "enemy",
-  _hand: HandCard[] = []
+  _hand: HandCard[] = [],
+  lanes: LaneId[] = LANE_IDS
 ): TriggerResult {
   const newBoard = cloneBoard(board);
   const logs: TriggerResult["logs"] = [];
 
-  for (const lane of LANE_IDS) {
+  for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
       if (card.trigger !== "start_turn") continue;
       const x = card.keywordValue ?? 0;
@@ -929,6 +1049,44 @@ export function applyStartTurnEffects(
           break;
         }
 
+        // ---- ESCARCHA [X]: el escudo propio se restaura hasta X ----
+        case "escarcha": {
+          if (x > 0) {
+            const cur = newBoard[lane][side].find((c) => c.uid === card.uid);
+            if (cur) {
+              const before = cur.shieldRemaining ?? 0;
+              const after = Math.min(x, before + x);
+              const idx = newBoard[lane][side].findIndex((c) => c.uid === card.uid);
+              newBoard[lane][side][idx] = { ...cur, shieldRemaining: after };
+              if (after > before) {
+                logs.push({ side, text: `❄️ ${card.name} (Escarcha): escudo restaurado a ${after}` });
+              }
+            }
+          }
+          break;
+        }
+
+        // ---- VENENO [X]: −X al enemigo más fuerte, IGNORA escudos ----
+        case "veneno": {
+          if (x > 0) {
+            const target = highestPowerCard(newBoard[lane][enemySideOf(side)]);
+            if (target) {
+              applyDebuff(
+                newBoard,
+                enemySideOf(side),
+                lane,
+                target.uid,
+                -x,
+                `${card.name} (Veneno)`,
+                "start_turn",
+                { bypassShield: true }
+              );
+              logs.push({ side, text: `🧪 ${card.name} (Veneno): −${x} a ${target.name} (perfora escudos)` });
+            }
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -940,18 +1098,20 @@ export function applyStartTurnEffects(
 
 /**
  * Fire all END_TURN effects on the board for the given side.
- * Keywords: Fortaleza (+X a todo el carril), Crueldad (−X al enemigo más débil).
+ * Keywords: Fortaleza, Crueldad (V2) · Ventisca, Contagio (V3)
+ * + barrido de powerDecay (Sobrecarga).
  */
 export function applyEndTurnEffects(
   board: Board,
   side: "player" | "enemy",
-  _hand: HandCard[] = []
+  _hand: HandCard[] = [],
+  lanes: LaneId[] = LANE_IDS
 ): TriggerResult {
   const newBoard = cloneBoard(board);
   const logs: TriggerResult["logs"] = [];
   const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
 
-  for (const lane of LANE_IDS) {
+  for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
       if (card.trigger !== "end_turn") continue;
       const x = card.keywordValue ?? 0;
@@ -998,15 +1158,85 @@ export function applyEndTurnEffects(
           break;
       }
     }
+
+    // ---- VENTISCA [X]: −X a TODAS las cartas enemigas del carril ----
+    for (const card of newBoard[lane][side]) {
+      if (card.trigger !== "end_turn" || card.keyword !== "ventisca") continue;
+      const x = card.keywordValue ?? 0;
+      if (x > 0 && newBoard[lane][enemySide].length > 0) {
+        for (const enemy of [...newBoard[lane][enemySide]]) {
+          applyDebuff(
+            newBoard,
+            enemySide,
+            lane,
+            enemy.uid,
+            -x,
+            `${card.name} (Ventisca)`,
+            "end_turn"
+          );
+        }
+        logs.push({ side, text: `❄️ ${card.name} (Ventisca): −${x} a ${newBoard[lane][enemySide].length} enemigo(s) del carril` });
+      }
+    }
+
+    // ---- CONTAGIO [X]: −X al enemigo con MÁS reducciones acumuladas ----
+    for (const card of newBoard[lane][side]) {
+      if (card.trigger !== "end_turn" || card.keyword !== "contagio") continue;
+      const x = card.keywordValue ?? 0;
+      const poisoned = newBoard[lane][enemySide].filter((c) => (c.debuffTaken ?? 0) > 0);
+      if (x > 0 && poisoned.length > 0) {
+        // Más veneno acumulado; empate → el más débil (remátalo antes)
+        let target = poisoned[0];
+        for (const c of poisoned) {
+          if (
+            (c.debuffTaken ?? 0) > (target.debuffTaken ?? 0) ||
+            ((c.debuffTaken ?? 0) === (target.debuffTaken ?? 0) && c.currentPower < target.currentPower)
+          ) {
+            target = c;
+          }
+        }
+        const res = applyDebuff(
+          newBoard,
+          enemySide,
+          lane,
+          target.uid,
+          -x,
+          `${card.name} (Contagio)`,
+          "end_turn"
+        );
+        const blockedNote = res.absorbedByShield > 0 && res.appliedDelta === 0 ? " (BLOQUEADO por escudo)" : "";
+        logs.push({ side, text: `🧪 ${card.name} (Contagio): ${res.appliedDelta} a ${target.name}${blockedNote}` });
+      }
+    }
+  }
+
+  // ---- Barrido de powerDecay (Sobrecarga): one-shot al cierre del turno ----
+  for (const lane of lanes) {
+    for (const card of [...newBoard[lane][side]]) {
+      const decay = card.powerDecay ?? 0;
+      if (decay > 0) {
+        applyPowerDelta(newBoard, side, lane, card.uid, -decay, `${card.name} (Sobrecarga se disipa)`, "end_turn");
+        const idx = newBoard[lane][side].findIndex((c) => c.uid === card.uid);
+        if (idx >= 0) {
+          newBoard[lane][side][idx] = { ...newBoard[lane][side][idx], powerDecay: 0 };
+        }
+        logs.push({ side, text: `⚡ ${card.name}: Sobrecarga se disipa (−${decay})` });
+      }
+    }
   }
 
   return { board: newBoard, logs };
 }
 
+function enemySideOf(side: "player" | "enemy"): "player" | "enemy" {
+  return side === "player" ? "enemy" : "player";
+}
+
 /**
  * Fire ON_DEATH effects when a card is destroyed. The caller passes the
  * dying card and its location; this function dispatches its keyword.
- * Keywords: Legado (+X al aliado más débil del carril).
+ * Keywords: Legado (+X al aliado más débil, V2) · Combustión (−2X al enemigo
+ * más fuerte perforando escudos, V3).
  */
 export function applyOnDeathEffects(
   board: Board,
@@ -1029,6 +1259,16 @@ export function applyOnDeathEffects(
     if (target) {
       applyPowerDelta(newBoard, side, lane, target.uid, x, `${deadCard.name} (Legado)`, "on_death");
       logs.push({ side, text: `💀 ${deadCard.name} (Legado): +${x} a ${target.name}` });
+    }
+  }
+
+  // ---- COMBUSTIÓN [X]: al morir, −2X al enemigo más fuerte (ignora escudos) ----
+  if (deadCard.keyword === "combustion" && x > 0) {
+    const target = highestPowerCard(newBoard[lane][enemySideOf(side)]);
+    if (target) {
+      // Mutación directa: la explosión no pasa por applyDebuff → perfora escudos
+      applyPowerDelta(newBoard, enemySideOf(side), lane, target.uid, -2 * x, `${deadCard.name} (Combustión)`, "on_death");
+      logs.push({ side, text: `🔥 ${deadCard.name} (Combustión): −${2 * x} a ${target.name} (explota, perfora escudos)` });
     }
   }
 

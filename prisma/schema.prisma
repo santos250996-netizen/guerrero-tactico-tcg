@@ -25,6 +25,7 @@ model Match {
   laneProtE    Int
   laneFuriaP   Int
   laneFuriaE   Int
+  gameClass    String?
   createdAt    DateTime @default(now())
 }
 

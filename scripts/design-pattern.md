@@ -95,6 +95,46 @@ Interpretación visual de cada keyword, tomada de su texto de efecto:
 - **Crueldad** ("reduce en X al enemigo más débil"): DEPREDADOR que elige a la
   presa más débil — mirada fría fijada en el enemigo herido/tambaleante,
   misericordia cero.
+- **Convergencia** ("+X por cada carta tuya ya en el carril"): ENERGÍA QUE CONFLUYE —
+  múltiples corrientes/runas/estrellas convergiendo hacia un punto central que
+  se potencia; el mago se alimenta de su propio despliegue.
+- **Sobrecarga** ("+2X ahora, pierde X al final del turno"): PODER QUE SE DESBORDA —
+  el objeto/mago emite energía en exceso (fisuras de luz, arcos eléctricos
+  escapando), visualmente INESTABLE; insinuar la energía que se evaporará.
+- **Llamarada** ("−X a TODOS los enemigos del carril"): CONO DE FUEGO HORIZONTAL —
+  una ola de llamas barriendo a TODA la línea enemiga a la vez, brasas y humo
+  cubriendo múltiples figuras afectadas.
+- **Combustión** ("último aliento: −2X al más fuerte, perfora escudos"): EXPLOSIÓN
+  POST-MORTEM — el cuerpo del caído estalla en llamas cuya onda de choque alcanza
+  al enemigo MÁS FUERTE atravesando su barrera como si fuera papel.
+- **Escarcha** ("escudo propio restaurado hasta X cada turno"): CRISTAL QUE SE
+  RECONSTRUYE — barrera de hielo con grietas que se están VOLVIENDO A SOLDAR,
+  escarcha nueva creciendo sobre las fisuras (defensa viva, no estática).
+- **Ventisca** ("fin de turno: −X a TODOS los enemigos del carril"): TORMENTA DE
+  NIEVE CORTANTE — ráfagas horizontales de hielo golpeando a toda la línea
+  rival, figuras encorvadas bajo el viento blanco.
+- **Veneno** ("−X al más fuerte, ignora escudos"): GOTEA A TRAVÉS DE LA DEFENSA —
+  gotas verdes viscosas resbalando SOBRE/POR DENTRO de la armadura o barrera
+  enemiga; el escudo sigue intacto pero el veneno ya está dentro (otorga la
+  paradoja visual: protección inútil).
+- **Contagio** ("−X al enemigo con más reducciones acumuladas"): LA PLAGA ELIGE SU
+  PRESA — entre varios enemigos, las manchas/taches verdes marcan AL MÁS AFECTADO,
+  que se tambalea mientras la infección avanza; si nadie está contaminado,
+  la niebla no encuentra anfitrión.
+- **Refriega** ("+X por cada enemigo en el carril"): RODEADO PERO FURIOSO — un
+  combatiente contra MÚLTIPLES rivales, cada enemigo presente alimentando su
+  ferocidad (sonrisa desafiante, arma girando contra el grupo).
+- **Golpe Certero** ("−X al más fuerte, los escudos SÍ absorben"): GOLPE HONESTO
+  CONTRA LA TORRE — impacto limpio y directo contra el campeón más imponente,
+  y la barrera de energía del rival VISIBLEMENTE absorbiendo parte del golpe
+  (chispas donde toca el escudo).
+- **Emboscada** ("+2X si es tu primera carta del turno"): PRIMER GOLPE DESDE LA
+  SOMBRA — el atacante emerge de la penumbra con ventaja total (sorpresa absoluta,
+  el objetivo aún no reacciona); dosificar la luz para sugerir que es el primer
+  movimiento del día.
+- **Purga** ("destruye la carta enemiga MÁS DÉBIL con poder ≤ X"): LIMPIEZA
+  QUIRÚRGICA — la cuchilla elimina al eslabón más flojo de la línea enemiga;
+  el fuerte pasa de largo mientras el débil cae (jerarquía visual clara).
 
 Al diseñar una keyword NUEVA: añadir aquí su interpretación visual ANTES de
 generar su arte.
@@ -144,6 +184,18 @@ se rediseña la que esté fuera.
   geometría de escudos.
 - **FURIA**: PROHIBIDO el acero pulido — pintura de guerra, músculo y tatuajes
   expuestos, cuero crudo, huesos, pieles, brutalidad depredadora.
+- **ARCANA**: runas flotantes, levitación, energía violeta/azul, geometría mágica,
+  grimorios y constelaciones; los objetos arcanos DESBORDAN luz.
+- **FUEGO**: brasas voladoras, ceniza, calor visible (distorsión), rojos/naranjas
+  saturados; cada escena debe QUEMAR o haber quemado.
+- **HIELO**: escarcha sobre todo, aliento visible, paleta azul pálido/blanco,
+  cristales translúcidos; el frío debe poder TOCARSE en la imagen.
+- **VENENO**: verdes ácidos, burbujas, frascos y ampollas, humo tóxico denso,
+  vegetación corrompida; el tóxico siempre VISIBLE (gotea, mancha, humea).
+- **COMBATE**: acero funcional sin ornamentos, cicatrices, poses de lucha real,
+  polvo y fricción; la técnica gana a la magia.
+- **SIGILO**: sombras duras, capas, luz de luna recortada, medias luces; lo que
+  importa está A PUNTO de suceder (tensión pre-ataque) o acaba de ocurrir.
 
 ## CARTAS DE ATAQUE (3 enfoques posibles)
 - 1ª persona: Solo el arma ejecutando el ataque contra algo/alguien

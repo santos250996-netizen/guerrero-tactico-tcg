@@ -26,6 +26,7 @@ const matchInputSchema = z.object({
   laneProtE: laneScore,
   laneFuriaP: laneScore,
   laneFuriaE: laneScore,
+  gameClass: z.enum(["guerrero", "mago", "asesino"]).optional(),
 });
 
 export async function POST(req: Request) {

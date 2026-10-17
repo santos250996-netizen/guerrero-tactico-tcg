@@ -2,10 +2,12 @@
 
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { ArrowLeft, Lock, Swords, Sparkles, Skull, Library, Play, ChevronRight } from "lucide-react";
+import { ArrowLeft, Lock, Swords, Sparkles, Skull, Library, Play, ChevronRight, Wand2, EyeOff } from "lucide-react";
+import type { GameClass } from "@/lib/game/types";
+import { CLASS_META } from "@/lib/game/types";
 
 interface ClassDef {
-  id: string;
+  id: GameClass;
   name: string;
   subtypes: string;
   keywords: string[];
@@ -24,37 +26,37 @@ const CLASSES: ClassDef[] = [
     id: "guerrero",
     name: "GUERRERO",
     subtypes: "Armas · Protección · Furia",
-    keywords: ["Sangrado", "Cúpula", "Perforación", "Espinas", "Guardián", "Desarme", "Mejora", "Frenesí", "Enrabia"],
+    keywords: ["Hender Armadura", "Duelista", "Amparo", "Purificación", "Ímpetu", "Crueldad"],
     icon: <Swords className="h-7 w-7" strokeWidth={2.2} />,
     color: "amber",
     unlocked: true,
     desc: "Maestro del combate cuerpo a cuerpo. Domina los tres carriles con tácticas agresivas, defensa sólida y furia desatada.",
     tagline: "Fuerza · Disciplina · Sangre",
-    cardCount: 94,
+    cardCount: 12,
   },
   {
     id: "mago",
     name: "MAGO",
-    subtypes: "Arcano · Elemental · Ilusión",
-    keywords: ["Drenaje", "Calcinar", "Espejismo"],
-    icon: <Sparkles className="h-7 w-7" strokeWidth={2.2} />,
+    subtypes: "Arcana · Fuego · Hielo",
+    keywords: ["Convergencia", "Sobrecarga", "Llamarada", "Combustión", "Escarcha", "Ventisca"],
+    icon: <Wand2 className="h-7 w-7" strokeWidth={2.2} />,
     color: "violet",
-    unlocked: false,
-    desc: "Tejedores de arcano. Manipulan elementos y crean ilusiones para confundir al enemigo.",
-    tagline: "Mana · Elementos · Engaño",
-    cardCount: 0,
+    unlocked: true,
+    desc: "Tejedor de arcano. Poder alto que entra de golpe y se disipa: llamaradas devoradoras, hielo restaurable y maná desbordante.",
+    tagline: "Maná · Elementos · Burst",
+    cardCount: 12,
   },
   {
     id: "asesino",
     name: "ASESINO",
-    subtypes: "Sombras · Veneno · Sigilo",
-    keywords: ["Emboscada", "Veneno", "Sigilo"],
-    icon: <Skull className="h-7 w-7" strokeWidth={2.2} />,
+    subtypes: "Veneno · Combate · Sigilo",
+    keywords: ["Veneno", "Contagio", "Refriega", "Golpe Certero", "Emboscada", "Purga"],
+    icon: <EyeOff className="h-7 w-7" strokeWidth={2.2} />,
     color: "emerald",
-    unlocked: false,
-    desc: "Maestros del sigilo y el veneno. Acechan desde las sombras y eliminan objetivos con precisión letal.",
-    tagline: "Sigilo · Veneno · Muerte",
-    cardCount: 0,
+    unlocked: true,
+    desc: "Precisión quirúrgica. Veneno que perfora escudos, golpes que castigan descuidos y cuchillas que limpian a los débiles.",
+    tagline: "Sigilo · Veneno · Precisión",
+    cardCount: 12,
   },
 ];
 
@@ -111,19 +113,22 @@ const COLOR_MAP: Record<ClassDef["color"], {
 export function ClassSelect() {
   const setView = useGameStore((s) => s.setView);
   const initGame = useGameStore((s) => s.initGame);
+  const selectClass = useGameStore((s) => s.selectClass);
   const loadDeckAndPool = useGameStore((s) => s.loadDeckAndPool);
   const deckLoading = useGameStore((s) => s.deckLoading);
   const setDeckEditorReturn = useGameStore((s) => s.setDeckEditorReturn);
 
   // Quick-play with default deck for selected class
-  const quickPlay = async () => {
+  const quickPlay = async (cls: GameClass) => {
+    selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
     initGame();
     setView("game");
   };
 
   // Open deck editor — remember we came from class-select
-  const openDeckEditor = async () => {
+  const openDeckEditor = async (cls: GameClass) => {
+    selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
     setDeckEditorReturn("class-select");
     setView("editor");
@@ -282,7 +287,7 @@ export function ClassSelect() {
                   <div className="grid grid-cols-5 gap-1.5 border-t border-zinc-800/60 bg-black/30 p-2.5">
                     {/* Personalizar Mazo — secondary, 2/5 width */}
                     <button
-                      onClick={openDeckEditor}
+                      onClick={() => openDeckEditor(cls.id)}
                       className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/70 py-2.5 text-[9px] font-black uppercase tracking-wider text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
                       title="Personalizar mazo"
                     >
@@ -293,7 +298,7 @@ export function ClassSelect() {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={quickPlay}
+                      onClick={() => quickPlay(cls.id)}
                       className={`col-span-3 flex items-center justify-center gap-2 rounded-lg border bg-gradient-to-r ${c.btnPrimary} py-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md transition-all`}
                       style={{
                         fontFamily: 'var(--font-cinzel), serif',

@@ -61,6 +61,20 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   purificacion: 2.0, // utilidad fija (restaura debuffs)
   impetu: 1.5, // +X por carta jugada ese turno (1-3 típico)
   crueldad: 2.0, // −X/turno al más débil (presión constante)
+  // --- Mago V3 (Burst) ---
+  convergencia: 1.0, // +X por aliado propio ya en carril (0-3 típico)
+  sobrecarga: 1.5, // neto +X pero frontloaded +2X (prima burst)
+  llamarada: 1.5, // −X AoE one-shot (media ~1.8 objetivos)
+  combustion: 1.0, // −2X al morir perforando (condicional on_death)
+  escarcha: 1.5, // escudo renovable hasta X cada turno
+  ventisca: 1.5, // −X AoE cada fin de turno (desgaste)
+  // --- Asesino V3 (Precisión) ---
+  veneno: 2.0, // −X/turno perforante al más fuerte (anti-tanque)
+  contagio: 1.5, // −X/turno condicional al más envenenado
+  refriega: 1.0, // +X por enemigo en carril (anti-numbers)
+  golpe_certero: 1.0, // −X one-shot honesto (escudos absorben)
+  emboscada: 1.5, // media entre +2X (1ª carta) y +X
+  purga: 1.8, // destrucción del más débil ≤X (algo más fácil que Remate)
 };
 
 export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): number {

@@ -1,0 +1,1037 @@
+     1→// ============================================================================
+     2→// GUERRERO TÁCTICO — ENGINE V2 (limpieza total, spec 2026-10)
+     3→// ============================================================================
+     4→// Solo 4 triggers: on_play / start_turn / end_turn / on_death.
+     5→// 12 keywords (6 neutrales + 6 de Guerrero) resueltas por `keyword` en:
+     6→//   - on_play    → applyEffectLogic (dentro de computeEffect, antes de colocarse)
+     7→//   - start_turn → applyStartTurnEffects
+     8→//   - end_turn   → applyEndTurnEffects
+     9→//   - on_death   → applyOnDeathEffects
+    10→//
+    11→// Escudos: `shieldRemaining` por carta (Coraza/Amparo). Pool finito, SIN
+    12→// refresco. Solo `applyDebuff` consulta escudos — las mutaciones directas de
+    13→// on_play (Hender Armadura) los ignoran por diseño (keyword perforante).
+    14→//
+    15→// Purificación: `debuffTaken` acumula los puntos de reducción sufridos por
+    16→// cada carta; Purificación los restaura y pone a cero.
+    17→// ============================================================================
+    18→
+    19→import type {
+    20→  BoardCard,
+    21→  CardDef,
+    22→  EffectId,
+    23→  FinalResult,
+    24→  HandCard,
+    25→  LaneBonus,
+    26→  LaneBonuses,
+    27→  LaneId,
+    28→  LaneOutcome,
+    29→  LaneState,
+    30→  PowerLogEntry,
+    31→  Keyword,
+    32→} from "./types";
+    33→import { KEYWORD_META, LANE_BONUS_POOL } from "./types";
+    34→import { v4 as uuidv4 } from "uuid";
+    35→
+    36→export type Board = Record<LaneId, LaneState>;
+    37→
+    38→export const LANE_IDS: LaneId[] = ["armas", "proteccion", "furia"];
+    39→
+    40→export const MAX_TURNS = 6;
+    41→export const MAX_HAND_SIZE = 7;
+    42→export const MAX_LANE_CARDS = 4;
+    43→export const STARTING_HAND_SIZE = 5;
+    44→
+    45→// ---------------------------------------------------------------------------
+    46→// Trap state (plumbing preserved — no current keyword sets traps)
+    47→// ---------------------------------------------------------------------------
+    48→
+    49→export interface TrapState {
+    50→  owner: "player" | "enemy";
+    51→  value: number;
+    52→}
+    53→
+    54→export type LaneTraps = Record<LaneId, TrapState | null>;
+    55→
+    56→export function emptyLaneTraps(): LaneTraps {
+    57→  return { armas: null, proteccion: null, furia: null };
+    58→}
+    59→
+    60→// ---------------------------------------------------------------------------
+    61→// Per-game lane bonuses: 2 random lanes get a bonus (no repeats), 1 has none
+    62→// ---------------------------------------------------------------------------
+    63→
+    64→export function rollLaneBonuses(): LaneBonuses {
+    65→  // Pick 2 random lanes (no repeats)
+    66→  const lanes = [...LANE_IDS];
+    67→  for (let i = lanes.length - 1; i > 0; i--) {
+    68→    const j = Math.floor(Math.random() * (i + 1));
+    69→    [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+    70→  }
+    71→  const chosenLanes = lanes.slice(0, 2);
+    72→  const remainingLane = lanes[2];
+    73→
+    74→  // Pick 2 random bonus kinds (no repeats)
+    75→  const pool = [...LANE_BONUS_POOL];
+    76→  for (let i = pool.length - 1; i > 0; i--) {
+    77→    const j = Math.floor(Math.random() * (i + 1));
+    78→    [pool[i], pool[j]] = [pool[j], pool[i]];
+    79→  }
+    80→  const chosenBonuses = pool.slice(0, 2);
+    81→
+    82→  return {
+    83→    [chosenLanes[0]]: chosenBonuses[0],
+    84→    [chosenLanes[1]]: chosenBonuses[1],
+    85→    [remainingLane]: null,
+    86→  } as LaneBonuses;
+    87→}
+    88→
+    89→// ---------------------------------------------------------------------------
+    90→// Lane bonus helpers: effective cost, max cards per side, validation
+    91→// ---------------------------------------------------------------------------
+    92→
+    93→export function getEffectiveCost(baseCost: number, bonus: LaneBonus | null): number {
+    94→  if (!bonus) return baseCost;
+    95→  if (bonus.kind === "cost_neg") return Math.max(1, baseCost - 1);
+    96→  if (bonus.kind === "cost_pos") return baseCost + 1;
+    97→  return baseCost;
+    98→}
+    99→
+   100→/** Final energy cost of a card after lane bonus adjustments. */
+   101→export function getFinalCost(baseCost: number, bonus: LaneBonus | null): number {
+   102→  return getEffectiveCost(baseCost, bonus);
+   103→}
+   104→
+   105→export function getLaneMaxCards(bonus: LaneBonus | null): number {
+   106→  if (!bonus) return MAX_LANE_CARDS;
+   107→  if (bonus.kind === "limit_1") return 1;
+   108→  if (bonus.kind === "limit_3") return 3;
+   109→  return MAX_LANE_CARDS;
+   110→}
+   111→
+   112→export function isCardCostAllowed(cardCost: number, bonus: LaneBonus | null): boolean {
+   113→  if (!bonus) return true;
+   114→  if (bonus.kind === "cost_only_1") return cardCost === 1;
+   115→  if (bonus.kind === "cost_only_3") return cardCost === 3;
+   116→  if (bonus.kind === "cost_only_5") return cardCost === 5;
+   117→  return true;
+   118→}
+   119→
+   120→export function getLaneBonusPower(
+   121→  cardCategory: CardDef["category"],
+   122→  bonus: LaneBonus | null
+   123→): number {
+   124→  if (!bonus) return 0;
+   125→  if (bonus.kind === "cat_ataque" && cardCategory === "Ataque") return 3;
+   126→  if (bonus.kind === "cat_item" && cardCategory === "Ítem") return 3;
+   127→  if (bonus.kind === "cat_accion" && cardCategory === "Acción") return 3;
+   128→  return 0;
+   129→}
+   130→
+   131→// ---------------------------------------------------------------------------
+   132→// Power & scoring helpers
+   133→// ---------------------------------------------------------------------------
+   134→
+   135→export function calcLanePower(cards: BoardCard[]): number {
+   136→  return cards.reduce((acc, c) => acc + c.currentPower, 0);
+   137→}
+   138→
+   139→export function laneOutcome(
+   140→  lane: LaneId,
+   141→  state: Board
+   142→): { player: number; enemy: number; winner: "player" | "enemy" | "draw" } {
+   143→  const p = calcLanePower(state[lane].player);
+   144→  const e = calcLanePower(state[lane].enemy);
+   145→  return {
+   146→    player: p,
+   147→    enemy: e,
+   148→    winner: p > e ? "player" : e > p ? "enemy" : "draw",
+   149→  };
+   150→}
+   151→
+   152→function highestPowerCard(cards: BoardCard[]): BoardCard | null {
+   153→  if (cards.length === 0) return null;
+   154→  let best = cards[0];
+   155→  for (const c of cards) {
+   156→    if (c.currentPower > best.currentPower) best = c;
+   157→  }
+   158→  return best;
+   159→}
+   160→
+   161→export function lowestPowerCard(cards: BoardCard[]): BoardCard | null {
+   162→  if (cards.length === 0) return null;
+   163→  let best = cards[0];
+   164→  for (const c of cards) {
+   165→    if (c.currentPower < best.currentPower) best = c;
+   166→  }
+   167→  return best;
+   168→}
+   169→
+   170→function cloneBoard(board: Board): Board {
+   171→  return {
+   172→    armas: { player: [...board.armas.player], enemy: [...board.armas.enemy] },
+   173→    proteccion: { player: [...board.proteccion.player], enemy: [...board.proteccion.enemy] },
+   174→    furia: { player: [...board.furia.player], enemy: [...board.furia.enemy] },
+   175→  };
+   176→}
+   177→
+   178→/**
+   179→ * Apply a raw power delta to a card on the board (mutates the board arrays).
+   180→ * Negative deltas also accumulate into the target's `debuffTaken` so that
+   181→ * Purificación can restore exactly the reductions suffered.
+   182→ */
+   183→function applyPowerDelta(
+   184→  board: Board,
+   185→  side: "player" | "enemy",
+   186→  lane: LaneId,
+   187→  uid: string,
+   188→  delta: number,
+   189→  source?: string,
+   190→  kind?: PowerLogEntry["kind"],
+   191→) {
+   192→  const arr = board[lane][side];
+   193→  const idx = arr.findIndex((c) => c.uid === uid);
+   194→  if (idx < 0) return;
+   195→  const cur = arr[idx];
+   196→  const newPower = Math.max(0, cur.currentPower + delta);
+   197→  const newLog = source && kind
+   198→    ? [...(cur.powerLog ?? []), { source, delta, kind }]
+   199→    : cur.powerLog;
+   200→  arr[idx] = {
+   201→    ...cur,
+   202→    currentPower: newPower,
+   203→    powerLog: newLog,
+   204→    debuffTaken:
+   205→      delta < 0 ? Math.max(0, (cur.debuffTaken ?? 0) + Math.abs(delta)) : cur.debuffTaken,
+   206→  };
+   207→}
+   208→
+   209→// ---------------------------------------------------------------------------
+   210→// DEBUFF PIPELINE (simplificado — escudos por carta)
+   211→// ---------------------------------------------------------------------------
+   212→// Toda reducción de poder ENEMIGA peri-turno pasa por `applyDebuff`:
+   213→//   1. Si el objetivo tiene `shieldRemaining > 0` (Coraza/Amparo), absorbe
+   214→//      hasta X puntos del debuff. El pool se consume y NO se renueva.
+   215→//   2. El residual (si queda) aplica via applyPowerDelta (que acumula
+   216→//      `debuffTaken` para Purificación).
+   217→//
+   218→// `bypassShield: true` salta el paso 1 (Hender Armadura usa mutaciones
+   219→// directas en on_play, que de por sí ignoran escudos).
+   220→// ---------------------------------------------------------------------------
+   221→
+   222→export interface DebuffResult {
+   223→  /** Final negative delta actually applied (0 if fully absorbed). */
+   224→  appliedDelta: number;
+   225→  /** Points absorbed by the target's shield. */
+   226→  absorbedByShield: number;
+   227→}
+   228→
+   229→export function applyDebuff(
+   230→  board: Board,
+   231→  side: "player" | "enemy",
+   232→  lane: LaneId,
+   233→  uid: string,
+   234→  delta: number,
+   235→  source: string,
+   236→  kind: PowerLogEntry["kind"],
+   237→  opts?: { bypassShield?: boolean },
+   238→): DebuffResult {
+   239→  // Buffs pass through untouched.
+   240→  if (delta >= 0) {
+   241→    applyPowerDelta(board, side, lane, uid, delta, source, kind);
+   242→    return { appliedDelta: delta, absorbedByShield: 0 };
+   243→  }
+   244→
+   245→  const arr = board[lane][side];
+   246→  const idx = arr.findIndex((c) => c.uid === uid);
+   247→  if (idx < 0) return { appliedDelta: 0, absorbedByShield: 0 };
+   248→
+   249→  const target = arr[idx];
+   250→  const mag = Math.abs(delta);
+   251→
+   252→  // Shield absorption (Coraza / Amparo pool)
+   253→  let effectiveMag = mag;
+   254→  let absorbed = 0;
+   255→  const shield = target.shieldRemaining ?? 0;
+   256→  if (shield > 0 && !opts?.bypassShield) {
+   257→    absorbed = Math.min(mag, shield);
+   258→    effectiveMag = mag - absorbed;
+   259→    arr[idx] = { ...target, shieldRemaining: shield - absorbed };
+   260→  }
+   261→
+   262→  if (effectiveMag > 0) {
+   263→    applyPowerDelta(board, side, lane, uid, -effectiveMag, source, kind);
+   264→  } else {
+   265→    // Fully absorbed — still log a 0-delta trace for the Registro.
+   266→    arr[idx] = {
+   267→      ...(arr[idx]),
+   268→      powerLog: [...(arr[idx].powerLog ?? []), { source: `${source} (absorbido)`, delta: 0, kind }],
+   269→    };
+   270→  }
+   271→
+   272→  return { appliedDelta: -effectiveMag, absorbedByShield: absorbed };
+   273→}
+   274→
+   275→// ---------------------------------------------------------------------------
+   276→// Card effect computation (on_play)
+   277→// ---------------------------------------------------------------------------
+   278→
+   279→interface EffectContext {
+   280→  board: Board;
+   281→  side: "player" | "enemy";
+   282→  lane: LaneId;
+   283→  card: CardDef;
+   284→  handBonus: number;
+   285→  hand: HandCard[];
+   286→  laneBonus: LaneBonus | null;
+   287→  /** Cards the side has played THIS turn, including this one (for Ímpetu). */
+   288→  playsThisTurn?: number;
+   289→}
+   290→
+   291→interface BoardMutation {
+   292→  side: "player" | "enemy";
+   293→  lane: LaneId;
+   294→  uid: string;
+   295→  powerDelta: number;
+   296→  /** Shield points granted (Amparo). Applied in addition to powerDelta. */
+   297→  shieldDelta?: number;
+   298→}
+   299→
+   300→interface RemovedCard {
+   301→  side: "player" | "enemy";
+   302→  lane: LaneId;
+   303→  uid: string;
+   304→  reason: string;
+   305→}
+   306→
+   307→interface EffectResult {
+   308→  finalPower: number;
+   309→  mutations: BoardMutation[];
+   310→  removedCards: RemovedCard[];
+   311→  energyNextTurnDelta?: number;
+   312→}
+   313→
+   314→interface EffectAccumulator {
+   315→  bonusPower: number;
+   316→  mutations: BoardMutation[];
+   317→  removedCards: RemovedCard[];
+   318→}
+   319→
+   320→function newAccumulator(): EffectAccumulator {
+   321→  return { bonusPower: 0, mutations: [], removedCards: [] };
+   322→}
+   323→
+   324→/**
+   325→ * on_play logic — runs BEFORE the card is placed. The card being played is
+   326→ * NOT in `allyLane`, so "aliados del carril" = existing allies only.
+   327→ */
+   328→function applyEffectLogic(
+   329→  keyword: Keyword,
+   330→  ctx: EffectContext,
+   331→  allyLane: BoardCard[],
+   332→  enemyLane: BoardCard[],
+   333→  enemySide: "player" | "enemy",
+   334→  accum: EffectAccumulator
+   335→): void {
+   336→  const { side, lane, card } = ctx;
+   337→  const x = card.keywordValue ?? 0;
+   338→
+   339→  switch (keyword) {
+   340→    // ---- INSIGNIA [X]: +X permanente al aliado más débil del carril ----
+   341→    case "insignia": {
+   342→      if (x > 0) {
+   343→        const target = lowestPowerCard(allyLane);
+   344→        if (target) {
+   345→          accum.mutations.push({ side, lane, uid: target.uid, powerDelta: x });
+   346→        }
+   347→      }
+   348→      break;
+   349→    }
+   350→
+   351→    // ---- REMATE [X]: destruye la carta enemiga más fuerte con poder ≤ X ----
+   352→    case "remate": {
+   353→      if (x > 0) {
+   354→        const candidates = enemyLane.filter((c) => c.currentPower <= x);
+   355→        const target = highestPowerCard(candidates);
+   356→        if (target) {
+   357→          accum.removedCards.push({
+   358→            side: enemySide,
+   359→            lane,
+   360→            uid: target.uid,
+   361→            reason: "remate",
+   362→          });
+   363→        }
+   364→      }
+   365→      break;
+   366→    }
+   367→
+   368→    // ---- HENDER ARMADURA [X]: −X al enemigo más fuerte, IGNORA escudos ----
+   369→    // Mutación directa: las mutaciones de on_play no pasan por applyDebuff,
+   370→    // así que los escudos no protegen (comportamiento deseado).
+   371→    case "hender_armadura": {
+   372→      if (x > 0) {
+   373→        const target = highestPowerCard(enemyLane);
+   374→        if (target) {
+   375→          accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -x });
+   376→        }
+   377→      }
+   378→      break;
+   379→    }
+   380→
+   381→    // ---- AMPARO [X]: escudo X a las demás cartas del carril ----
+   382→    // La carta nueva aún no está colocada → todas las existentes son "demás".
+   383→    case "amparo": {
+   384→      if (x > 0) {
+   385→        for (const ally of allyLane) {
+   386→          accum.mutations.push({ side, lane, uid: ally.uid, powerDelta: 0, shieldDelta: x });
+   387→        }
+   388→      }
+   389→      break;
+   390→    }
+   391→
+   392→    // ---- ÍMPETU [X]: +X por cada carta jugada este turno (incluida esta) ----
+   393→    case "impetu": {
+   394→      if (x > 0) {
+   395→        accum.bonusPower += x * Math.max(1, ctx.playsThisTurn ?? 1);
+   396→      }
+   397→      break;
+   398→    }
+   399→
+   400→    // ---- Keywords que disparan en OTROS triggers (no-op aquí) ----
+   401→    // fervor / duelista / purificacion → start_turn
+   402→    // fortaleza / crueldad → end_turn
+   403→    // legado → on_death
+   404→    // coraza → escudo inicial otorgado en playCard (init del BoardCard)
+   405→    default:
+   406→      break;
+   407→  }
+   408→}
+   409→
+   410→/** Compute the final power + side effects of a card being played into `lane`. */
+   411→export function computeEffect(ctx: EffectContext): EffectResult {
+   412→  const { card, handBonus, lane, laneBonus } = ctx;
+   413→
+   414→  let finalPower = card.power + handBonus;
+   415→
+   416→  // 1. Subtype synergy: +2 if card has the lane as a subtype
+   417→  if (card.subtypes.includes(lane)) finalPower += 2;
+   418→
+   419→  // 2. Per-game lane bonus: +3 if category matches the bonus's category
+   420→  finalPower += getLaneBonusPower(card.category, laneBonus);
+   421→
+   422→  const enemySide: "player" | "enemy" = ctx.side === "player" ? "enemy" : "player";
+   423→  const allyLane = ctx.board[lane][ctx.side];
+   424→  const enemyLane = ctx.board[lane][enemySide];
+   425→
+   426→  const keyword: Keyword = card.keyword ?? "none";
+   427→  const accum = newAccumulator();
+   428→  applyEffectLogic(keyword, ctx, allyLane, enemyLane, enemySide, accum);
+   429→
+   430→  finalPower += accum.bonusPower;
+   431→
+   432→  return {
+   433→    finalPower,
+   434→    mutations: accum.mutations,
+   435→    removedCards: accum.removedCards,
+   436→  };
+   437→}
+   438→
+   439→// ---------------------------------------------------------------------------
+   440→// Play execution (mutates a board snapshot)
+   441→// ---------------------------------------------------------------------------
+   442→
+   443→export interface PlayResult {
+   444→  board: Board;
+   445→  hand: HandCard[];
+   446→  remainingEnergy: number;
+   447→  playedCard: BoardCard;
+   448→  mutations: BoardMutation[];
+   449→  removedCards: RemovedCard[];
+   450→  trapTriggered: boolean;
+   451→  newTrap?: TrapState;
+   452→  energyNextTurnDelta?: number;
+   453→}
+   454→
+   455→/**
+   456→ * Immutably play a card from the hand into a lane. Returns a new board+hand+energy.
+   457→ * Throws if invalid (not enough energy, lane full, cost-restricted, etc.).
+   458→ *
+   459→ * `playsThisTurn` = cards this side has already played this turn INCLUDING
+   460→ * this one (Ímpetu). gameStore passes `state.playsThisTurn + 1`;
+   461→ * planEnemyTurn passes `plays.length + 1`.
+   462→ */
+   463→export function playCard(
+   464→  board: Board,
+   465→  hand: HandCard[],
+   466→  energy: number,
+   467→  side: "player" | "enemy",
+   468→  lane: LaneId,
+   469→  handCard: HandCard,
+   470→  laneBonus: LaneBonus | null,
+   471→  activeTrap: TrapState | null,
+   472→  playsThisTurn = 1
+   473→): PlayResult {
+   474→  // 1. Cost restriction (solo coste X)
+   475→  if (!isCardCostAllowed(handCard.cost, laneBonus)) {
+   476→    throw new Error(
+   477→      `Esta carta no se puede jugar en ${lane}: el bono requiere coste exacto.`
+   478→    );
+   479→  }
+   480→
+   481→  // 2. Effective cost
+   482→  const effectiveCost = getFinalCost(handCard.cost, laneBonus);
+   483→  if (effectiveCost > energy) {
+   484→    throw new Error(
+   485→      `Sin energía suficiente (necesita ${effectiveCost}, tiene ${energy})` +
+   486→        (laneBonus?.kind === "cost_neg" || laneBonus?.kind === "cost_pos"
+   487→          ? " (ajustado por bono del carril)"
+   488→          : "")
+   489→    );
+   490→  }
+   491→
+   492→  // 3. Lane capacity (limit_1 / limit_3 / default 4)
+   493→  const maxCards = getLaneMaxCards(laneBonus);
+   494→  if (board[lane][side].length >= maxCards) {
+   495→    throw new Error(`Carril ${lane} lleno (máximo ${maxCards} carta(s) por bando).`);
+   496→  }
+   497→
+   498→  const effect = computeEffect({
+   499→    board,
+   500→    side,
+   501→    lane,
+   502→    card: handCard,
+   503→    handBonus: handCard.handBonus,
+   504→    hand: hand.filter((c) => c.uid !== handCard.uid),
+   505→    laneBonus,
+   506→    playsThisTurn,
+   507→  });
+   508→
+   509→  // 3.5. Trap: if active trap exists and is owned by the opposing side, it
+   510→  // triggers and reduces the new card's final power.
+   511→  let finalPower = effect.finalPower;
+   512→  let trapTriggered = false;
+   513→  if (activeTrap && activeTrap.owner !== side) {
+   514→    finalPower = Math.max(0, finalPower - activeTrap.value);
+   515→    trapTriggered = true;
+   516→  }
+   517→
+   518→  // Build a NEW board with mutations applied
+   519→  const newBoard: Board = {
+   520→    armas: { player: [...board.armas.player], enemy: [...board.armas.enemy] },
+   521→    proteccion: { player: [...board.proteccion.player], enemy: [...board.proteccion.enemy] },
+   522→    furia: { player: [...board.furia.player], enemy: [...board.furia.enemy] },
+   523→  };
+   524→
+   525→  for (const m of effect.mutations) {
+   526→    const arr = newBoard[m.lane][m.side];
+   527→    const idx = arr.findIndex((c) => c.uid === m.uid);
+   528→    if (idx >= 0) {
+   529→      const cur = arr[idx];
+   530→      arr[idx] = {
+   531→        ...cur,
+   532→        currentPower:
+   533→          m.powerDelta !== 0
+   534→            ? Math.max(0, cur.currentPower + m.powerDelta)
+   535→            : cur.currentPower,
+   536→        // Debuffs from direct mutations (Hender) accumulate into debuffTaken
+   537→        // so Purificación can restore them.
+   538→        debuffTaken:
+   539→          m.powerDelta < 0
+   540→            ? Math.max(0, (cur.debuffTaken ?? 0) + Math.abs(m.powerDelta))
+   541→            : cur.debuffTaken,
+   542→        powerLog:
+   543→          m.powerDelta !== 0
+   544→            ? [...(cur.powerLog ?? []), { source: handCard.name, delta: m.powerDelta, kind: m.powerDelta > 0 ? "buff" : "debuff" }]
+   545→            : cur.powerLog,
+   546→        shieldRemaining:
+   547→          m.shieldDelta !== undefined
+   548→            ? Math.max(0, (cur.shieldRemaining ?? 0) + m.shieldDelta)
+   549→            : cur.shieldRemaining,
+   550→      } as BoardCard;
+   551→    }
+   552→  }
+   553→
+   554→  // Apply removedCards (filter out from board) — happens AFTER mutations.
+   555→  if (effect.removedCards.length > 0) {
+   556→    for (const rc of effect.removedCards) {
+   557→      const arr = newBoard[rc.lane][rc.side];
+   558→      newBoard[rc.lane][rc.side] = arr.filter((c) => c.uid !== rc.uid);
+   559→    }
+   560→  }
+   561→
+   562→  // Place the new card
+   563→  const keyword: Keyword = handCard.keyword ?? "none";
+   564→  const newCard: BoardCard = {
+   565→    uid: uuidv4(),
+   566→    defId: handCard.id,
+   567→    name: handCard.name,
+   568→    category: handCard.category,
+   569→    subtypes: handCard.subtypes,
+   570→    cost: handCard.cost,
+   571→    basePower: handCard.power,
+   572→    currentPower: finalPower,
+   573→    text: handCard.text,
+   574→    effectId: handCard.effectId,
+   575→    rarity: handCard.rarity,
+   576→    trigger: handCard.trigger ?? KEYWORD_META[keyword].trigger,
+   577→    keyword: handCard.keyword,
+   578→    keywordValue: handCard.keywordValue,
+   579→    // Coraza: self shield granted on play (pool finito, sin refresco)
+   580→    shieldRemaining: keyword === "coraza" ? (handCard.keywordValue ?? 0) : undefined,
+   581→    debuffTaken: 0,
+   582→  };
+   583→  newBoard[lane][side] = [...newBoard[lane][side], newCard];
+   584→
+   585→  // Build a NEW hand (without the played card)
+   586→  const newHand: HandCard[] = hand
+   587→    .filter((c) => c.uid !== handCard.uid)
+   588→    .map((c) => ({ ...c }));
+   589→
+   590→  return {
+   591→    board: newBoard,
+   592→    hand: newHand,
+   593→    remainingEnergy: energy - effectiveCost,
+   594→    playedCard: newCard,
+   595→    mutations: effect.mutations,
+   596→    removedCards: effect.removedCards,
+   597→    trapTriggered,
+   598→    newTrap: undefined,
+   599→  };
+   600→}
+   601→
+   602→// ---------------------------------------------------------------------------
+   603→// Smart enemy AI
+   604→// ---------------------------------------------------------------------------
+   605→
+   606→export interface AIPlay {
+   607→  card: HandCard;
+   608→  lane: LaneId;
+   609→  score: number; // heuristic score for this play
+   610→}
+   611→
+   612→/**
+   613→ * Score a candidate play for the AI. Higher is better.
+   614→ * Heuristics:
+   615→ *  - Reward the simulated power gain (synergy/bonus already in finalPower)
+   616→ *  - Bonus for turning a lane around; penalty for wasting a won lane
+   617→ *  - Debuff mutations and card destruction are extra value
+   618→ *  - end_turn keywords (Fortaleza/Crueldad) and shields get manual estimates
+   619→ */
+   620→export function scoreAIPlay(
+   621→  board: Board,
+   622→  hand: HandCard[],
+   623→  energy: number,
+   624→  card: HandCard,
+   625→  lane: LaneId,
+   626→  laneBonus: LaneBonus | null,
+   627→  activeTrap: TrapState | null,
+   628→  playsThisTurn = 1
+   629→): number {
+   630→  if (!isCardCostAllowed(card.cost, laneBonus)) return -Infinity;
+   631→
+   632→  const effectiveCost = getFinalCost(card.cost, laneBonus);
+   633→  if (effectiveCost > energy) return -Infinity;
+   634→
+   635→  const maxCards = getLaneMaxCards(laneBonus);
+   636→  if (board[lane].enemy.length >= maxCards) return -Infinity;
+   637→
+   638→  const allySide: "player" | "enemy" = "player";
+   639→
+   640→  const currentEnemyPower = calcLanePower(board[lane].enemy);
+   641→  const currentPlayerPower = calcLanePower(board[lane].player);
+   642→
+   643→  let sim;
+   644→  try {
+   645→    sim = playCard(board, hand, energy, "enemy", lane, card, laneBonus, activeTrap, playsThisTurn);
+   646→  } catch {
+   647→    return -Infinity;
+   648→  }
+   649→
+   650→  const newEnemyPower = calcLanePower(sim.board[lane].enemy);
+   651→  const gain = newEnemyPower - currentEnemyPower;
+   652→  const newMargin = newEnemyPower - currentPlayerPower;
+   653→  const oldMargin = currentEnemyPower - currentPlayerPower;
+   654→
+   655→  let score = 0;
+   656→
+   657→  // 1. Reward the power gain itself
+   658→  score += gain * 1.0;
+   659→
+   660→  // 2. Bonus for turning the lane around (loss -> win or tie -> win)
+   661→  if (oldMargin < 0 && newMargin >= 0) score += 80;
+   662→  if (oldMargin < 0 && newMargin > 0) score += 40;
+   663→  if (oldMargin === 0 && newMargin > 0) score += 60;
+   664→
+   665→  // 3. Penalty for playing in already-won lane (waste)
+   666→  if (oldMargin > 10) score -= 50;
+   667→  else if (oldMargin > 0) score -= 20;
+   668→
+   669→  // 4. Small penalty for playing a high-cost card when it's overkill
+   670→  if (card.cost >= 4 && oldMargin > 5) score -= 15;
+   671→
+   672→  // 5. Subtype synergy explicit bonus
+   673→  if (card.subtypes.includes(lane)) score += 5;
+   674→
+   675→  // 6. Per-game lane category bonus (if matching)
+   676→  if (getLaneBonusPower(card.category, laneBonus) > 0) score += 5;
+   677→
+   678→  // 7. Prefer spending close to (but within) the energy budget
+   679→  const efficiency = effectiveCost / Math.max(1, energy);
+   680→  if (efficiency > 0.5 && efficiency <= 1.0) score += 4;
+   681→
+   682→  // 8. Mutations that debuff the player are worth extra
+   683→  const debuffValue = sim.mutations
+   684→    .filter((m) => m.side === allySide && m.powerDelta < 0)
+   685→    .reduce((acc, m) => acc + Math.abs(m.powerDelta), 0);
+   686→  score += debuffValue * 2;
+   687→
+   688→  // 9. Destroyed player cards are very valuable
+   689→  score += sim.removedCards.filter((rc) => rc.side === allySide).length * 10;
+   690→
+   691→  // 10. Keyword-specific estimates the simulation can't see:
+   692→  const x = card.keywordValue ?? 0;
+   693→  if (card.keyword === "crueldad" && card.trigger === "end_turn") {
+   694→    // Recurring debuff to the weakest player card in lane
+   695→    score += x * 1.5 * board[lane].player.length;
+   696→  }
+   697→  if (card.keyword === "fortaleza" && card.trigger === "end_turn") {
+   698→    // Recurring lane-wide buff (own cards in lane after this play)
+   699→    score += x * 1.5 * (sim.board[lane].enemy.length);
+   700→  }
+   701→  if (card.keyword === "amparo") {
+   702→    // Shield value per existing ally
+   703→    score += x * board[lane].enemy.length;
+   704→  }
+   705→  if (card.keyword === "coraza") {
+   706→    score += x; // defensive value
+   707→  }
+   708→  if (card.keyword === "fervor") {
+   709→    score += x * 2; // scales with remaining turns
+   710→  }
+   711→  if (card.keyword === "duelista") {
+   712→    score += x * 2;
+   713→  }
+   714→  if (card.keyword === "purificacion") {
+   715→    score += 3; // steady utility
+   716→  }
+   717→
+   718→  // 11. Avoid playing into a player-owned trap if it would kill the card
+   719→  if (sim.trapTriggered && sim.playedCard.currentPower <= 0) {
+   720→    score -= 30;
+   721→  }
+   722→
+   723→  return score;
+   724→}
+   725→
+   726→/**
+   727→ * Decide the AI's plays for this turn. Returns an ordered list of plays
+   728→ * (the AI may play multiple cards in one turn if it has enough energy).
+   729→ */
+   730→export function planEnemyTurn(
+   731→  board: Board,
+   732→  hand: HandCard[],
+   733→  energy: number,
+   734→  laneBonuses: LaneBonuses,
+   735→  laneTraps: LaneTraps
+   736→): AIPlay[] {
+   737→  const plays: AIPlay[] = [];
+   738→  let workBoard: Board = board;
+   739→  let workHand: HandCard[] = hand;
+   740→  let workEnergy = energy;
+   741→  let workTraps: LaneTraps = { ...laneTraps };
+   742→
+   743→  // Try up to 3 plays per turn
+   744→  for (let iter = 0; iter < 3; iter++) {
+   745→    if (workEnergy < 1 || workHand.length === 0) break;
+   746→
+   747→    let best: AIPlay | null = null;
+   748→    for (const card of workHand) {
+   749→      for (const lane of LANE_IDS) {
+   750→        const laneBonus = laneBonuses[lane];
+   751→        if (!isCardCostAllowed(card.cost, laneBonus)) continue;
+   752→        const effectiveCost = getFinalCost(card.cost, laneBonus);
+   753→        if (effectiveCost > workEnergy) continue;
+   754→        if (workBoard[lane].enemy.length >= getLaneMaxCards(laneBonus)) continue;
+   755→        const s = scoreAIPlay(
+   756→          workBoard,
+   757→          workHand,
+   758→          workEnergy,
+   759→          card,
+   760→          lane,
+   761→          laneBonus,
+   762→          workTraps[lane],
+   763→          plays.length + 1
+   764→        );
+   765→        if (!best || s > best.score) {
+   766→          best = { card, lane, score: s };
+   767→        }
+   768→      }
+   769→    }
+   770→
+   771→    // Only play if the score is positive (worth doing)
+   772→    if (!best || best.score <= 0) break;
+   773→
+   774→    try {
+   775→      const res = playCard(
+   776→        workBoard,
+   777→        workHand,
+   778→        workEnergy,
+   779→        "enemy",
+   780→        best.lane,
+   781→        best.card,
+   782→        laneBonuses[best.lane],
+   783→        workTraps[best.lane],
+   784→        plays.length + 1
+   785→      );
+   786→      workBoard = res.board;
+   787→      workHand = res.hand;
+   788→      workEnergy = res.remainingEnergy;
+   789→
+   790→      if (res.trapTriggered) {
+   791→        workTraps = { ...workTraps, [best.lane]: null };
+   792→      }
+   793→
+   794→      plays.push(best);
+   795→    } catch {
+   796→      break;
+   797→    }
+   798→  }
+   799→
+   800→  return plays;
+   801→}
+   802→
+   803→// ---------------------------------------------------------------------------
+   804→// Final result computation
+   805→// ---------------------------------------------------------------------------
+   806→
+   807→export function computeFinalResult(board: Board): FinalResult {
+   808→  let playerWins = 0;
+   809→  let enemyWins = 0;
+   810→  let draws = 0;
+   811→  let totalPlayer = 0;
+   812→  let totalEnemy = 0;
+   813→  const laneOutcomes: LaneOutcome[] = [];
+   814→
+   815→  for (const lane of LANE_IDS) {
+   816→    const p = calcLanePower(board[lane].player);
+   817→    const e = calcLanePower(board[lane].enemy);
+   818→    totalPlayer += p;
+   819→    totalEnemy += e;
+   820→    let winner: "player" | "enemy" | "draw" = "draw";
+   821→    if (p > e) {
+   822→      playerWins++;
+   823→      winner = "player";
+   824→    } else if (e > p) {
+   825→      enemyWins++;
+   826→      winner = "enemy";
+   827→    } else {
+   828→      draws++;
+   829→    }
+   830→    laneOutcomes.push({ lane, playerScore: p, enemyScore: e, winner });
+   831→  }
+   832→
+   833→  let result: FinalResult["result"] = "DRAW";
+   834→  if (playerWins > enemyWins) result = "WIN";
+   835→  else if (enemyWins > playerWins) result = "LOSS";
+   836→
+   837→  return {
+   838→    result,
+   839→    playerWins,
+   840→    enemyWins,
+   841→    draws,
+   842→    laneOutcomes,
+   843→    totalPlayer,
+   844→    totalEnemy,
+   845→  };
+   846→}
+   847→
+   848→// ---------------------------------------------------------------------------
+   849→// Card metadata for UI
+   850→// ---------------------------------------------------------------------------
+   851→
+   852→export function getEffectLabel(effectId: EffectId): string {
+   853→  if (effectId === "none") return "—";
+   854→  return KEYWORD_META[effectId]?.label ?? "—";
+   855→}
+   856→
+   857→// ---------------------------------------------------------------------------
+   858→// Trigger dispatchers — fire keyword effects at the right point of the turn.
+   859→// The caller (gameStore) applies the returned board and pushes the logs.
+   860→// ---------------------------------------------------------------------------
+   861→
+   862→export interface TriggerResult {
+   863→  /** Newly-produced board (a fresh copy with mutations applied). */
+   864→  board: Board;
+   865→  /** Human-readable log entries (one per fired card). */
+   866→  logs: { side: "player" | "enemy" | "system"; text: string }[];
+   867→}
+   868→
+   869→/**
+   870→ * Fire all START_TURN effects on the board for the given side.
+   871→ * Keywords: Fervor (+X acumulativo), Duelista (+X si única en carril),
+   872→ * Purificación (limpia debuffs del carril).
+   873→ */
+   874→export function applyStartTurnEffects(
+   875→  board: Board,
+   876→  side: "player" | "enemy",
+   877→  _hand: HandCard[] = []
+   878→): TriggerResult {
+   879→  const newBoard = cloneBoard(board);
+   880→  const logs: TriggerResult["logs"] = [];
+   881→
+   882→  for (const lane of LANE_IDS) {
+   883→    for (const card of newBoard[lane][side]) {
+   884→      if (card.trigger !== "start_turn") continue;
+   885→      const x = card.keywordValue ?? 0;
+   886→      const ownLane = newBoard[lane][side];
+   887→
+   888→      switch (card.keyword) {
+   889→        // ---- FERVOR [X]: +X permanente al inicio de cada turno ----
+   890→        case "fervor": {
+   891→          if (x > 0) {
+   892→            applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Fervor)`, "start_turn");
+   893→            logs.push({ side, text: `🌅 ${card.name} (Fervor): +${x} permanente` });
+   894→          }
+   895→          break;
+   896→        }
+   897→
+   898→        // ---- DUELISTA [X]: +X si es tu única carta en el carril ----
+   899→        case "duelista": {
+   900→          if (x > 0 && ownLane.length === 1) {
+   901→            applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Duelista)`, "start_turn");
+   902→            logs.push({ side, text: `⚔️ ${card.name} (Duelista): +${x} (única carta del carril)` });
+   903→          }
+   904→          break;
+   905→        }
+   906→
+   907→        // ---- PURIFICACIÓN: limpia las reducciones acumuladas del carril ----
+   908→        case "purificacion": {
+   909→          let restored = 0;
+   910→          const restoredNames: string[] = [];
+   911→          for (const ally of ownLane) {
+   912→            const taken = ally.debuffTaken ?? 0;
+   913→            if (taken > 0) {
+   914→              applyPowerDelta(newBoard, side, lane, ally.uid, taken, `${card.name} (Purificación)`, "start_turn");
+   915→              const idx = newBoard[lane][side].findIndex((c) => c.uid === ally.uid);
+   916→              if (idx >= 0) {
+   917→                newBoard[lane][side][idx] = { ...newBoard[lane][side][idx], debuffTaken: 0 };
+   918→              }
+   919→              restored += taken;
+   920→              restoredNames.push(ally.name);
+   921→            }
+   922→          }
+   923→          if (restored > 0) {
+   924→            logs.push({
+   925→              side,
+   926→              text: `✨ ${card.name} (Purificación): restauró ${restored} puntos a ${restoredNames.join(", ")}`,
+   927→            });
+   928→          }
+   929→          break;
+   930→        }
+   931→
+   932→        default:
+   933→          break;
+   934→      }
+   935→    }
+   936→  }
+   937→
+   938→  return { board: newBoard, logs };
+   939→}
+   940→
+   941→/**
+   942→ * Fire all END_TURN effects on the board for the given side.
+   943→ * Keywords: Fortaleza (+X a todo el carril), Crueldad (−X al enemigo más débil).
+   944→ */
+   945→export function applyEndTurnEffects(
+   946→  board: Board,
+   947→  side: "player" | "enemy",
+   948→  _hand: HandCard[] = []
+   949→): TriggerResult {
+   950→  const newBoard = cloneBoard(board);
+   951→  const logs: TriggerResult["logs"] = [];
+   952→  const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
+   953→
+   954→  for (const lane of LANE_IDS) {
+   955→    for (const card of newBoard[lane][side]) {
+   956→      if (card.trigger !== "end_turn") continue;
+   957→      const x = card.keywordValue ?? 0;
+   958→
+   959→      switch (card.keyword) {
+   960→        // ---- FORTALEZA [X]: +X a todas tus cartas de este carril ----
+   961→        case "fortaleza": {
+   962→          if (x > 0) {
+   963→            for (const ally of newBoard[lane][side]) {
+   964→              applyPowerDelta(newBoard, side, lane, ally.uid, x, `${card.name} (Fortaleza)`, "end_turn");
+   965→            }
+   966→            logs.push({ side, text: `🏰 ${card.name} (Fortaleza): +${x} a ${newBoard[lane][side].length} carta(s) del carril` });
+   967→          }
+   968→          break;
+   969→        }
+   970→
+   971→        // ---- CRUELDAD [X]: −X al enemigo más débil del carril ----
+   972→        // Pasa por applyDebuff: los escudos (Coraza/Amparo) absorben.
+   973→        case "crueldad": {
+   974→          if (x > 0) {
+   975→            const target = lowestPowerCard(newBoard[lane][enemySide]);
+   976→            if (target) {
+   977→              const res = applyDebuff(
+   978→                newBoard,
+   979→                enemySide,
+   980→                lane,
+   981→                target.uid,
+   982→                -x,
+   983→                `${card.name} (Crueldad)`,
+   984→                "end_turn"
+   985→              );
+   986→              if (res.absorbedByShield > 0 && res.appliedDelta === 0) {
+   987→                logs.push({ side, text: `🎯 ${card.name} (Crueldad): BLOQUEADO por escudo de ${target.name}` });
+   988→              } else {
+   989→                const absorbedNote = res.absorbedByShield > 0 ? ` (${res.absorbedByShield} absorbido por escudo)` : "";
+   990→                logs.push({ side, text: `🎯 ${card.name} (Crueldad): ${res.appliedDelta} a ${target.name}${absorbedNote}` });
+   991→              }
+   992→            }
+   993→          }
+   994→          break;
+   995→        }
+   996→
+   997→        default:
+   998→          break;
+   999→      }
+  1000→    }
+  1001→  }
+  1002→
+  1003→  return { board: newBoard, logs };
+  1004→}
+  1005→
+  1006→/**
+  1007→ * Fire ON_DEATH effects when a card is destroyed. The caller passes the
+  1008→ * dying card and its location; this function dispatches its keyword.
+  1009→ * Keywords: Legado (+X al aliado más débil del carril).
+  1010→ */
+  1011→export function applyOnDeathEffects(
+  1012→  board: Board,
+  1013→  side: "player" | "enemy",
+  1014→  lane: LaneId,
+  1015→  deadCard: BoardCard
+  1016→): TriggerResult {
+  1017→  const newBoard = cloneBoard(board);
+  1018→  const logs: TriggerResult["logs"] = [];
+  1019→
+  1020→  if (deadCard.trigger !== "on_death") {
+  1021→    return { board: newBoard, logs };
+  1022→  }
+  1023→
+  1024→  const x = deadCard.keywordValue ?? 0;
+  1025→
+  1026→  // ---- LEGADO [X]: al morir, el aliado más débil del carril gana +X ----
+  1027→  if (deadCard.keyword === "legado" && x > 0) {
+  1028→    const target = lowestPowerCard(newBoard[lane][side]);
+  1029→    if (target) {
+  1030→      applyPowerDelta(newBoard, side, lane, target.uid, x, `${deadCard.name} (Legado)`, "on_death");
+  1031→      logs.push({ side, text: `💀 ${deadCard.name} (Legado): +${x} a ${target.name}` });
+  1032→    }
+  1033→  }
+  1034→
+  1035→  return { board: newBoard, logs };
+  1036→}
+  1037→

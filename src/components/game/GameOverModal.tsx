@@ -35,20 +35,15 @@ export function GameOverModal({ open }: GameOverModalProps) {
       turnsPlayed: 6,
       scorePlayer: finalResult.totalPlayer,
       scoreEnemy: finalResult.totalEnemy,
-      laneArmasP:
-        finalResult.laneOutcomes.find((l) => l.lane === "armas")?.playerScore ?? 0,
-      laneArmasE:
-        finalResult.laneOutcomes.find((l) => l.lane === "armas")?.enemyScore ?? 0,
-      laneProtP:
-        finalResult.laneOutcomes.find((l) => l.lane === "proteccion")
-          ?.playerScore ?? 0,
-      laneProtE:
-        finalResult.laneOutcomes.find((l) => l.lane === "proteccion")
-          ?.enemyScore ?? 0,
-      laneFuriaP:
-        finalResult.laneOutcomes.find((l) => l.lane === "furia")?.playerScore ?? 0,
-      laneFuriaE:
-        finalResult.laneOutcomes.find((l) => l.lane === "furia")?.enemyScore ?? 0,
+      // Carriles guardados POSICIONALMENTE (lane 1/2/3 de la clase jugada) —
+      // las columnas de BD mantienen sus nombres históricos de Guerrero.
+      laneArmasP: finalResult.laneOutcomes[0]?.playerScore ?? 0,
+      laneArmasE: finalResult.laneOutcomes[0]?.enemyScore ?? 0,
+      laneProtP: finalResult.laneOutcomes[1]?.playerScore ?? 0,
+      laneProtE: finalResult.laneOutcomes[1]?.enemyScore ?? 0,
+      laneFuriaP: finalResult.laneOutcomes[2]?.playerScore ?? 0,
+      laneFuriaE: finalResult.laneOutcomes[2]?.enemyScore ?? 0,
+      gameClass: useGameStore.getState().gameClass,
     };
     fetch("/api/matches", {
       method: "POST",

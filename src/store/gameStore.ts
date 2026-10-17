@@ -5,6 +5,7 @@ import type {
   BoardCard,
   CardDef,
   FinalResult,
+  GameClass,
   GamePhase,
   GameResult,
   HandCard,
@@ -12,11 +13,12 @@ import type {
   LaneId,
   PowerLogEntry,
 } from "@/lib/game/types";
-import { KEYWORD_META } from "@/lib/game/types";
+import { CLASS_META, KEYWORD_META } from "@/lib/game/types";
 import {
   MAX_HAND_SIZE,
   MAX_TURNS,
   STARTING_HAND_SIZE,
+  ALL_LANE_IDS,
   applyEndTurnEffects,
   applyOnDeathEffects,
   applyStartTurnEffects,
@@ -26,6 +28,7 @@ import {
   getFinalCost,
   getLaneMaxCards,
   isCardCostAllowed,
+  lanesForClass,
   LANE_IDS,
   planEnemyTurn,
   playCard,
@@ -36,7 +39,7 @@ import {
   type TrapState,
   type TriggerResult,
 } from "@/lib/game/engine";
-import { ALL_CARDS, buildDrawPileFrom, WARRIOR_DECK } from "@/lib/game/cards";
+import { ALL_CARDS, buildDrawPileFrom, CLASS_DECKS, cardPoolForClass, WARRIOR_DECK } from "@/lib/game/cards";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -124,6 +127,10 @@ interface GameStoreState {
   // View switch (game / editor)
   view: "main-menu" | "class-select" | "game" | "editor" | "profile";
 
+  // Clase elegida + sus carriles activos (el tablero solo usa estos 3)
+  gameClass: GameClass;
+  activeLanes: LaneId[];
+
   // Deck editor state
   cardPool: CardDef[];
   deckCardIds: string[];
@@ -141,6 +148,7 @@ interface GameStoreState {
   log: LogEntry[];
 
   // Actions
+  selectClass: (cls: GameClass) => void;
   initGame: () => void;
   selectCard: (uid: string | null) => void;
   setDraggingCard: (uid: string | null) => void;
@@ -174,12 +182,14 @@ export interface LogEntry {
 
 const MAX_LOG_ENTRIES = 30;
 
-function emptyBoard(): Board {
-  return {
-    armas: { player: [], enemy: [] },
-    proteccion: { player: [], enemy: [] },
-    furia: { player: [], enemy: [] },
-  };
+function emptyBoard(lanes: LaneId[] = LANE_IDS): Board {
+  const b = {} as Board;
+  for (const ln of lanes) b[ln] = { player: [], enemy: [] };
+  return b;
+}
+
+function nullBonuses(lanes: LaneId[] = LANE_IDS): LaneBonuses {
+  return Object.fromEntries(lanes.map((ln) => [ln, null])) as LaneBonuses;
 }
 
 function emptyGameStats(): GameStats {
@@ -257,9 +267,12 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Resolve the player's deck from the loaded card pool + deck card IDs.
- * Falls back to WARRIOR_DECK if the pool/deck isn't loaded or has missing cards.
+ * Mago/Asesino siempre usan su mazo espejo; Guerrero permite custom de BD.
  */
 function resolveDeck(state: GameStoreState): CardDef[] {
+  if (state.gameClass !== "guerrero") {
+    return CLASS_DECKS[state.gameClass];
+  }
   const { cardPool, deckCardIds } = state;
   if (cardPool.length > 0 && deckCardIds.length > 0) {
     const resolved = deckCardIds
@@ -281,7 +294,7 @@ export function flashLaneBonuses(bonuses: LaneBonuses) {
   useGameStore.setState({ laneBonusFlashes: { ...bonuses } });
   setTimeout(() => {
     useGameStore.setState({
-      laneBonusFlashes: { armas: null, proteccion: null, furia: null },
+      laneBonusFlashes: nullBonuses(ALL_LANE_IDS),
     });
   }, 1500);
 }
@@ -297,8 +310,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   drawPile: [],
   hand: [],
   board: emptyBoard(),
-  laneBonuses: { armas: null, proteccion: null, furia: null },
-  laneBonusFlashes: { armas: null, proteccion: null, furia: null },
+  laneBonuses: nullBonuses(ALL_LANE_IDS),
+  laneBonusFlashes: nullBonuses(ALL_LANE_IDS),
   laneTraps: emptyLaneTraps(),
   nextTurnEnergyPenalty: 0,
   floatingNumbers: [],
@@ -308,6 +321,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   undoSnapshot: null,
   legendaryBurst: false,
   view: "main-menu",
+  gameClass: "guerrero",
+  activeLanes: lanesForClass("guerrero"),
   cardPool: [],
   deckCardIds: [],
   deckDirty: false,
@@ -320,6 +335,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   lastEnemyPlays: [],
   log: [],
 
+  selectClass: (cls) => {
+    set({ gameClass: cls, activeLanes: lanesForClass(cls) });
+  },
+
   initGame: () => {
     const resolvedDeck = resolveDeck(get());
     const pile = buildDrawPileFrom(resolvedDeck).map((c) => ({
@@ -329,8 +348,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }));
     const drawPile = pile.map((c) => ({ ...c, uid: uuidv4() }));
     const hand = freshHandFromPile(drawPile, STARTING_HAND_SIZE);
-    const laneBonuses = rollLaneBonuses();
-    const bonusSummary = LANE_IDS.map((ln) => {
+    const activeLanes = get().activeLanes;
+    const laneBonuses = rollLaneBonuses(activeLanes);
+    const bonusSummary = activeLanes.map((ln) => {
       const b = laneBonuses[ln];
       return b ? `${ln}: ${b.label}` : `${ln}: sin bono`;
     }).join(" · ");
@@ -344,7 +364,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       finalResult: null,
       drawPile,
       hand,
-      board: emptyBoard(),
+      board: emptyBoard(activeLanes),
       laneBonuses,
       laneTraps: emptyLaneTraps(),
       nextTurnEnergyPenalty: 0,
@@ -670,12 +690,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     // ====== TRIGGER: END_TURN (player) ======
     // Player just pressed "Pasar" — fire their end_turn effects before AI plays.
-    const playerEndRes = applyEndTurnEffects(freshState.board, "player", freshState.hand);
+    const playerEndRes = applyEndTurnEffects(freshState.board, "player", freshState.hand, freshState.activeLanes);
     let triggerBoard = playerEndRes.board;
     let triggerLogs: LogEntry[] = pushTriggerLogs(freshState.log, freshState.turn, playerEndRes);
 
     // ====== TRIGGER: START_TURN (enemy) ======
-    const enemyStartRes = applyStartTurnEffects(triggerBoard, "enemy");
+    const enemyStartRes = applyStartTurnEffects(triggerBoard, "enemy", [], freshState.activeLanes);
     triggerBoard = enemyStartRes.board;
     triggerLogs = pushTriggerLogs(triggerLogs, freshState.turn, enemyStartRes);
 
@@ -697,7 +717,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       enemyHand,
       enemyEnergy,
       freshState.laneBonuses,
-      freshState.laneTraps
+      freshState.laneTraps,
+      freshState.activeLanes
     );
     let workBoard = triggerBoard;
     let workEnemyHand = [...enemyHand];
@@ -826,7 +847,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     // ====== TRIGGER: END_TURN (enemy) ======
     // Enemy just finished playing — fire their end_turn effects before turn advances.
-    const enemyEndRes = applyEndTurnEffects(workBoard, "enemy");
+    const enemyEndRes = applyEndTurnEffects(workBoard, "enemy", [], freshState.activeLanes);
     workBoard = enemyEndRes.board;
     log = pushTriggerLogs(log, freshState.turn, enemyEndRes);
 
@@ -837,7 +858,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     if (newTurn > MAX_TURNS) {
       // Game over
-      const finalResult = computeFinalResult(workBoard);
+      const finalResult = computeFinalResult(workBoard, freshState.activeLanes);
       log = pushLog(
         log,
         MAX_TURNS,
@@ -883,7 +904,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     // ====== TRIGGER: START_TURN (player) ======
     // Player's new turn begins — fire their start_turn effects before they play.
-    const playerStartRes = applyStartTurnEffects(workBoard, "player", newHand);
+    const playerStartRes = applyStartTurnEffects(workBoard, "player", newHand, freshState.activeLanes);
     workBoard = playerStartRes.board;
     log = pushTriggerLogs(log, newTurn, playerStartRes);
 
@@ -892,8 +913,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     // so the player needs to adapt their strategy mid-match (was static before).
     let newLaneBonuses = freshState.laneBonuses;
     if (newTurn === 4) {
-      newLaneBonuses = rollLaneBonuses();
-      const bonusSummary = LANE_IDS.map((ln) => {
+      newLaneBonuses = rollLaneBonuses(freshState.activeLanes);
+      const bonusSummary = freshState.activeLanes.map((ln) => {
         const b = newLaneBonuses[ln];
         return b ? `${ln}: ${b.label}` : `${ln}: sin bono`;
       }).join(" · ");
@@ -959,13 +980,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   loadDeckAndPool: async () => {
     set({ deckLoading: true });
     try {
-      // Use ALL_CARDS directly from cards.ts (no API route needed — works in static export / APK)
-      const cardPool: CardDef[] = ALL_CARDS;
-      
-      // Load deck from localStorage (fallback to WARRIOR_DECK ids)
-      let deckCardIds: string[] = WARRIOR_DECK.map((c) => c.id);
+      const cls = get().gameClass;
+      // Pool por clase: neutrales + exclusivas de la clase (evita mezclar keywords)
+      const cardPool: CardDef[] = cls === "guerrero" ? ALL_CARDS : cardPoolForClass(cls);
+
+      const storageKey = cls === "guerrero" ? "guerrero-tactico-deck" : `guerrero-tactico-deck-${cls}`;
+      // Load deck from localStorage (fallback al mazo espejo de la clase)
+      let deckCardIds: string[] = CLASS_DECKS[cls].map((c) => c.id);
       try {
-        const saved = localStorage.getItem("guerrero-tactico-deck");
+        const saved = localStorage.getItem(storageKey);
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed?.cardIds) && parsed.cardIds.length === 12) {
@@ -1013,12 +1036,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   saveDeck: async () => {
-    const { deckCardIds } = get();
+    const { deckCardIds, gameClass } = get();
     if (deckCardIds.length !== 12) return;
     set({ deckSaveStatus: "saving" });
     try {
+      const storageKey = gameClass === "guerrero" ? "guerrero-tactico-deck" : `guerrero-tactico-deck-${gameClass}`;
       // Save to localStorage (no API route needed — works in static export / APK)
-      localStorage.setItem("guerrero-tactico-deck", JSON.stringify({ cardIds: deckCardIds }));
+      localStorage.setItem(storageKey, JSON.stringify({ cardIds: deckCardIds }));
       set({ deckSaveStatus: "ok", deckDirty: false });
       setTimeout(() => {
         if (get().deckSaveStatus === "ok") set({ deckSaveStatus: "idle" });
@@ -1033,7 +1057,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set({ deckSaveStatus: "saving" });
     try {
       // Clear localStorage and reload default deck
-      localStorage.removeItem("guerrero-tactico-deck");
+      const cls = get().gameClass;
+      localStorage.removeItem(cls === "guerrero" ? "guerrero-tactico-deck" : `guerrero-tactico-deck-${cls}`);
       await get().loadDeckAndPool();
       set({ deckSaveStatus: "idle", deckDirty: false });
     } catch (e) {
