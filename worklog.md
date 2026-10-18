@@ -493,3 +493,21 @@ Stage Summary:
 - FIX de deckEditor/gameStore: el pool del guerrero ve ahora los 2 mazos (antes el preset II se vaciaba)
 - El doc de keywords pasa a v4 (generado desde el catálogo real, no duplicado a mano)
 - Pendiente heredado sin cambios: PvP offline por hotspot, calibración perf.ts, playtest/equilibrado de los mazos II en partidas reales, pulido Impeccable, puntos gráficos 4/5/6
+
+---
+Task ID: 24
+Agent: Z.ai main agent
+Task: Ajuste del usuario — el bot del modo historia es ALEATORIO (cualquier clase con cualquiera de sus 2 mazos); fuera la selección de rival
+
+Work Log:
+- pvpStore.startHistoria: firma reducida a { playerClass, playerName? }; el bot se sortea DENTRO del store — clase uniforme entre guerrero/mago/asesino y mazo 50/50 entre CLASS_DECKS y CLASS_DECKS_SECOND de esa clase (6 rivales posibles, espejos incluidos). botClass sigue guardándose en state (consumidores internos intactos)
+- HistoriaSelect: eliminada la sección "Tu rival" (3 botones + Crown + HISTORIA_BOTS import); nuevo chip rosa con Dices: "Rival aleatorio · cualquier clase, cualquiera de sus 2 mazos". Flujo final: HISTORIA → eliges tu héroe → BATALLAR
+- Depuración E2E: un primer bucle dio "8/8 Selene" — falso: el bucle nunca salía de la partida (refs obsoletos tras navegación) y leía el MISMO tablero. Escrito scripts/sample-bots.sh (refs frescos por paso + verificación de salida + confirm aceptado): 12 sorteos reales = 5 Thralgrim / 4 Umbris / 3 Selene → sorteo uniforme confirmado
+- Varianza de mazo (I vs II) ya cubierta por test V4 71/71 y E2E tanda 23 (bot jugando cartas del mazo II); el pick usa el mismo patrón Math.random verificado
+- Verificación: tsc limpio · lint OK en tocados · turn-flow 27/27 · pvp-engine 51/51 · colección-historia 47/47 · build estático RC=0 · E2E visual: pantalla solo con "Tu héroe" + chip + BATALLAR
+- Commit f311f8e push a main (CI genera APK)
+
+Stage Summary:
+- El rival del modo historia es sorpresa total: no se elige ni clase ni mazo; el chip lo anuncia y el nombre real (Thralgrim/Selene/Umbris) se revela en la partida
+- sample-bots.sh queda como sondeo reproducible del sorteo
+- Sin cambios en motor, colección ni recompensas
