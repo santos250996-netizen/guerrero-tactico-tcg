@@ -7,13 +7,14 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Swords, Wand2, EyeOff, Radio, LogIn, Loader2, Wifi } from "lucide-react";
+import { ArrowLeft, Swords, Wand2, EyeOff, Radio, LogIn, Loader2, User, Wifi } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { usePvpStore } from "@/store/pvpStore";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
 import { LOCAL_PVP_PORT } from "@/lib/pvp/local-server";
+import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +45,13 @@ export function PvpSetup() {
   useEffect(() => {
     // noop — isNative se evalúa en cliente tras hidratar
   }, []);
+
+  // El nombre es el del PERFIL: se siembra en el store una vez y se muestra
+  // fijo. Sin perfil con nombre → input de reserva para no bloquear el PvP.
+  const [profileName] = useState(() => loadStoredProfileBrief()?.username ?? "");
+  useEffect(() => {
+    if (profileName && !playerName) setName(profileName);
+  }, [profileName, playerName, setName]);
 
   return (
     <div className="app-frame text-zinc-100">
@@ -77,15 +85,25 @@ export function PvpSetup() {
           )}
         </p>
 
-        {/* Nombre */}
+        {/* Nombre — viene del Perfil (fuente única de verdad) */}
         <div className="mt-3">
           <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">Tu nombre</label>
-          <input
-            value={playerName}
-            onChange={(e) => setName(e.target.value.slice(0, 16))}
-            placeholder="Ej: Thralgrim"
-            className="w-full rounded-lg border border-amber-700/40 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/70 focus:outline-none"
-          />
+          {profileName ? (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-700/40 bg-zinc-950/80 px-3 py-2">
+              <User className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+              <span className="truncate text-sm font-bold text-zinc-100">{profileName}</span>
+              <span className="ml-auto shrink-0 text-[8px] font-bold uppercase tracking-widest text-zinc-500">
+                de tu Perfil
+              </span>
+            </div>
+          ) : (
+            <input
+              value={playerName}
+              onChange={(e) => setName(e.target.value.slice(0, 16))}
+              placeholder="Sin nombre en Perfil — escribe uno"
+              className="w-full rounded-lg border border-amber-700/40 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/70 focus:outline-none"
+            />
+          )}
         </div>
 
         {/* Clase */}

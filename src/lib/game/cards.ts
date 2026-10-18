@@ -1144,6 +1144,65 @@ export function classDecksOf(cls: GameClass): CardDef[][] {
   return [CLASS_DECKS[cls], CLASS_DECKS_SECOND[cls]];
 }
 
+// ============================================================================
+// PROGRESIÓN — el jugador NO empieza con las 24 cartas de su clase.
+// Mazo inicial = las cartas NEUTRALES de la clase (keywords compartidas o
+// sin keyword) rellenadas hasta 12 con las exclusivas más baratas. El resto
+// se desbloquea JUGANDO: cada victoria suelta 2 cartas aleatorias que entran
+// a la colección, y el mazo de batalla siempre son tus 12 mejores propias.
+// ============================================================================
+
+/** Keywords neutrales (cualquier clase) — las mismas de KEYWORDS "NEUTRALES". */
+export const NEUTRAL_KEYWORD_IDS: ReadonlySet<string> = new Set([
+  "fervor", "coraza", "insignia", "remate", "legado", "fortaleza",
+]);
+
+/** Las 24 cartas de una clase (mazo I + mazo II) en orden de catálogo. */
+export function classCardsOf(cls: GameClass): CardDef[] {
+  return [...CLASS_DECKS[cls], ...CLASS_DECKS_SECOND[cls]];
+}
+
+/**
+ * Mazo INICIAL de la clase: todas sus cartas neutrales (orden de catálogo)
+ * + las exclusivas más baratas hasta completar 12 únicas. Garantiza al menos
+ * una carta de coste 1 para la garantía de mano inicial del motor.
+ */
+export function starterDeckFor(cls: GameClass): CardDef[] {
+  const all24 = classCardsOf(cls);
+  const neutral = all24.filter((c) => !c.keyword || NEUTRAL_KEYWORD_IDS.has(c.keyword));
+  const exclusives = all24
+    .filter((c) => c.keyword && !NEUTRAL_KEYWORD_IDS.has(c.keyword))
+    .sort((a, b) => a.cost - b.cost);
+  const deck = [...neutral];
+  for (const c of exclusives) {
+    if (deck.length >= 12) break;
+    deck.push(c);
+  }
+  return deck;
+}
+
+/**
+ * Mazo de BATALLA del jugador en historia: sus 12 mejores cartas propias de
+ * la clase (mejor rareza primero; empate → orden de catálogo). Si por cualquier
+ * estado corrupto tuviera menos de 12 propias, rellena con el mazo inicial.
+ * `tierRankOf(id)` = −1 si no tiene copias; si no 0 common…3 legendary.
+ */
+export function battleDeckFromOwned(
+  cls: GameClass,
+  tierRankOf: (id: string) => number,
+): CardDef[] {
+  const owned = classCardsOf(cls).filter((c) => tierRankOf(c.id) >= 0);
+  const sorted = [...owned].sort((a, b) => tierRankOf(b.id) - tierRankOf(a.id));
+  const deck = sorted.slice(0, 12);
+  if (deck.length < 12) {
+    for (const c of starterDeckFor(cls)) {
+      if (deck.length >= 12) break;
+      if (!deck.some((d) => d.id === c.id)) deck.push(c);
+    }
+  }
+  return deck;
+}
+
 /**
  * Pool de construcción filtrado por clase: cartas neutrales + las exclusivas
  * de los carriles de esa clase (evita mezclar keywords de clase ajena).

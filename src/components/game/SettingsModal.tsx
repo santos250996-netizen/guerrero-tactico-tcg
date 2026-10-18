@@ -6,11 +6,12 @@ import type { Language } from "@/lib/settings";
 import { useGameStore } from "@/store/gameStore";
 import { motion } from "framer-motion";
 import {
-  Volume2, VolumeX, Sparkles, Sparkle, LogOut, Globe, Check, BookOpen,
+  Volume2, VolumeX, Sparkles, Sparkle, LogOut, Globe, Check, BookOpen, Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
+import { useCollectionStore } from "@/store/collectionStore";
 
 interface SettingsModalProps {
   open: boolean;
@@ -40,7 +41,13 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false, onOp
   const setDeckEditorReturn = useGameStore((s) => s.setDeckEditorReturn);
 
   const [confirmExit, setConfirmExit] = useState(false);
-  useEffect(() => { if (!open) setConfirmExit(false); }, [open]);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const resetCollection = useCollectionStore((s) => s.resetAll);
+  // Reset de confirmaciones al CERRAR (evento, no effect — evita cascada de renders).
+  const handleOpenChange = (o: boolean) => {
+    onOpenChange(o);
+    if (!o) { setConfirmExit(false); setConfirmReset(false); }
+  };
 
   const exitToMenu = () => {
     onOpenChange(false);
@@ -49,7 +56,7 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false, onOp
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
         className="overflow-hidden border border-zinc-800/80 bg-zinc-950/95 p-0 text-zinc-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-md sm:max-w-md"
@@ -135,6 +142,62 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false, onOp
               onToggle={() => setAnimations(!animOn)}
               accentOn="amber"
             />
+          </Section>
+
+          {/* ── SECTION: COLECCIÓN (zona de riesgo — reinicio voluntario) ── */}
+          <Section title="Colección">
+            <div className="px-2 py-2.5">
+              {!confirmReset ? (
+                <button
+                  onClick={() => setConfirmReset(true)}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-rose-950/30"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-950/60 text-rose-300 ring-1 ring-rose-700/40">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-200">
+                      Reiniciar colección
+                    </span>
+                    <span className="text-[10px] text-rose-400/80">
+                      Vuelve al mazo inicial (neutrales) · borra copias y victorias
+                    </span>
+                  </div>
+                </button>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col gap-2.5 px-2 py-1"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Trash2 className="h-4 w-4 text-rose-400" />
+                    <p className="text-[11px] font-medium text-zinc-300">
+                      ¿Borrar toda la colección? No hay vuelta atrás.
+                    </p>
+                  </div>
+                  <div className="flex gap-2 pl-6">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                      onClick={() => setConfirmReset(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 border border-rose-600 bg-rose-900/70 text-rose-50 hover:bg-rose-800 hover:text-white"
+                      onClick={() => { resetCollection(); setConfirmReset(false); }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Sí, borrar
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
           </Section>
 
           {/* ── SECTION: IDIOMA ── */}

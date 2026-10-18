@@ -18,7 +18,7 @@ import {
   startPvpMatch,
 } from "@/lib/game/pvp";
 import type { CardDef, GameClass } from "@/lib/game/types";
-import { CLASS_DECKS, classDecksOf } from "@/lib/game/cards";
+import { classDecksOf, battleDeckFromOwned } from "@/lib/game/cards";
 import { materializeCard } from "@/lib/game/balance";
 import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
@@ -496,11 +496,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       get().stopPolling();
       if (get().hostingLocal) void stopLocalPvpServer();
 
-      // Colección: arranca el mazo de la clase (una vez) y materializa el
-      // mazo del jugador con sus mejores copias (+2 poder por fusión).
+      // Colección: entrega el mazo inicial (neutrales, 1 vez) y arma el mazo
+      // de BATALLA con las 12 mejores cartas PROPIAS de la clase (mejor
+      // rareza primero), materializadas con su tier (+2 poder por fusión).
       const col = useCollectionStore.getState();
       col.grantStarterDeck(playerClass);
-      const deck: CardDef[] = CLASS_DECKS[playerClass].map((c) =>
+      const deck: CardDef[] = battleDeckFromOwned(playerClass, (id) =>
+        useCollectionStore.getState().tierRankOf(id)
+      ).map((c) =>
         materializeCard(c, useCollectionStore.getState().bestTier(c.id))
       );
 

@@ -9,7 +9,7 @@
 
 import { create } from "zustand";
 import type { GameClass, Rarity } from "@/lib/game/types";
-import { ALL_CARDS_V3, CLASS_DECKS } from "@/lib/game/cards";
+import { ALL_CARDS_V3, starterDeckFor } from "@/lib/game/cards";
 import { FUSION_COPIES, MAX_FUSION_RARITY, nextRarity } from "@/lib/game/balance";
 
 export interface CardReward {
@@ -84,7 +84,7 @@ interface CollectionState {
   grantedClasses: GameClass[];
   wins: number;
 
-  /** Regala el mazo inicial (12 comunes) de una clase, una sola vez. */
+  /** Regala el mazo inicial (12 cartas: las neutrales de la clase + relleno), una sola vez. */
   grantStarterDeck: (cls: GameClass) => boolean;
   /** Recompensa por victoria: n cartas aleatorias de cualquier clase. */
   addRewards: (n?: number) => CardReward[];
@@ -93,6 +93,10 @@ interface CollectionState {
   fuse: (id: string, rarity: Rarity) => Rarity | null;
   /** El tier más alto con al menos 1 copia (common si no tiene). */
   bestTier: (id: string) => Rarity;
+  /** −1 si NO tiene copias; si no 0 common…3 legendary (para battleDeckFromOwned). */
+  tierRankOf: (id: string) => number;
+  /** ¿Tiene al menos 1 copia (de cualquier tier)? */
+  owns: (id: string) => boolean;
   countOf: (id: string, rarity: Rarity) => number;
   totalCopies: () => number;
   distinctCards: () => number;
@@ -110,7 +114,7 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     const { grantedClasses, copies } = get();
     if (grantedClasses.includes(cls)) return false;
     const next = { ...copies };
-    for (const card of CLASS_DECKS[cls]) {
+    for (const card of starterDeckFor(cls)) {
       const cur = next[card.id] ?? {};
       next[card.id] = { ...cur, common: (cur.common ?? 0) + 1 };
     }
@@ -169,6 +173,18 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     if ((c.rare ?? 0) > 0) return "rare";
     return "common";
   },
+
+  tierRankOf: (id) => {
+    const c = get().copies[id];
+    if (!c) return -1;
+    if ((c.legendary ?? 0) > 0) return 3;
+    if ((c.epic ?? 0) > 0) return 2;
+    if ((c.rare ?? 0) > 0) return 1;
+    if ((c.common ?? 0) > 0) return 0;
+    return -1;
+  },
+
+  owns: (id) => get().tierRankOf(id) >= 0,
 
   countOf: (id, rarity) => get().copies[id]?.[rarity] ?? 0,
 

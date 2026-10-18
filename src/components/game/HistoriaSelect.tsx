@@ -8,13 +8,13 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, Dices, Swords, Trophy } from "lucide-react";
+import { ChevronLeft, Dices, Layers, Swords, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { usePvpStore } from "@/store/pvpStore";
 import { CLASS_META, type GameClass } from "@/lib/game/types";
-import { ALL_CARDS_V3 } from "@/lib/game/cards";
+import { ALL_CARDS_V3, classCardsOf } from "@/lib/game/cards";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
 
@@ -32,17 +32,28 @@ export function HistoriaSelect() {
   const distinctCards = useCollectionStore((s) => s.distinctCards);
   const totalCopies = useCollectionStore((s) => s.totalCopies);
   const wins = useCollectionStore((s) => s.wins);
+  const copies = useCollectionStore((s) => s.copies);
   const soundOn = useSettings((s) => s.soundOn);
 
   const [playerClass, setPlayerClass] = useState<GameClass>("guerrero");
 
   useEffect(() => {
     hydrateCollection();
+    // Mazo inicial de CADA clase (una vez): las neutrales + relleno barato.
+    CLASSES.forEach((c) => useCollectionStore.getState().grantStarterDeck(c));
   }, []);
 
   function start() {
     if (soundOn) sfx.click();
     startHistoria({ playerClass });
+  }
+
+  // Copias distintas poseídas de la clase (re-renderiza con `copies`).
+  function ownedDistinct(cls: GameClass): number {
+    return classCardsOf(cls).filter((c) => {
+      const t = copies[c.id];
+      return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) > 0;
+    }).length;
   }
 
   return (
@@ -102,6 +113,15 @@ export function HistoriaSelect() {
               </motion.button>
             );
           })}
+        </div>
+
+        {/* MAZO DE BATALLA — progresión: empiezas con las neutrales, el resto se desbloquea jugando */}
+        <div className="flex items-center justify-center gap-1.5 rounded-lg border border-sky-900/50 bg-sky-950/30 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-sky-300">
+          <Layers className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Mazo: tus 12 mejores de {CLASS_META[playerClass].label} ·{" "}
+            {ownedDistinct(playerClass)}/24 desbloqueadas
+          </span>
         </div>
 
         {/* RIVAL ALEATORIO — no se elige: sorteo entre las 3 clases y sus 2 mazos */}

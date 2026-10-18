@@ -112,13 +112,13 @@ export function MainMenu() {
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
-        className="absolute inset-x-0 bottom-20 z-20 flex justify-center px-6"
+        className="pointer-events-none absolute inset-x-0 bottom-20 z-20 flex justify-center px-6"
       >
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.96 }}
           onClick={goToHistoria}
-          className="group relative inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-800 px-10 py-2.5 text-white shadow-[0_4px_18px_-3px_rgba(251,191,36,0.55),0_0_0_1px_rgba(0,0,0,0.4)_inset] transition-all hover:border-amber-200/80 hover:from-amber-500 hover:via-amber-600 hover:to-rose-700"
+          className="pointer-events-auto group relative inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-800 px-10 py-2.5 text-white shadow-[0_4px_18px_-3px_rgba(251,191,36,0.55),0_0_0_1px_rgba(0,0,0,0.4)_inset] transition-all hover:border-amber-200/80 hover:from-amber-500 hover:via-amber-600 hover:to-rose-700"
         >
           {/* Top inner highlight (glossy) */}
           <span className="pointer-events-none absolute inset-x-3 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/40 to-transparent opacity-70" />
@@ -141,27 +141,29 @@ export function MainMenu() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut", delay: 0.35 }}
-        className="absolute inset-x-0 bottom-11 z-20 flex justify-center gap-2 px-6"
+        className="pointer-events-none absolute inset-x-0 bottom-11 z-20 flex justify-center gap-2 px-6"
       >
-        <CollectionMenuButton />
+        <div className="pointer-events-auto">
+          <CollectionMenuButton />
+        </div>
       </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut", delay: 0.42 }}
-        className="absolute inset-x-0 bottom-3.5 z-20 flex justify-center gap-2 px-6"
+        className="pointer-events-none absolute inset-x-0 bottom-3.5 z-20 flex justify-center gap-2 px-6"
       >
         <button
           onClick={goToClassSelect}
-          className="rounded-full border border-zinc-600/60 bg-zinc-950/80 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 transition-colors hover:border-zinc-400/70 hover:text-zinc-200"
+          className="pointer-events-auto rounded-full border border-zinc-600/60 bg-zinc-950/80 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 transition-colors hover:border-zinc-400/70 hover:text-zinc-200"
           style={{ fontFamily: "var(--font-cinzel), serif" }}
         >
           Práctica
         </button>
         <button
           onClick={goToPvp}
-          className="inline-flex items-center gap-1.5 rounded-full border border-teal-400/50 bg-gradient-to-b from-teal-800/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-teal-200 transition-colors hover:border-teal-300/70"
+          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-teal-400/50 bg-gradient-to-b from-teal-800/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-teal-200 transition-colors hover:border-teal-300/70"
           style={{ fontFamily: "var(--font-cinzel), serif" }}
         >
           <Wifi className="h-3 w-3" /> PvP Local
@@ -176,7 +178,7 @@ export function MainMenu() {
         className="absolute inset-x-0 top-4 z-20 flex justify-center"
       >
         <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-amber-700/70">
-          v2.1 · 36 cartas · rareza por fusión
+          v2.2 · 72 cartas · progresión por colección
         </p>
       </motion.div>
 

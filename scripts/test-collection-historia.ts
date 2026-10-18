@@ -9,7 +9,7 @@ import {
   hydrateCollection,
   type CardReward,
 } from "../src/store/collectionStore";
-import { CLASS_DECKS } from "../src/lib/game/cards";
+import { CLASS_DECKS, starterDeckFor, battleDeckFromOwned, classCardsOf, NEUTRAL_KEYWORD_IDS } from "../src/lib/game/cards";
 import {
   materializeCard,
   getBalanceInfo,
@@ -56,7 +56,7 @@ section("1. Colección: arranque, recompensas y fusión");
   assert(!col.grantStarterDeck("guerrero"), "el grant NO se repite");
   assert(col.totalCopies() === 12, `12 copias comunes (real ${col.totalCopies()})`);
 
-  const first = CLASS_DECKS.guerrero[0];
+  const first = starterDeckFor("guerrero")[0];
   assert(col.bestTier(first.id) === "common", "bestTier = common sin fusiones");
   assert(!col.canFuse(first.id, "common"), "no fusiona con <3 copias");
 
@@ -110,9 +110,10 @@ section("3. Modo historia: partidas completas vs bot sin atascos");
     const botClass = classes[(seed + 1) % 3];
     useCollectionStore.getState().resetAll();
     useCollectionStore.getState().grantStarterDeck(playerClass);
-    const deck = CLASS_DECKS[playerClass].map((c) =>
-      materializeCard(c, useCollectionStore.getState().bestTier(c.id))
-    );
+    // El mazo de batalla del jugador: sus 12 mejores cartas PROPIAS.
+    const deck = battleDeckFromOwned(playerClass, (id) =>
+      useCollectionStore.getState().tierRankOf(id)
+    ).map((c) => materializeCard(c, useCollectionStore.getState().bestTier(c.id)));
 
     const state: PvpState = createPvpState("HIST", { name: "Tú", gameClass: playerClass, deck });
     joinBotPvpState(state, { name: "Bot", gameClass: botClass, deck: CLASS_DECKS[botClass] });
@@ -172,6 +173,56 @@ section("3. Modo historia: partidas completas vs bot sin atascos");
     assert(state.phase === "ended", `seed ${seed}: la partida vs ${botClass} termina (${state.turn} turnos)`);
   }
   assert(ok && ended === 6, "6/6 partidas historia completas sin atascos");
+}
+
+// ===========================================================================
+section("4. Progresión: mazo inicial neutral y mazo de batalla por copias");
+{
+  const classes: GameClass[] = ["guerrero", "mago", "asesino"];
+  for (const cls of classes) {
+    const starter = starterDeckFor(cls);
+    assert(starter.length === 12, `${cls}: mazo inicial de 12 cartas (real ${starter.length})`);
+    assert(new Set(starter.map((c) => c.id)).size === 12, `${cls}: 12 cartas ÚNICAS en el inicial`);
+    assert(starter.some((c) => c.cost === 1), `${cls}: el inicial tiene carta de coste 1`);
+    // Neutrales primero: el inicial contiene TODAS las neutrales de la clase
+    const neutrals = classCardsOf(cls).filter(
+      (c) => !c.keyword || NEUTRAL_KEYWORD_IDS.has(c.keyword)
+    );
+    const missing = neutrals.filter((n) => !starter.some((s) => s.id === n.id));
+    assert(missing.length === 0, `${cls}: incluye sus ${neutrals.length} neutrales (faltan ${missing.length})`);
+  }
+
+  // Mazo de batalla: con solo el grant, el mazo = el inicial
+  useCollectionStore.getState().resetAll();
+  useCollectionStore.getState().grantStarterDeck("guerrero");
+  let col = useCollectionStore.getState();
+  let battle = battleDeckFromOwned("guerrero", (id) => col.tierRankOf(id));
+  const starterIds = starterDeckFor("guerrero").map((c) => c.id).sort();
+  assert(
+    battle.map((c) => c.id).sort().join() === starterIds.join(),
+    "sin recompensas: el mazo de batalla ES el inicial"
+  );
+
+  // Al ganar cartas nuevas (tier raro), entran al mazo desplazando al starter
+  const all24 = classCardsOf("guerrero");
+  const newCard = all24.find((c) => !starterIds.includes(c.id))!;
+  useCollectionStore.setState((s) => ({
+    copies: { ...s.copies, [newCard.id]: { rare: 1 } },
+  }));
+  col = useCollectionStore.getState();
+  battle = battleDeckFromOwned("guerrero", (id) => col.tierRankOf(id));
+  assert(battle.some((c) => c.id === newCard.id), "la carta ganada entra al mazo de batalla");
+  assert(battle.length === 12 && new Set(battle.map((c) => c.id)).size === 12, "el mazo de batalla sigue siendo 12 únicas");
+  // La rara desplaza una común (quedan 11 del inicial + 1 nueva)
+  const fromStarter = battle.filter((c) => starterIds.includes(c.id)).length;
+  assert(fromStarter === 11, `la rara desplaza a una del inicial (11 + 1, real ${fromStarter})`);
+
+  // tierRankOf: −1 sin copias, 0..3 con ellas
+  useCollectionStore.getState().resetAll();
+  col = useCollectionStore.getState();
+  assert(col.tierRankOf(newCard.id) === -1, "tierRankOf = −1 sin copias");
+  useCollectionStore.setState((s) => ({ copies: { ...s.copies, [newCard.id]: { legendary: 1 } } }));
+  assert(useCollectionStore.getState().tierRankOf(newCard.id) === 3, "tierRankOf = 3 con legendaria");
 }
 
 // ===========================================================================

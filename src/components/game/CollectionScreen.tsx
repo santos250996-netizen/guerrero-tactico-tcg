@@ -11,7 +11,7 @@ import { ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
-import { ALL_CARDS_V3, CLASS_DECKS } from "@/lib/game/cards";
+import { ALL_CARDS_V3, classCardsOf } from "@/lib/game/cards";
 import {
   FUSION_COPIES,
   RARITY_LABEL,
@@ -51,7 +51,7 @@ export function CollectionScreen() {
     hydrateCollection();
   }, []);
 
-  const deckCards = useMemo(() => CLASS_DECKS[tab], [tab]);
+  const deckCards = useMemo(() => classCardsOf(tab), [tab]);
 
   function tryFuse(id: string, rarity: Rarity, name: string) {
     const target = fuse(id, rarity);
@@ -120,10 +120,25 @@ export function CollectionScreen() {
           ))}
         </div>
 
-        {/* Regla de fusión */}
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 text-center text-[9px] leading-relaxed text-zinc-400">
-          Fusiona <span className="font-black text-amber-300">{FUSION_COPIES} copias idénticas</span> del mismo
-          tier para ganar 1 del tier siguiente. Cada fusión: <span className="font-black text-amber-300">+2 de poder</span>.
+        {/* Cómo funciona el bucle de progresión */}
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-[9px] leading-relaxed text-zinc-400">
+          <p className="mb-1 text-center text-[9px] font-black uppercase tracking-[0.3em] text-amber-300/90" style={{ fontFamily: "var(--font-cinzel), serif" }}>
+            Cómo funciona
+          </p>
+          <p className="mb-0.5">
+            <span className="font-black text-amber-300">1.</span> Gana partidas de Historia: cada victoria te da{" "}
+            <span className="font-bold text-zinc-200">2 cartas aleatorias</span> de cualquier clase.
+          </p>
+          <p className="mb-0.5">
+            <span className="font-black text-amber-300">2.</span> Fusiona{" "}
+            <span className="font-bold text-zinc-200">{FUSION_COPIES} copias idénticas</span> del mismo tier → 1 del tier
+            siguiente, con <span className="font-bold text-zinc-200">+2 de poder</span> por fusión.
+          </p>
+          <p>
+            <span className="font-black text-amber-300">3.</span> En batalla juegas con tus{" "}
+            <span className="font-bold text-zinc-200">12 mejores cartas</span> de la clase. Empiezas con las neutrales;
+            el resto se desbloquea jugando.
+          </p>
         </div>
 
         {/* Lista de cartas de la clase */}
@@ -150,16 +165,22 @@ export function CollectionScreen() {
                 {/* Nombre + stats efectivos */}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[11px] font-bold text-zinc-200">{card.name}</div>
-                  <div className="text-[9px] text-zinc-500">
-                    Tu mejor copia:{" "}
-                    <span className={cn("font-bold", RARITY_META[tier].textClass)}>
-                      {RARITY_LABEL[tier]}
-                    </span>{" "}
-                    · poder {effective.power}
-                    {effective.power !== card.power && (
-                      <span className="text-emerald-400"> (+{effective.power - card.power})</span>
-                    )}
-                  </div>
+                  {total > 0 ? (
+                    <div className="text-[9px] text-zinc-500">
+                      Tu mejor copia:{" "}
+                      <span className={cn("font-bold", RARITY_META[tier].textClass)}>
+                        {RARITY_LABEL[tier]}
+                      </span>{" "}
+                      · poder {effective.power}
+                      {effective.power !== card.power && (
+                        <span className="text-emerald-400"> (+{effective.power - card.power})</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-[9px] text-zinc-600">
+                      🔒 Bloqueada · gana partidas para conseguirla
+                    </div>
+                  )}
                 </div>
                 {/* Pips por tier + fusión */}
                 <div className="flex shrink-0 flex-col items-end gap-1">
