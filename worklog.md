@@ -446,3 +446,22 @@ Stage Summary:
 - Los 3 mazos quedan calibrados al PTP objetivo: 36/36 en rango; el guerrero compite a la misma escala que mago/asesino (p.ej. coste 3 ahora p10-12 en los 3 mazos)
 - balance.ts sigue sin consumidor en runtime (regla documental); scripts/audit-balance.ts queda como auditor reproducible para futuras cartas
 - Aprendizaje registrado: Purificación restaura lo acumulado, no la base — relevante para futuros tests/stats
+
+---
+Task ID: 22
+Agent: Z.ai main agent
+Task: Paquete del usuario — rareza por fusión en PTP, modo historia vs bots, tablero cruzado estilo PvP, fix bug PvP turno 2 en dispositivos reales (las 36 cartas + 9 keywords quedan para la siguiente tanda)
+
+Work Log:
+- FIX PvP "turno mareado": la alternancia de abridor hacía que quien cerraba el turno (último en pasar) abriera el siguiente — el pase "rebotaba". Nueva regla: abridor fijo = firstSide del sorteo; invariante testado: tras cualquier pase, le toca al OTRO. Log 'Turno N — abre X' + indicador 'Turno N · Te toca/Rival' en el separador. test-pvp-turn-flow.ts nuevo (27 checks)
+- Rareza en PTP: balance.ts con getTargetPTP(coste, rareza)=coste*4+1.5+tier*2 y materializeCard (+2 PODER por tier; keywords intactos). cards.ts: 36 cartas → common (la rareza se GANA, no se fabrica). Sin doble conteo: materializada auditada como común = mismo PTP
+- collectionStore (localStorage): copias por tier, grant inicial 12 comunes por clase (1 vez), recompensas de victoria (2 random de cualquier clase; rareza 70% común/25% rara/5% épica; legendaria SOLO por fusión), fuse(3 iguales→tier+1), bestTier
+- Modo historia: partida LOCAL sobre el motor PvP (joinBotPvpState; PvpPlayerInput.deck para mazos materializados) — carriles cruzados reales (guerrero vs mago = 6 specs), bot predeterminado (Thralgrim/Selene/Umbris) conducido por planBotTurn (reusa planEnemyTurn con board invertido) con pausas ~1s, sin red. UI: HistoriaSelect, CollectionScreen (pips por tier + stats efectivos + botón Fusionar), overlay de botín con flip de 2 cartas + NUEVA, revancha local; HISTORIA = botón principal del menú, PRÁCTICA conserva el solitario viejo
+- Fix UX: confirm de salida distinto en historia ('¿Abandonar la partida?')
+- Verificación: turn-flow 27/27 · PvP 51/51 · V2 34/34 · V3 30/30 · FX 51/51 · stress 300/300 · test-collection-historia 47/47 (6 partidas vs bot completas) · tsc limpio · lint OK · build RC=0 · E2E: batalla cruzada con drag, error de energía correcto, bot juega solo, fusión en UI 'ahora Rara (+2 poder)', 0 imágenes rotas, 0 errores consola
+- Commit c6b3f26 (push a main, CI genera APK)
+
+Stage Summary:
+- El juego tiene loop de progresión: jugar Historia → ganar 2 cartas → fusionar 3 iguales (+2 poder por tier, dentro del PTP) → tu mazo se materializa con tus mejores copias
+- El bug de PvP en dispositivos reales tenía causa matemática (alternancia del abridor), no de red: corregido y blindado con test de invariante
+- PENDIENTE (aprobado por usuario, siguiente tanda): 12 cartas nuevas por clase (36) con 3 keywords nuevas por clase (1 por spec = 9) + sus artes; al entrar, cardPoolForClass/CLASS_DECKS/premios las recogen solas
