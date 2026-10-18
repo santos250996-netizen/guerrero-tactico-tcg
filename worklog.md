@@ -465,3 +465,31 @@ Stage Summary:
 - El juego tiene loop de progresión: jugar Historia → ganar 2 cartas → fusionar 3 iguales (+2 poder por tier, dentro del PTP) → tu mazo se materializa con tus mejores copias
 - El bug de PvP en dispositivos reales tenía causa matemática (alternancia del abridor), no de red: corregido y blindado con test de invariante
 - PENDIENTE (aprobado por usuario, siguiente tanda): 12 cartas nuevas por clase (36) con 3 keywords nuevas por clase (1 por spec = 9) + sus artes; al entrar, cardPoolForClass/CLASS_DECKS/premios las recogen solas
+
+---
+Task ID: 23
+Agent: Z.ai main agent
+Task: 3ª tanda aprobada por el usuario — 12 cartas nuevas por clase (36) + 9 keywords nuevas (3 por clase, 1 por spec) + artes
+
+Work Log:
+- Diseño fijado ANTES de código (fuentes: types.ts/balance.ts/engine.ts/cards.ts leídos completos): 9 keywords mecánicamente distintas a las 24 existentes y montadas SOLO con primitivas ya verificadas del motor
+- LAS 9 KEYWORDS: ARMAS=Orden de Batalla[X] (AoE buff one-shot, +X a sí y aliados del carril) · PROTECCIÓN=Custodia[X] (start_turn: escudo del aliado más débil restaurado hasta X, espejo de Escarcha) · FURIA=Desafío[X] (start_turn: +X mientras el carril enemigo supere al tuyo) · ARCANA=Drenar Poder[X] (on_play: +X propio Y −X honesto al más fuerte — único swing emparejado) · FUEGO=Detonación[X] (on_death: −X AoE vía applyDebuff, escudos absorben) · HIELO=Ruptura Glacial[X] (on_play: −X PERFORANTE al más debuffeado, empate→más fuerte) · VENENO=Miasma[X] (on_play: −X AoE perforante) · COMBATE=Caza Mayor[X] (on_play: +2X si el más fuerte enemigo supera el poder base, si no +X) · SIGILO=Conspiración[X] (PRIMERA keyword de MANO: playCard buffa newHand con handBonus+handBonusSources)
+- engine.ts: 5 cases en applyEffectLogic, 2 en applyStartTurnEffects (custodia/desafio), 1 en applyOnDeathEffects (detonacion), bloque conspiración en playCard, 5 estimaciones nuevas en scoreAIPlay (custodia/desafio/detonacion/conspiracion/ruptura)
+- fx.ts: KEYWORD_FX +9 reutilizando recetas existentes (0 trabajo nuevo en FxLayer)
+- balance.ts: valores base 1.2/1.4/2.0/1.5/1.2/1.6/1.8/1.4/0.8 — TODAS las cartas nuevas al target PTP exacto (72/72 en ±0.5)
+- cards.ts: WARRIOR2_CARDS "Cohorte de Hierro", MAGE2_CARDS "Cónclave Prismático", ROGUE2_CARDS "Gremio de la Daga" (12 c/u, curva 1×2 2×3 3×5 4×1 5×1, 2A+1I+1A por spec, 12 keywords distintas por mazo, cada spec estrena SU keyword nueva) + CLASS_DECKS_SECOND + classDecksOf() + PRESET_DECKS +3 + ALL_CARDS_V3 = 72
+- FIX BUG detectado en E2E: gameStore.loadDeckAndPool usaba ALL_CARDS (alias V2 de 12 cartas) como pool del GUERRERO → el preset "Cohorte de Hierro" se resolvía 0/12 en el editor. Ahora cardPoolForClass(cls) para las 3 clases (ALL_CARDS quitado del import)
+- pvpStore.startHistoria: el bot lleva aleatorio 50/50 entre CLASS_DECKS y CLASS_DECKS_SECOND; HistoriaSelect y CollectionScreen: contadores "/36" → ALL_CARDS_V3.length dinámico
+- 36 artes con scripts/gen-card-art-v5.mjs (nuevo; ONLY= para regenerar selectivas, FORCE=1): 3 regeneraciones por violar la regla de ÍTEM (estandarte con 6 personajes, muñonera dibujaba espada) — subjects blindados con "absolutely no people and no figures anywhere"; verificación visual de 5 (Fénix/Estandarte/Muñonera/Dardo/Emblema en partida)
+- scripts/test-keywords-v4.ts NUEVO (71 checks): deltas exactos de las 9 keywords (incluye escudo absorbiendo drenaje, perforación de ruptura/miasma, empates, sin grietas, caza sí/no, materialización del handBonus al jugar la carta buffeada) + composición de los 3 mazos + PTP 72/72
+- audit-card-pattern.ts reescrito: audita por MAZO (6) y no global (con 2 mazos por clase cada spec tiene 4A+2I+2A en el catálogo); detecta ids duplicados; 18/18 specs OK
+- update-keywords-txt.py (catálogo duplicado a mano) → scripts/update-keywords-txt.ts: genera download/keywords-con-efectos-v4.txt heredando la doc V2/V3 + sección 3ª tanda + bloque de 6 mazos desde cards.ts real
+- Verificación: V4 71/71 · V2 34/34 · V3 30/30 · FX 51/51 · PvP-engine 51/51 · turn-flow 27/27 · collection-historia 47/47 · stress 300/300 · tsc limpio · lint OK en tocados · build estático RC=0 · E2E agent-browser: preset II carga 12/12, partida práctica completa con el mazo II (Emblema c1 en FURIA "SOLO COSTE 1" p7 con Ímpetu flotante; Gladiador rechazado correctamente por bono de coste; bot jugando Quebrantador/Baluarte del mazo II; registro mostrando "🔥 Gladiador (Desafío): +2 (el carril es desafiable)" y Fervor; bonos de carril en banners; artes nuevas en mano y tablero) · 0 errores consola · 0 imágenes rotas (15/15)
+- Commit d25fee0 push a main (CI genera APK)
+
+Stage Summary:
+- El catálogo pasa de 36 a 72 cartas (6 mazos predeterminados, 2 por clase) y de 24 a 33 keywords; las 9 nuevas son 1 por spec y todas viven dentro de la fórmula PTP
+- Conspiración estrena la mecánica de MANO (handBonus), previamente tipada pero sin productor
+- FIX de deckEditor/gameStore: el pool del guerrero ve ahora los 2 mazos (antes el preset II se vaciaba)
+- El doc de keywords pasa a v4 (generado desde el catálogo real, no duplicado a mano)
+- Pendiente heredado sin cambios: PvP offline por hotspot, calibración perf.ts, playtest/equilibrado de los mazos II en partidas reales, pulido Impeccable, puntos gráficos 4/5/6
