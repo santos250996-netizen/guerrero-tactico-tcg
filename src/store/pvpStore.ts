@@ -59,6 +59,8 @@ interface PvpStoreState {
   connectionLost: boolean;
   lastActionSeq: number;
   resumed: boolean;
+  /** true mientras el pase está en vuelo — feedback inmediato del botón. */
+  passing: boolean;
 
   // UI
   selectedCardUid: string | null;
@@ -236,6 +238,29 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     }
   }
 
+  /** Un ciclo de polling (GET state + applyView). Usado por el interval y
+   *  tras una acción rechazada para disipar el desync al instante. */
+  async function pollOnce(): Promise<void> {
+    const { code, token } = get();
+    if (!code || !token) return;
+    const { ok, status, data } = await apiJson<{ view: PvpClientView }>(
+      "GET",
+      `/api/pvp/rooms/${code}/state`,
+      { token }
+    );
+    if (status === 404 || status === 403) {
+      get().stopPolling();
+      set({ error: "La sala ya no existe." });
+      return;
+    }
+    if (!ok || !data) {
+      set({ connectionLost: true });
+      return;
+    }
+    set({ connectionLost: false });
+    applyView(data.view);
+  }
+
   return {
     screen: "setup",
     code: null,
@@ -263,6 +288,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     turnBanner: null,
     legendaryBurst: false,
     invalidPlayMsg: null,
+    passing: false,
     previewCard: null,
 
     selectCard: (uid) => {
@@ -497,6 +523,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       } else {
         const msg = (data as { error?: string } | null)?.error ?? "No se pudo jugar la carta.";
         set({ invalidPlayMsg: msg });
+        // Re-sincroniza YA: el server puede estar en otro turno (desync del poll)
+        void pollOnce();
       }
       } finally {
         actionInFlight = false;
@@ -507,19 +535,27 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       const { code, token } = get();
       if (!code || !token || actionInFlight) return;
       actionInFlight = true;
+      set({ passing: true });
       try {
       if (useSettings.getState().soundOn) sfx.click();
-      const { ok, data } = await apiJson<{ view: PvpClientView }>(
+      const { ok, data } = await apiJson<{ view: PvpClientView; error?: string }>(
         "POST",
         `/api/pvp/rooms/${code}/action`,
         { body: { token, action: { type: "pass" } }, token }
       );
       if (ok && data?.view) {
+        set({ invalidPlayMsg: null, selectedCardUid: null });
         applyView(data.view);
-        set({ selectedCardUid: null });
+      } else {
+        // El pase fue rechazado (p.ej. "No es tu turno" por desync del poll):
+        // NUNCA silencio — muestra el motivo y re-sincroniza el estado real.
+        const msg = (data as { error?: string } | null)?.error ?? "No se pudo pasar el turno. Reintentando…";
+        set({ invalidPlayMsg: msg });
+        void pollOnce();
       }
       } finally {
         actionInFlight = false;
+        set({ passing: false });
       }
     },
 
@@ -596,25 +632,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     startPolling: () => {
       if (pollTimer) return;
       set({ polling: true });
-      pollTimer = setInterval(async () => {
-        const { code, token } = get();
-        if (!code || !token) return;
-        const { ok, status, data } = await apiJson<{ view: PvpClientView }>(
-          "GET",
-          `/api/pvp/rooms/${code}/state`,
-          { token }
-        );
-        if (status === 404 || status === 403) {
-          get().stopPolling();
-          set({ error: "La sala ya no existe." });
-          return;
-        }
-        if (!ok || !data) {
-          set({ connectionLost: true });
-          return;
-        }
-        set({ connectionLost: false });
-        applyView(data.view);
+      pollTimer = setInterval(() => {
+        void pollOnce();
       }, POLL_MS);
     },
 

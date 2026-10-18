@@ -393,20 +393,39 @@ function pushTriggerLogs(state: PvpState, result: TriggerResult, actor: PvpSide)
 // Disparadores de turno (start/end) para un lado
 // ---------------------------------------------------------------------------
 
+/**
+ * Disparadores de turno a prueba de fallos: si un efecto lanza una excepción
+ * inesperada (carta custom corrupta, dato fuera de rango…), NO debe bloquear
+ * el pase de turno — se registra en el log y la partida continúa. Sin esto,
+ * un throw aquí deja la partida clavada para siempre en ese turno (bug de
+ * "doy pasar y no pasa").
+ */
 function fireStartTurn(state: PvpState, side: PvpSide): FxEvent[] {
-  const board = toEngineBoard(state, side);
-  const res = applyStartTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
-  writeBack(state, side, res.board);
-  pushTriggerLogs(state, res, side);
-  return res.fx;
+  try {
+    const board = toEngineBoard(state, side);
+    const res = applyStartTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
+    writeBack(state, side, res.board);
+    pushTriggerLogs(state, res, side);
+    return res.fx;
+  } catch (err) {
+    console.error(`[pvp] fireStartTurn(${side}) falló — el turno continúa:`, err);
+    pushLog(state, state.turn, "system", "⚠️ Un efecto de inicio de turno falló y fue descartado.", "info");
+    return [];
+  }
 }
 
 function fireEndTurn(state: PvpState, side: PvpSide): FxEvent[] {
-  const board = toEngineBoard(state, side);
-  const res = applyEndTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
-  writeBack(state, side, res.board);
-  pushTriggerLogs(state, res, side);
-  return res.fx;
+  try {
+    const board = toEngineBoard(state, side);
+    const res = applyEndTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
+    writeBack(state, side, res.board);
+    pushTriggerLogs(state, res, side);
+    return res.fx;
+  } catch (err) {
+    console.error(`[pvp] fireEndTurn(${side}) falló — el turno continúa:`, err);
+    pushLog(state, state.turn, "system", "⚠️ Un efecto de fin de turno falló y fue descartado.", "info");
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------

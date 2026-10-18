@@ -388,3 +388,21 @@ Work Log:
 Stage Summary:
 - El patrón queda ampliado para creaciones futuras: §4 reglas de composición por categoría, §5 sonoridad de clase, §6 tabla V3.2 con el problema→corrección de cada carta, §7 checklist ampliado
 - Decks guardados en localStorage con ids viejos: resiliencia ya existente (resolveDeck cae al mazo espejo)
+
+---
+Task ID: 19
+Agent: Z.ai main agent
+Task: Bug PvP — "dar pasar turno no siempre pasa, no paso de 2º turno"
+
+Work Log:
+- Diagnóstico exhaustivo: motor PvP auditado línea a línea (handlePass/advanceTurn/fireStartTurn/fireEndTurn/applyStart-EndTurnEffects — todos los triggers con guard de objetivo null); stress test nuevo scripts/test-pvp-stress-pass.mjs (300 partidas aleatorias seed 42 → 0 atascos; re-run 400 seed 77 tras cambios → 0)
+- E2E 2 pestañas (XJTJ): partida completa T1→T6→ended con jugadas reales vía API + pases por UI (Colmillo del Verdugo/Crueldad con carril rival vacío incluido) — sin atascos; revancha + resume tras recarga verificados
+- CAUSAS IDENTIFICADAS que producen el síntoma en el APK: (1) un throw inesperado en un efecto start/end_turn (p.ej. carta custom del editor en el mazo del guerrero) dejaba applyPvpAction a medias y la partida CLAVADA en ese turno para siempre (el cliente solo veía 409 silencioso); (2) sendPass/sendPlay tragaban los errores 409 sin feedback y la UI podía quedarse mostrando "TU TURNO" fantasma hasta el próximo poll (1.2 s)
+- FIX SERVER (src/lib/game/pvp.ts): fireStartTurn/fireEndTurn con try/catch — un efecto que falle se registra en el log ("⚠️ Un efecto de fin de turno falló y fue descartado") y EL TURNO SIEMPRE AVANZA
+- FIX CLIENTE (src/store/pvpStore.ts): polling refactor a pollOnce() reutilizable; sendPass/sendPlay al ser rechazados ahora muestran invalidPlayMsg con el motivo del server Y disparan re-sincronización inmediata (mata el ghost); nuevo flag passing para feedback
+- FIX UI (PvpHandBar.tsx): botón muestra "Pasando…" con spinner mientras la acción viaja y se deshabilita (anti doble-tap)
+- Verificación: lint OK, tsc src/ limpio, tests PvP 51/51 · V2 34/34 · V3 30/30 · FX 51/51, stress 400/400, build estático RC=0; E2E post-fix: revancha + pases alternados OK (nota: el atasco intermedio de t1 en "Esperando revancha" era artefacto HMR de dev, no aplica en producción)
+
+Stage Summary:
+- El pase de turno es ahora infalible: server avanza aunque un efecto crashee; cliente muestra por qué fue rechazado y re-sincroniza al instante; feedback táctil del botón
+- Nota de diseño para el usuario: quien CIERRA una ronda abre la siguiente (alternante) — puede percibirse como "no pasó" cuando le vuelve a tocar; el Registro de Batalla muestra "X pasa el turno." + "Turno N"

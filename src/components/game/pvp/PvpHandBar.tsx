@@ -7,7 +7,7 @@
 // ============================================================================
 
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Hourglass } from "lucide-react";
+import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Hourglass, Loader2 } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
 import { HandCardComponent } from "../HandCardComponent";
 import { sfx } from "@/lib/sound";
@@ -22,6 +22,7 @@ export function PvpHandBar({
 }) {
   const view = usePvpStore((s) => s.view);
   const selectedCardUid = usePvpStore((s) => s.selectedCardUid);
+  const passing = usePvpStore((s) => s.passing);
   const selectCard = usePvpStore((s) => s.selectCard);
   const sendPlay = usePvpStore((s) => s.sendPlay);
   const sendPass = usePvpStore((s) => s.sendPass);
@@ -120,16 +121,24 @@ export function PvpHandBar({
       <div className="relative flex items-center gap-1.5 border-t border-amber-700/15 bg-gradient-to-b from-zinc-950/80 to-black/60 px-2 py-1.5">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/25 to-transparent" />
         <button
-          onClick={() => { if (myTurn) sendPass(); }}
-          disabled={!myTurn}
+          onClick={() => { if (myTurn && !passing) sendPass(); }}
+          disabled={!myTurn || passing}
           className={cn(
             "flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-lg transition-all active:scale-95",
-            myTurn
+            myTurn && !passing
               ? "bg-gradient-to-r from-teal-500 to-emerald-600 shadow-emerald-900/50 hover:from-teal-400 hover:to-emerald-500"
               : "cursor-not-allowed bg-gradient-to-r from-zinc-800 to-zinc-800 shadow-none text-zinc-500"
           )}
         >
-          {myTurn ? "Pasar" : "Espera…"}
+          {passing ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Pasando…
+            </>
+          ) : myTurn ? (
+            "Pasar"
+          ) : (
+            "Espera…"
+          )}
         </button>
         <button
           onClick={onOpenRegistro}
