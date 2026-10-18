@@ -12,7 +12,7 @@
 // Mod_Once: efectos por turno (start_turn/end_turn) × 0.8; one-shot × 1.0.
 // ===========================================================================
 
-import type { CardDef, Keyword, Trigger, ScopeKind } from "./types";
+import type { CardDef, Keyword, Trigger, ScopeKind, Rarity } from "./types";
 import { KEYWORD_META, SCOPE_MODS, MOD_ONCE_PER_TURN, MOD_ONCE_SINGLE } from "./types";
 
 // ----- Core formula constants -----
@@ -20,14 +20,40 @@ export const ENERGY_MULTIPLIER = 4.0;
 export const BASE_ENTRY_POINTS = 1.5;
 export const TOLERANCE = 0.5;
 
-/** Bolsa de Puntos Totales (PTP) que otorga un coste de energía dado. */
-export function getTargetPTP(energyCost: number): number {
-  return energyCost * ENERGY_MULTIPLIER + BASE_ENTRY_POINTS;
+// ----- Rareza por FUSIÓN (decisión de diseño 2026-10) -----
+// Todas las cartas nacen COMUNES; la rareza se GANA fusionando 3 copias
+// idénticas del mismo tier. Cada tier añade +2 al PTP objetivo, que se
+// materializa como +2 de PODER (las keywords no escalan). Así la rareza
+// queda DENTRO de la fórmula: la copia rara de una carta siempre es más
+// fuerte que su forma común y sigue siendo legal según el PTP.
+export const RARITY_ORDER: readonly Rarity[] = ["common", "rare", "epic", "legendary"] as const;
+export const RARITY_TIER: Record<Rarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };
+export const RARITY_LABEL: Record<Rarity, string> = {
+  common: "Común",
+  rare: "Rara",
+  epic: "Épica",
+  legendary: "Legendaria",
+};
+export const RARITY_PTP_BONUS_PER_TIER = 2;
+export const FUSION_COPIES = 3;
+export const MAX_FUSION_RARITY: Rarity = "legendary";
+
+export function nextRarity(rarity: Rarity): Rarity | null {
+  const tier = RARITY_TIER[rarity];
+  return tier >= RARITY_TIER[MAX_FUSION_RARITY] ? null : RARITY_ORDER[tier + 1];
 }
 
-/** Rango legal de PTP para un coste dado (con tolerancia ±0.5). */
-export function getPTPRange(energyCost: number): { min: number; max: number; target: number } {
-  const target = getTargetPTP(energyCost);
+/**
+ * Bolsa de Puntos Totales (PTP) que otorga un coste de energía dado,
+ * ajustada por la rareza de la copia (+2 por tier sobre la común).
+ */
+export function getTargetPTP(energyCost: number, rarity: Rarity = "common"): number {
+  return energyCost * ENERGY_MULTIPLIER + BASE_ENTRY_POINTS + RARITY_TIER[rarity] * RARITY_PTP_BONUS_PER_TIER;
+}
+
+/** Rango legal de PTP para un coste y rareza dados (con tolerancia ±0.5). */
+export function getPTPRange(energyCost: number, rarity: Rarity = "common"): { min: number; max: number; target: number } {
+  const target = getTargetPTP(energyCost, rarity);
   return {
     target,
     min: target - TOLERANCE,
@@ -98,6 +124,18 @@ export function calculateEffectPoints(card: CardDef): number {
   return getKeywordBaseValue(keyword, card.keywordValue) * scopeMod * onceMod;
 }
 
+/**
+ * Materializa una copia jugable de la carta al tier de rareza indicado:
+ * +2 de poder por tier (las keywords no cambian). El tier común devuelve
+ * la definición intacta. Es la función que convierte la COLECCIÓN del
+ * jugador en la carta que realmente entra al mazo/partida.
+ */
+export function materializeCard(card: CardDef, rarity: Rarity): CardDef {
+  const tier = RARITY_TIER[rarity] ?? 0;
+  if (tier === 0) return card;
+  return { ...card, power: card.power + tier * RARITY_PTP_BONUS_PER_TIER, rarity };
+}
+
 /** PTP actual de una carta (base + efectos). */
 export function getCurrentPTP(card: CardDef): number {
   return card.power + calculateEffectPoints(card);
@@ -112,9 +150,9 @@ export interface BalanceInfo {
   status: "ok" | "over" | "under";
 }
 
-export function getBalanceInfo(card: CardDef): BalanceInfo {
-  const range = getPTPRange(card.cost);
-  const current = getCurrentPTP(card);
+export function getBalanceInfo(card: CardDef, rarity: Rarity = "common"): BalanceInfo {
+  const range = getPTPRange(card.cost, rarity);
+  const current = getCurrentPTP(card) + RARITY_TIER[rarity] * RARITY_PTP_BONUS_PER_TIER;
   const delta = current - range.target;
   const balanced = current >= range.min && current <= range.max;
   return {

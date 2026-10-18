@@ -126,7 +126,7 @@ interface GameStoreState {
   legendaryBurst: boolean;
 
   // View switch (game / editor)
-  view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp";
+  view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp" | "historia-select" | "coleccion";
 
   // Clase elegida + sus carriles activos (el tablero solo usa estos 3)
   gameClass: GameClass;
@@ -162,7 +162,7 @@ interface GameStoreState {
   clearFloatingNumbers: () => void;
 
   // View + preview
-  setView: (view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp") => void;
+  setView: (view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp" | "historia-select" | "coleccion") => void;
   setDeckEditorReturn: (target: "game" | "class-select" | "main-menu") => void;
   setPreviewCard: (c: CardDef | null) => void;
 

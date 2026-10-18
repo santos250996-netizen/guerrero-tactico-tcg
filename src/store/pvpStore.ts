@@ -9,11 +9,22 @@
 
 import { create } from "zustand";
 import { Capacitor } from "@capacitor/core";
-import type { PvpClientView, PvpSide } from "@/lib/game/pvp";
+import type { PvpClientView, PvpSide, PvpState } from "@/lib/game/pvp";
+import {
+  applyPvpAction,
+  buildClientView,
+  createPvpState,
+  joinBotPvpState,
+  startPvpMatch,
+} from "@/lib/game/pvp";
 import type { CardDef, GameClass } from "@/lib/game/types";
+import { CLASS_DECKS } from "@/lib/game/cards";
+import { materializeCard } from "@/lib/game/balance";
+import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
+import { useCollectionStore, type CardReward } from "@/store/collectionStore";
 import {
   LOCAL_PVP_PORT,
   handleLocalPvpApi,
@@ -22,6 +33,14 @@ import {
 } from "@/lib/pvp/local-server";
 
 export type PvpScreen = "setup" | "lobby" | "game";
+export type PvpMode = "online" | "historia";
+
+/** Bots predeterminados del modo historia (mazos espejo oficiales). */
+export const HISTORIA_BOTS: Record<GameClass, string> = {
+  guerrero: "Thralgrim, Señor de la Guerra",
+  mago: "Selene, Tejedora de Escarcha",
+  asesino: "Umbris, Cuchilla en las Sombras",
+};
 
 export interface PvpFloatingNumber {
   id: string;
@@ -37,6 +56,12 @@ interface PvpStoreState {
   token: string | null;
   mySide: PvpSide | null;
   view: PvpClientView | null;
+
+  // Modo historia: partida LOCAL contra bot (mismo motor PvP, sin red)
+  mode: PvpMode;
+  localState: PvpState | null;
+  botClass: GameClass | null;
+  pendingRewards: CardReward[] | null;
 
   // Formulario de setup
   playerName: string;
@@ -83,6 +108,9 @@ interface PvpStoreState {
   openSetup: () => void;
   exitToMenu: () => void;
 
+  /** Modo historia: crea la partida local contra un bot predeterminado. */
+  startHistoria: (opts: { playerClass: GameClass; botClass: GameClass; playerName?: string }) => void;
+
   createRoom: () => Promise<void>;
   joinRoom: () => Promise<void>;
   sendPlay: (uid: string, lane: string) => Promise<void>;
@@ -99,6 +127,16 @@ let pollTimer: ReturnType<typeof setInterval> | null = null;
 let floatId = 0;
 /** Guard anti doble-disparo: el drop del drag dispara onPlayCard + click del carril. */
 let actionInFlight = false;
+let botTimer: ReturnType<typeof setTimeout> | null = null;
+let botRunToken = 0;
+
+function cancelBotTimer(): void {
+  botRunToken++;
+  if (botTimer) {
+    clearTimeout(botTimer);
+    botTimer = null;
+  }
+}
 
 function myDeckIds(cls: GameClass): string[] | undefined {
   // Solo Guerrero admite mazo custom (localStorage); Mago/Asesino usan su espejo oficial.
@@ -261,12 +299,102 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     applyView(data.view);
   }
 
+  // ═══════════════════ MODO HISTORIA (partida local vs bot) ═══════════════════
+
+  /** Aplica una acción del JUGADOR (side a) al estado local y refresca la vista. */
+  function applyLocalAction(action: { type: "play"; uid: string; lane: string } | { type: "pass" }): boolean {
+    const st = get();
+    const local = st.localState;
+    if (!local || st.mode !== "historia") return false;
+    try {
+      if (action.type === "pass") {
+        applyPvpAction(local, "a", { type: "pass" });
+      } else {
+        applyPvpAction(local, "a", { type: "play", uid: action.uid, lane: action.lane as never });
+      }
+      set({ invalidPlayMsg: null, selectedCardUid: null });
+      applyView(buildClientView(local, "a"));
+      checkHistoriaEnd();
+      scheduleBotIfNeeded();
+      return true;
+    } catch (err) {
+      set({ invalidPlayMsg: (err as Error).message ?? "Acción inválida." });
+      applyView(buildClientView(local, "a"));
+      return false;
+    }
+  }
+
+  /** Si le toca al bot, programa su actuación con pausas narrativas. */
+  function scheduleBotIfNeeded(): void {
+    const st = get();
+    const local = st.localState;
+    if (st.mode !== "historia" || !local) return;
+    if (local.phase !== "playing" || local.activeSide !== "b") return;
+    const token = ++botRunToken;
+    botTimer = setTimeout(() => {
+      void runBotTurn(token);
+    }, 1000);
+  }
+
+  async function runBotTurn(token: number): Promise<void> {
+    const st = get();
+    const local = st.localState;
+    if (!local || st.mode !== "historia" || token !== botRunToken) return;
+    if (local.phase !== "playing" || local.activeSide !== "b") return;
+
+    const plan = planBotTurn(local);
+    for (const action of plan.actions) {
+      if (token !== botRunToken) return;
+      try {
+        applyPvpAction(local, "b", action);
+      } catch {
+        break; // plan desincronizado — el pase de abajo cierra el turno igual
+      }
+      applyView(buildClientView(local, "a"));
+      checkHistoriaEnd();
+      if (local.phase !== "playing") return;
+      await new Promise((r) => setTimeout(r, 850));
+    }
+    if (token !== botRunToken || local.phase !== "playing") return;
+    try {
+      applyPvpAction(local, "b", { type: "pass" });
+    } catch {
+      // el turno ya no es del bot — nada que hacer
+    }
+    applyView(buildClientView(local, "a"));
+    checkHistoriaEnd();
+  }
+
+  /** Al terminar la partida: victoria → 2 cartas aleatorias a la colección. */
+  function checkHistoriaEnd(): void {
+    const st = get();
+    const local = st.localState;
+    if (st.mode !== "historia" || !local || local.phase !== "ended") return;
+    if (st.pendingRewards) return;
+    const final = local.finalResultA;
+    const won = final ? final.playerWins > final.enemyWins : false;
+    const col = useCollectionStore.getState();
+    if (won) {
+      col.registerWin();
+      const rewards = col.addRewards(2);
+      set({ pendingRewards: rewards });
+    } else {
+      set({ pendingRewards: [] });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+
   return {
     screen: "setup",
     code: null,
     token: null,
     mySide: null,
     view: null,
+    mode: "online",
+    localState: null,
+    botClass: null,
+    pendingRewards: null,
     playerName: "",
     gameClass: "guerrero",
     joinCode: "",
@@ -307,6 +435,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
     openSetup: () => {
       get().stopPolling();
+      cancelBotTimer();
       if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
@@ -314,6 +443,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         token: null,
         mySide: null,
         view: null,
+        mode: "online",
+        localState: null,
+        botClass: null,
+        pendingRewards: null,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -329,6 +462,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
     exitToMenu: () => {
       get().stopPolling();
+      cancelBotTimer();
       if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
@@ -336,6 +470,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         token: null,
         mySide: null,
         view: null,
+        mode: "online",
+        localState: null,
+        botClass: null,
+        pendingRewards: null,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -351,6 +489,53 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       import("@/store/gameStore").then(({ useGameStore }) => {
         useGameStore.getState().setView("main-menu");
       });
+    },
+
+    startHistoria: ({ playerClass, botClass, playerName }) => {
+      cancelBotTimer();
+      get().stopPolling();
+      if (get().hostingLocal) void stopLocalPvpServer();
+
+      // Colección: arranca el mazo de la clase (una vez) y materializa el
+      // mazo del jugador con sus mejores copias (+2 poder por fusión).
+      const col = useCollectionStore.getState();
+      col.grantStarterDeck(playerClass);
+      const deck: CardDef[] = CLASS_DECKS[playerClass].map((c) =>
+        materializeCard(c, useCollectionStore.getState().bestTier(c.id))
+      );
+
+      const state = createPvpState("HIST", {
+        name: playerName || "Tú",
+        gameClass: playerClass,
+        deck,
+      });
+      joinBotPvpState(state, {
+        name: HISTORIA_BOTS[botClass],
+        gameClass: botClass,
+        deck: CLASS_DECKS[botClass],
+      });
+
+      set({
+        mode: "historia",
+        localState: state,
+        botClass,
+        pendingRewards: null,
+        mySide: "a",
+        code: "HIST",
+        token: null,
+        screen: "game",
+        lastActionSeq: 0,
+        selectedCardUid: null,
+        invalidPlayMsg: null,
+        connectionLost: false,
+        error: null,
+      });
+      // La ruta es propiedad del gameStore: entra a la vista PvP (PvpGame)
+      import("@/store/gameStore").then(({ useGameStore }) => {
+        useGameStore.getState().setView("pvp");
+      });
+      applyView(buildClientView(state, "a"));
+      scheduleBotIfNeeded();
     },
 
     createRoom: async () => {
@@ -508,6 +693,17 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     },
 
     sendPlay: async (uid, lane) => {
+      const st = get();
+      if (st.mode === "historia") {
+        if (actionInFlight) return;
+        actionInFlight = true;
+        try {
+          applyLocalAction({ type: "play", uid, lane });
+        } finally {
+          actionInFlight = false;
+        }
+        return;
+      }
       const { code, token } = get();
       if (!code || !token || actionInFlight) return;
       actionInFlight = true;
@@ -532,6 +728,20 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     },
 
     sendPass: async () => {
+      const st = get();
+      if (st.mode === "historia") {
+        if (actionInFlight) return;
+        actionInFlight = true;
+        set({ passing: true });
+        try {
+          if (useSettings.getState().soundOn) sfx.click();
+          applyLocalAction({ type: "pass" });
+        } finally {
+          actionInFlight = false;
+          set({ passing: false });
+        }
+        return;
+      }
       const { code, token } = get();
       if (!code || !token || actionInFlight) return;
       actionInFlight = true;
@@ -560,6 +770,16 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     },
 
     requestRematch: async () => {
+      const st = get();
+      // Historia: revancha local contra el MISMO bot (mismos mazos, nuevo sorteo)
+      if (st.mode === "historia" && st.localState) {
+        cancelBotTimer();
+        startPvpMatch(st.localState);
+        set({ pendingRewards: null, lastActionSeq: 0, selectedCardUid: null, invalidPlayMsg: null });
+        applyView(buildClientView(st.localState, "a"));
+        scheduleBotIfNeeded();
+        return;
+      }
       const { code, token } = get();
       if (!code || !token) return;
       const { ok, data } = await apiJson<{ view: PvpClientView }>(

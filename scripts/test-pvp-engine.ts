@@ -165,8 +165,9 @@ section("5. Flujo de turnos: pasar → alterna → avanza turno con robo y energ
   assert(state.turn === 2, "ambos pasaron → turno 2");
   assert(state.players.a.energy === 2 && state.players.b.energy === 2, "energía 2/2 en turno 2");
   assert(state.players[first].hand.length === Math.min(7, t1FirstHand + 1), "robo de 1 carta al avanzar turno");
-  // En T2 arranca el OTRO lado (alterno)
-  assert(state.activeSide === second, "en T2 arranca el otro lado (alternancia justa)");
+  // Regla fija (fix "turno mareado"): T2 abre SIEMPRE firstSide — tras pasar,
+  // el turno cae invariablemente en el OTRO jugador.
+  assert(state.activeSide === first, "en T2 vuelve a arrancar firstSide (apertura fija)");
   assert(state.firstSide === first, "firstSide del sorteo se conserva");
 }
 

@@ -157,7 +157,11 @@ export function PvpHandBar({
         </button>
         <button
           onClick={() => {
-            if (window.confirm("¿Salir de la partida PvP? El rival quedará esperando.")) {
+            const msg =
+              usePvpStore.getState().mode === "historia"
+                ? "¿Abandonar la partida? Perderás el progreso de esta batalla."
+                : "¿Salir de la partida PvP? El rival quedará esperando.";
+            if (window.confirm(msg)) {
               sfx.click();
               exitToMenu();
             }

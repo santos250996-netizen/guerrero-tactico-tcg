@@ -43,7 +43,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "hender_armadura",
     keyword: "hender_armadura",
     keywordValue: 3,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -57,7 +57,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "duelista",
     keyword: "duelista",
     keywordValue: 1,
-    rarity: "epic",
+    rarity: "common",
     trigger: "start_turn",
   },
   {
@@ -71,7 +71,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "fervor",
     keyword: "fervor",
     keywordValue: 1,
-    rarity: "rare",
+    rarity: "common",
     trigger: "start_turn",
   },
   {
@@ -85,7 +85,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "fortaleza",
     keyword: "fortaleza",
     keywordValue: 1,
-    rarity: "legendary",
+    rarity: "common",
     trigger: "end_turn",
   },
 
@@ -115,7 +115,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "amparo",
     keyword: "amparo",
     keywordValue: 2,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -128,7 +128,7 @@ export const ALL_CARDS: CardDef[] = [
     text: "Inicio de Turno: elimina las reducciones de poder acumuladas de tus cartas en este carril.",
     effectId: "purificacion",
     keyword: "purificacion",
-    rarity: "epic",
+    rarity: "common",
     trigger: "start_turn",
   },
   {
@@ -158,7 +158,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "impetu",
     keyword: "impetu",
     keywordValue: 1,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -172,7 +172,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "crueldad",
     keyword: "crueldad",
     keywordValue: 1,
-    rarity: "epic",
+    rarity: "common",
     trigger: "end_turn",
   },
   {
@@ -200,7 +200,7 @@ export const ALL_CARDS: CardDef[] = [
     effectId: "legado",
     keyword: "legado",
     keywordValue: 3,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_death",
   },
 ];
@@ -225,7 +225,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "convergencia",
     keyword: "convergencia",
     keywordValue: 2,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -239,7 +239,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "sobrecarga",
     keyword: "sobrecarga",
     keywordValue: 2,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -267,7 +267,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "fortaleza",
     keyword: "fortaleza",
     keywordValue: 1,
-    rarity: "legendary",
+    rarity: "common",
     trigger: "end_turn",
   },
 
@@ -283,7 +283,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "llamarada",
     keyword: "llamarada",
     keywordValue: 1,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -297,7 +297,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "combustion",
     keyword: "combustion",
     keywordValue: 2,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_death",
   },
   {
@@ -325,7 +325,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "remate",
     keyword: "remate",
     keywordValue: 2,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
 
@@ -341,7 +341,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "escarcha",
     keyword: "escarcha",
     keywordValue: 2,
-    rarity: "epic",
+    rarity: "common",
     trigger: "start_turn",
   },
   {
@@ -355,7 +355,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "ventisca",
     keyword: "ventisca",
     keywordValue: 1,
-    rarity: "rare",
+    rarity: "common",
     trigger: "end_turn",
   },
   {
@@ -383,7 +383,7 @@ export const MAGE_CARDS: CardDef[] = [
     effectId: "legado",
     keyword: "legado",
     keywordValue: 3,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_death",
   },
 ];
@@ -407,7 +407,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "veneno",
     keyword: "veneno",
     keywordValue: 1,
-    rarity: "epic",
+    rarity: "common",
     trigger: "start_turn",
   },
   {
@@ -421,7 +421,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "contagio",
     keyword: "contagio",
     keywordValue: 1,
-    rarity: "rare",
+    rarity: "common",
     trigger: "end_turn",
   },
   {
@@ -449,7 +449,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "fortaleza",
     keyword: "fortaleza",
     keywordValue: 1,
-    rarity: "legendary",
+    rarity: "common",
     trigger: "end_turn",
   },
 
@@ -465,7 +465,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "refriega",
     keyword: "refriega",
     keywordValue: 2,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -479,7 +479,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "golpe_certero",
     keyword: "golpe_certero",
     keywordValue: 3,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -507,7 +507,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "remate",
     keyword: "remate",
     keywordValue: 2,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_play",
   },
 
@@ -523,7 +523,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "emboscada",
     keyword: "emboscada",
     keywordValue: 2,
-    rarity: "rare",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -537,7 +537,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "purga",
     keyword: "purga",
     keywordValue: 2,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_play",
   },
   {
@@ -565,7 +565,7 @@ export const ROGUE_CARDS: CardDef[] = [
     effectId: "legado",
     keyword: "legado",
     keywordValue: 3,
-    rarity: "epic",
+    rarity: "common",
     trigger: "on_death",
   },
 ];
@@ -591,6 +591,11 @@ export function cardPoolForClass(cls: GameClass): CardDef[] {
   return ALL_CARDS_V3.filter(
     (c) => !c.keyword || !c.subtypes.length || c.subtypes.some((s) => lanes.has(s))
   );
+}
+
+/** Busca una carta por id en todo el catálogo (V2 + V3). */
+export function cardById(id: string): CardDef | undefined {
+  return ALL_CARDS_V3.find((c) => c.id === id);
 }
 
 /** Preset decks shown in the DeckEditor dropdown. */

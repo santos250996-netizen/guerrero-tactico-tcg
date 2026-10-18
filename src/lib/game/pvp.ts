@@ -170,6 +170,9 @@ export interface PvpPlayerInput {
   gameClass: GameClass;
   /** Opcional: ids del mazo custom (12 únicos del pool de la clase). */
   deckIds?: string[];
+  /** Opcional: mazo YA materializado (p.ej. copias de la colección con
+   *  rareza ganada por fusión). Tiene prioridad sobre deckIds. */
+  deck?: CardDef[];
 }
 
 export type PvpAction =
@@ -278,7 +281,7 @@ function drawStartingHand(pile: HandCard[], n: number): HandCard[] {
 }
 
 function buildPlayer(input: PvpPlayerInput, deck?: CardDef[]): PvpPlayer {
-  const resolvedDeck = deck ?? resolvePvpDeck(input.gameClass, input.deckIds);
+  const resolvedDeck = deck ?? input.deck ?? resolvePvpDeck(input.gameClass, input.deckIds);
   const pile: HandCard[] = buildDrawPileFrom(resolvedDeck).map((c) => ({
     ...c,
     uid: uuidv4(),
@@ -480,6 +483,17 @@ export function joinPvpState(state: PvpState, input: PvpPlayerInput, now = Date.
   state.players.b = buildPlayer(input);
   state.lastSeen.b = now;
   state.version++;
+  startPvpMatch(state, now);
+}
+
+/**
+ * Variante local (modo historia): une un BOT con mazo predeterminado sin
+ * pasar por sala online. El anfitrión conserva su mazo materializado.
+ */
+export function joinBotPvpState(state: PvpState, input: PvpPlayerInput, now = Date.now()): void {
+  if (state.phase !== "lobby") throw new Error("La partida ya comenzó.");
+  state.players.b = buildPlayer(input);
+  state.lastSeen.b = now;
   startPvpMatch(state, now);
 }
 
@@ -707,8 +721,12 @@ function advanceTurn(state: PvpState): void {
   }
 
   state.turn = newTurn;
-  // El arranque del turno alterna: T1 → firstSide, T2 → el otro, T3 → firstSide…
-  const first: PvpSide = newTurn % 2 === 1 ? state.firstSide : otherSide(state.firstSide);
+  // Regla de apertura FIJA (fix "turno mareado"): siempre abre firstSide,
+  // decidido en el sorteo inicial. Así, tras CUALQUIER pase el turno pasa al
+  // OTRO jugador (o termina la partida) — nunca le vuelve a tocar al mismo
+  // que acabó de pasar. La alternativa anterior (alternar abridor) hacía que
+  // quien cerrara el turno abriera el siguiente y pareciera que el pase "no pasaba".
+  const first: PvpSide = state.firstSide;
   state.activeSide = first;
 
   for (const s of ["a", "b"] as PvpSide[]) {
@@ -723,7 +741,7 @@ function advanceTurn(state: PvpState): void {
     }
   }
 
-  pushLog(state, newTurn, "system", `Turno ${newTurn} — energía ${state.players.a.maxEnergy} para ambos.`);
+  pushLog(state, newTurn, "system", `Turno ${newTurn} — abre ${state.players[first].name}. Energía ${state.players.a.maxEnergy} para ambos.`);
 
   // Re-roll de bonos en el turno 4 (misma regla que solitario)
   if (newTurn === 4) {

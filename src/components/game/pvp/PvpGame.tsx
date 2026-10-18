@@ -22,7 +22,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
-import { CLASS_META, LANE_META } from "@/lib/game/types";
+import { CLASS_META, LANE_META, RARITY_META } from "@/lib/game/types";
+import { RARITY_LABEL } from "@/lib/game/balance";
+import { cardById } from "@/lib/game/cards";
 import { PvpLane } from "./PvpLane";
 import { PvpHandBar } from "./PvpHandBar";
 import { CardPreviewModal } from "../CardPreviewModal";
@@ -50,6 +52,8 @@ export function PvpGame() {
   const setPreviewCard = usePvpStore((s) => s.setPreviewCard);
   const requestRematch = usePvpStore((s) => s.requestRematch);
   const exitToMenu = usePvpStore((s) => s.exitToMenu);
+  const mode = usePvpStore((s) => s.mode);
+  const pendingRewards = usePvpStore((s) => s.pendingRewards);
 
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -86,9 +90,9 @@ export function PvpGame() {
             <span
               className={cn(
                 "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-zinc-950",
-                view.rival.connected ? "bg-emerald-400" : "bg-zinc-600"
+                (mode === "historia" || view.rival.connected) ? "bg-emerald-400" : "bg-zinc-600"
               )}
-              title={view.rival.connected ? "Conectado" : "Sin señal…"}
+              title={mode === "historia" ? "Bot local" : view.rival.connected ? "Conectado" : "Sin señal…"}
             />
           </div>
           <div className="min-w-0 leading-none">
@@ -155,7 +159,7 @@ export function PvpGame() {
           <div className="flex items-center justify-center gap-2 py-0.5">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
             <span className="text-[7px] font-black uppercase tracking-[0.4em] text-zinc-600" style={{ fontFamily: "var(--font-cinzel), serif" }}>
-              {view.yourTurn ? "Te toca" : "Rival"}
+              Turno {view.turn} · {view.yourTurn ? "Te toca" : "Rival"}
             </span>
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
           </div>
@@ -184,11 +188,20 @@ export function PvpGame() {
       <LegendaryBurst trigger={legendaryBurst} onDone={() => usePvpStore.setState({ legendaryBurst: false })} />
 
       {/* Game over */}
-      <PvpGameOverModal
-        open={view.phase === "ended"}
-        onRematch={() => { sfx.click(); requestRematch(); }}
-        onExit={() => { sfx.click(); exitToMenu(); }}
-      />
+      {mode === "historia" ? (
+        <HistoriaEndOverlay
+          open={view.phase === "ended"}
+          rewards={pendingRewards}
+          onRematch={() => { sfx.click(); requestRematch(); }}
+          onExit={() => { sfx.click(); exitToMenu(); }}
+        />
+      ) : (
+        <PvpGameOverModal
+          open={view.phase === "ended"}
+          onRematch={() => { sfx.click(); requestRematch(); }}
+          onExit={() => { sfx.click(); exitToMenu(); }}
+        />
+      )}
 
       {/* Preview de carta (reutilizado del solitario) */}
       <CardPreviewModal
@@ -247,6 +260,120 @@ export function PvpGame() {
 }
 
 // ──────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────
+// Fin de partida en MODO HISTORIA: recompensa de 2 cartas / derrota.
+// ───────────────────────────────────────────────────
+function HistoriaEndOverlay({
+  open,
+  rewards,
+  onRematch,
+  onExit,
+}: {
+  open: boolean;
+  rewards: { id: string; rarity: string; isNew: boolean }[] | null;
+  onRematch: () => void;
+  onExit: () => void;
+}) {
+  const result = usePvpStore.getState().view?.finalResult?.result;
+  const won = result === "WIN";
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ scale: 0.85, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            className={cn(
+              "mx-4 w-full max-w-sm rounded-2xl border-2 bg-gradient-to-b to-black p-5 text-center shadow-2xl",
+              won ? "border-amber-500/60 from-amber-950" : "border-rose-800/60 from-rose-950"
+            )}
+          >
+            <Trophy className={cn("mx-auto h-9 w-9", won ? "text-amber-400" : "text-rose-500/60")} />
+            <div
+              className={cn(
+                "mt-1 text-xl font-black uppercase tracking-[0.3em]",
+                won ? "text-amber-300" : "text-rose-300"
+              )}
+              style={{ fontFamily: "var(--font-cinzel), serif" }}
+            >
+              {won ? "¡Victoria!" : "Derrota"}
+            </div>
+
+            {won && rewards && rewards.length > 0 && (
+              <>
+                <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-200/80">
+                  Botín · 2 cartas para tu colección
+                </p>
+                <div className="mt-3 flex justify-center gap-3">
+                  {rewards.map((r, i) => {
+                    const def = cardById(r.id);
+                    const rar = r.rarity as keyof typeof RARITY_META;
+                    return (
+                      <motion.div
+                        key={`${r.id}-${i}`}
+                        initial={{ rotateY: 90, opacity: 0 }}
+                        animate={{ rotateY: 0, opacity: 1 }}
+                        transition={{ delay: 0.5 + i * 0.5, duration: 0.45 }}
+                        className="w-24 overflow-hidden rounded-lg border-2 bg-zinc-950"
+                        style={{ borderColor: rar === "epic" ? "rgb(217 70 239 / 0.7)" : rar === "rare" ? "rgb(56 189 248 / 0.7)" : "rgb(113 113 122 / 0.7)" }}
+                      >
+                        <div
+                          className="aspect-[3/4] w-full bg-cover bg-center"
+                          style={{ backgroundImage: `url(/cards/${r.id}.png)` }}
+                        />
+                        <div className="px-1 py-1">
+                          <div className="truncate text-[8px] font-bold text-zinc-200">{def?.name ?? r.id}</div>
+                          <div className="text-[7px] font-black uppercase tracking-widest text-zinc-500">
+                            {RARITY_LABEL[rar]}
+                            {r.isNew && <span className="ml-1 text-emerald-400">NUEVA</span>}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[8px] uppercase tracking-widest text-zinc-500">
+                  3 iguales del mismo tier → fusión (+2 poder)
+                </p>
+              </>
+            )}
+            {won && (!rewards || rewards.length === 0) && (
+              <p className="mt-2 text-[10px] text-zinc-500">Sin botín esta vez…</p>
+            )}
+            {!won && (
+              <p className="mt-2 text-[10px] uppercase tracking-widest text-rose-200/70">
+                El bot te venció — afina tu mazo y reintenta
+              </p>
+            )}
+
+            <div className="mt-4 flex justify-center gap-2">
+              <Button
+                onClick={onRematch}
+                className="border-amber-400/60 bg-gradient-to-b from-amber-600 to-amber-800 text-amber-50 hover:from-amber-500 hover:to-amber-700"
+              >
+                Revancha
+              </Button>
+              <Button
+                onClick={onExit}
+                variant="outline"
+                className="border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-900"
+              >
+                Menú
+              </Button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // Banner de turno (TU TURNO / TURNO DEL RIVAL)
 // ──────────────────────────────────────────────────────────────
 function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | null }) {
