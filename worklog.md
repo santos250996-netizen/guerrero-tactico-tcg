@@ -274,3 +274,20 @@ Work Log:
 
 Stage Summary:
 - https://github.com/santos250996-netizen/guerrero-tactico-tcg — main = estado actual del juego (FX + PvP + 3 clases), legacy-pre-reset = historia anterior completa
+
+---
+Task ID: 14
+Agent: Z.ai main agent
+Task: Arreglar CI Build APK (Prisma + export estático)
+
+Work Log:
+- Fallo 1: next build en CI sin Prisma Client generado ("Cannot find module '.prisma/client/default'" en /api/pvp/rooms/[code]/action). Fix: postinstall=prisma generate en package.json + paso explícito "Generate Prisma Client" en build-apk.yml → commit 022165e. Verificado en CI: build web pasó
+- Fallo 2 (revelado al arreglar el 1): Sync Capacitor fallaba — "Could not find the web assets directory: ./out". Causa: el step usaba bun run build (servidor) pero capacitor.config.ts webDir='out' exige STATIC_EXPORT=1 (build:static)
+- Fallo 3 (latente): STATIC_EXPORT=1 explota en las 7 rutas API force-dynamic ("cannot be used with output: export") — nunca se había probado desde que existe PvP. El propio comentario de matches/route.ts documenta el diseño: en el build estático las rutas API se omiten y el cliente gestiona los fallos de fetch
+- Fix 2+3: step de build ahora mueve src/app/api fuera del árbol durante el export (mv → build:static → mv back, RC preservado) → commit 25eefbe
+- Test local previo: build estático OK (/, /_not-found), out/index.html generado, api restaurada
+- CI run 39129950583: TODOS los pasos en verde, APK guerrero-tactico-apk 88.3 MB subido (expira 2027-01-16)
+
+Stage Summary:
+- Pipeline APK 100% funcional: push a main → APK debug con FX + PvP + 3 clases descargable en Actions
+- El APK sirve el juego completo cliente-side; las APIs (matches/pvp) solo existen en despliegues con servidor (runtime preview)
