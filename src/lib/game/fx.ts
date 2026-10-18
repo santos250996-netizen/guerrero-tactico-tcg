@@ -21,7 +21,7 @@ import type { Keyword, LaneId } from "./types";
 // Eventos
 // ---------------------------------------------------------------------------
 
-export type FxKind = "keyword" | "play" | "destroy" | "shieldBlock" | "trap";
+export type FxKind = "keyword" | "play" | "destroy" | "shieldBlock" | "trap" | "mutation";
 
 /**
  * Un efecto visual puntual. `side` = bando dueño de las cartas afectadas
@@ -287,6 +287,27 @@ export function eventsFromPlayResult(
       value: sb.absorbed,
       delayMs: 120,
     });
+  }
+
+  // 5b. JUICE FÍSICO: mutaciones de poder → hit-flash + knockback (delta<0)
+  //     o pulso de buff (delta>0) sobre la carta afectada. Lo pinta el
+  //     CardJuiceLayer (DOM) — el canvas de keywords ya añade las partículas.
+  {
+    const hitBySide = new Map<"player" | "enemy", string[]>();
+    const buffBySide = new Map<"player" | "enemy", string[]>();
+    for (const m of res.mutations) {
+      if (m.powerDelta === 0) continue;
+      const map = m.powerDelta < 0 ? hitBySide : buffBySide;
+      const arr = map.get(m.side) ?? [];
+      arr.push(m.uid);
+      map.set(m.side, arr);
+    }
+    for (const [side, uids] of hitBySide) {
+      events.push({ kind: "mutation", lane, side, targetUids: uids, value: -1, delayMs: 150 });
+    }
+    for (const [side, uids] of buffBySide) {
+      events.push({ kind: "mutation", lane, side, targetUids: uids, value: 1, delayMs: 150 });
+    }
   }
 
   // 6. Trampa

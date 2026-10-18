@@ -22,6 +22,7 @@ import {
   isCardCostAllowed,
 } from "@/lib/game/engine";
 import { cn } from "@/lib/utils";
+import { EmptySlot, LaneBanner, LANE_HEX } from "../LaneDecor";
 
 const BONUS_CHIP_CLASS: Record<string, { chip: string }> = {
   positive: { chip: "bg-emerald-700/80 border-emerald-400/50 text-emerald-50" },
@@ -48,6 +49,7 @@ export function PvpLane({ position, side }: PvpLaneProps) {
   const laneId = side === "me" ? myLaneId : rivalLaneId;
   const meta = LANE_META[laneId];
   const colors = LANE_COLOR_CLASSES[meta.color];
+  const hex = LANE_HEX[meta.color] ?? "#fbbf24";
 
   // Datos de la posición (tablero con mis claves):
   const posState = view.board[myLaneId];
@@ -97,28 +99,35 @@ export function PvpLane({ position, side }: PvpLaneProps) {
       }}
     >
       {/* Fondo del carril — de la CLASE propietaria: Mago vs Guerrero muestran
-          6 fondos distintos (3 del rival arriba + 3 tuyos abajo). */}
+          6 fondos distintos (3 del rival arriba + 3 tuyos abajo).
+          Overlay ALIGERADO (V2 gráficos): el arte es protagonista. */}
       <div
         className="pointer-events-none absolute inset-0 z-0 scale-105 bg-cover bg-center"
         style={{ backgroundImage: `url(/menu/lane-${laneId}.png)` }}
       />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/35 via-black/10 to-black/35" />
+      {/* Tinte del color del carril (cohesión) + viñeta ligera */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{ background: `linear-gradient(180deg, ${hex}14 0%, transparent 30%, transparent 65%, rgba(0,0,0,0.42) 100%)` }}
+      />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/15 via-transparent to-black/25" />
 
-      {/* Header del carril (propietario). El chip de bono SOLO en la fila propia:
-          el bono es compartido por la pareja de carriles (positionBonuses[p] en
-          pvp.ts), pintarlo también en la fila rival era redundante y robaba
-          altura de pantalla. */}
-      <div className={cn("relative z-10 flex items-center justify-center rounded border border-white/5 px-1 py-0.5 bg-black/30", colors.headerBg)}>
-        <meta.icon className="h-3 w-3 shrink-0 drop-shadow" />
-        <span className={cn("ml-0.5 truncate text-[8px] font-black uppercase tracking-wider drop-shadow", colors.text)} style={{ fontFamily: "var(--font-cinzel), serif" }}>
-          {meta.title}
-        </span>
-        {side === "me" && bonus && (
-          <span title={bonus.description} className={cn("ml-1 rounded-full border px-1 py-0 text-[6px] font-bold uppercase", BONUS_CHIP_CLASS[bonus.flavor].chip)}>
-            {bonus.label}
-          </span>
-        )}
-      </div>
+      {/* Header del carril (propietario) — BANNER HERÁLDICO. El chip de bono SOLO
+          en la fila propia: el bono es compartido por la pareja de carriles
+          (positionBonuses[p] en pvp.ts), pintarlo también en la fila rival era
+          redundante y robaba altura de pantalla. */}
+      <LaneBanner
+        title={meta.title}
+        icon={meta.icon}
+        hex={hex}
+        right={
+          side === "me" && bonus ? (
+            <span title={bonus.description} className={cn("shrink-0 whitespace-nowrap rounded-full border px-1 py-0 text-[6.5px] font-bold uppercase leading-[11px]", BONUS_CHIP_CLASS[bonus.flavor].chip)}>
+              {bonus.label}
+            </span>
+          ) : undefined
+        }
+      />
 
       {/* Zona de cartas: 2 columnas × 2 filas (máx 4 por bando). */}
       <div
@@ -132,6 +141,7 @@ export function PvpLane({ position, side }: PvpLaneProps) {
         )}
         style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
+        <AnimatePresence initial={false}>
         {Array.from({ length: Math.max(maxCards, cards.length) }).map((_, i) => {
           const card = cards[i];
           if (card) {
@@ -163,15 +173,16 @@ export function PvpLane({ position, side }: PvpLaneProps) {
             );
           }
           return (
-            <div
+            <EmptySlot
               key={`empty-${i}`}
-              className={cn(
-                "aspect-[3/4] rounded border border-dashed",
-                side === "me" ? "border-white/10 bg-black/20" : "border-white/5 bg-black/25"
-              )}
+              hex={hex}
+              icon={meta.icon}
+              active={side === "me" && canDrop}
+              enemy={side === "rival"}
             />
           );
         })}
+        </AnimatePresence>
       </div>
 
       {/* Puntuación de la PAREJA (mi carril vs su carril pareado). Se muestra en
@@ -179,23 +190,23 @@ export function PvpLane({ position, side }: PvpLaneProps) {
       <div className="relative z-10 rounded border border-white/5 bg-black/50 px-1 py-0.5">
         <div className="flex items-center justify-between">
           <div className="leading-none">
-            <div className="text-[5px] uppercase tracking-widest text-zinc-500">
+            <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
               {side === "me" ? "Tú" : view.rival.name}
             </div>
-            <div className={cn("text-[10px] font-black tabular-nums leading-none", (side === "me" ? myScore : rivalScore) >= (side === "me" ? rivalScore : myScore) ? (side === "me" ? "text-emerald-400" : "text-rose-400") : "text-zinc-400")}>
+            <div className={cn("text-[12px] font-black tabular-nums leading-none", (side === "me" ? myScore : rivalScore) >= (side === "me" ? rivalScore : myScore) ? (side === "me" ? "text-emerald-400" : "text-rose-400") : "text-zinc-400")}>
               {side === "me" ? myScore : rivalScore}
             </div>
           </div>
           {myScore !== rivalScore && (
-            <span className={cn("text-[6px] font-bold tabular-nums", myScore > rivalScore ? "text-emerald-500" : "text-rose-500")}>
+            <span className={cn("text-[8px] font-bold tabular-nums", myScore > rivalScore ? "text-emerald-500" : "text-rose-500")}>
               +{Math.abs(myScore - rivalScore)}
             </span>
           )}
           <div className="text-right leading-none">
-            <div className="text-[5px] uppercase tracking-widest text-zinc-500">
+            <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
               {side === "me" ? view.rival.name : "Tú"}
             </div>
-            <div className={cn("text-[10px] font-black tabular-nums leading-none", (side === "me" ? rivalScore : myScore) > (side === "me" ? myScore : rivalScore) ? (side === "me" ? "text-rose-400" : "text-emerald-400") : "text-zinc-400")}>
+            <div className={cn("text-[12px] font-black tabular-nums leading-none", (side === "me" ? rivalScore : myScore) > (side === "me" ? myScore : rivalScore) ? (side === "me" ? "text-rose-400" : "text-emerald-400") : "text-zinc-400")}>
               {side === "me" ? rivalScore : myScore}
             </div>
           </div>

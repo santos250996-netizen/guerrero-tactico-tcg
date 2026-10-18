@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
 import type { CardDef } from "@/lib/game/types";
-import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
+import { CATEGORY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import {
   Sparkles,
   Link2,
@@ -20,16 +20,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CostBadge, PowerBadge } from "./CardBadges";
+import { CardShell } from "./CardFrame";
 import { useState } from "react";
 import type { PowerLogEntry } from "@/lib/game/types";
-
-// Rarity text color (used in the rarity pill label in the preview header)
-const RARITY_TEXT_COLOR: Record<string, string> = {
-  common: "text-emerald-300",
-  rare: "text-sky-300",
-  epic: "text-violet-300",
-  legendary: "text-amber-300",
-};
 
 // PowerLogEntry kind → lucide icon + label + color (for the Registro de Modificadores panel)
 const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { icon: LucideIcon; label: string; text: string; bg: string; border: string }> = {
@@ -49,7 +42,6 @@ const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { icon: LucideIcon; 
 export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   if (!card) return null;
   const cat = CATEGORY_META[card.category];
-  const rar = RARITY_META[card.rarity];
   const trigger = card.trigger ?? "on_play";
   const triggerMeta = TRIGGER_META[trigger];
   const keyword = card.keyword ?? "none";
@@ -108,55 +100,48 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             close();
           }}
           className={cn(
-            "relative mx-auto flex w-56 cursor-pointer flex-col overflow-hidden rounded-2xl border-2 shadow-2xl shadow-black/90",
-            "bg-zinc-950",
+            "relative mx-auto flex w-56 cursor-pointer flex-col",
             // Auto-grow height: base 28rem + extra for the Registro panel when there are modifiers.
-            modifiers.length > 0 ? "h-[34rem]" : "h-[28rem]",
-            card.rarity === "common" ? "border-emerald-500"
-            : card.rarity === "rare" ? "border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)]"
-            : card.rarity === "epic" ? "border-violet-400 shadow-[0_0_18px_rgba(168,85,247,0.4)]"
-            : "border-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.5)]",
+            modifiers.length > 0 ? "h-[34rem]" : "h-[28rem]"
           )}
-          style={{
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 8px rgba(0,0,0,0.6), 0 18px 40px rgba(0,0,0,0.8)",
-          }}
         >
-          {/* Full-bleed art */}
-          <img
-            src={`/cards/${card.id}.png`}
-            alt={card.name}
-            className="absolute inset-0 h-full w-full object-cover"
-            draggable={false}
-        decoding="async"
-          />
+          {/* Marco TCG completo: bisel + filigranas + foil + name plate */}
+          <CardShell rarity={card.rarity} name={card.name} nameSize="lg" className="h-full w-full">
+            {/* Full-bleed art */}
+            <img
+              src={`/cards/${card.id}.png`}
+              alt={card.name}
+              className="absolute inset-0 h-full w-full object-cover"
+              draggable={false}
+              decoding="async"
+            />
 
-          {/* Dark gradient at the bottom for legibility */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
+            {/* Dark gradient at the bottom for legibility */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
 
-          {/* Cost badge (top-left) — crystal */}
-          <div className="absolute left-2 top-2 z-30">
-            <CostBadge cost={card.cost} size="lg" />
-          </div>
+            {/* Cost badge (top-left) — crystal */}
+            <div className="absolute left-2 top-2 z-30">
+              <CostBadge cost={card.cost} size="lg" />
+            </div>
 
-          {/* Power badge (top-right) — shield, shows EFFECTIVE power (currentPower on board, power+handBonus in hand). */}
-          <div className="absolute right-2 top-2 z-30 flex flex-col items-end gap-0.5">
-            <PowerBadge power={effectivePower} size="lg" />
-            {/* Delta chip — only when effective ≠ base */}
-            {powerDelta !== 0 && (
-              <div className={cn(
-                "rounded-full border px-1.5 py-0.5 text-[9px] font-black tabular-nums whitespace-nowrap backdrop-blur-sm shadow-md",
-                isBuffed
-                  ? "border-emerald-300/70 bg-emerald-900/80 text-emerald-200"
-                  : "border-rose-300/70 bg-rose-900/80 text-rose-200"
-              )}>
-                {isBuffed ? "+" : ""}{powerDelta}
-              </div>
-            )}
-          </div>
+            {/* Power badge (top-right) — shield, shows EFFECTIVE power (currentPower on board, power+handBonus in hand). */}
+            <div className="absolute right-2 top-2 z-30 flex flex-col items-end gap-0.5">
+              <PowerBadge power={effectivePower} size="lg" />
+              {/* Delta chip — only when effective ≠ base */}
+              {powerDelta !== 0 && (
+                <div className={cn(
+                  "rounded-full border px-1.5 py-0.5 text-[9px] font-black tabular-nums whitespace-nowrap backdrop-blur-sm shadow-md",
+                  isBuffed
+                    ? "border-emerald-300/70 bg-emerald-900/80 text-emerald-200"
+                    : "border-rose-300/70 bg-rose-900/80 text-rose-200"
+                )}>
+                  {isBuffed ? "+" : ""}{powerDelta}
+                </div>
+              )}
+            </div>
 
-          {/* Bottom info panel overlay */}
-          <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 py-2.5">
+            {/* Bottom info panel overlay — el nombre vive en el NAME PLATE del marco */}
+            <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 pb-9 pt-2.5">
             {/* Top row of bottom panel: card type (left) + ALL subtype icons (right) */}
             <div className="flex items-center justify-between gap-1">
               <span
@@ -182,10 +167,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               </div>
             </div>
 
-            {/* Card name */}
-            <div className="text-center text-base font-black uppercase tracking-wider text-amber-300 [text-shadow:1px_1px_0_#000,0_0_6px_rgba(0,0,0,0.9)] leading-tight">
-              {card.name}
-            </div>
+            {/* Card name eliminado de aquí — vive en el name plate del marco */}
 
             {/* Trigger + Keyword chips — when the effect fires + which keyword */}
             <div className="flex justify-center gap-1.5 flex-wrap">
@@ -264,6 +246,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             )}
 
           </div>
+          </CardShell>
         </motion.div>
       </DialogContent>
     </Dialog>

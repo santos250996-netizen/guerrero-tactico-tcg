@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
-import { AlertTriangle, Lock, Activity, Settings as SettingsIcon } from "lucide-react";
+import { AlertTriangle, Lock, Activity, Settings as SettingsIcon, Zap } from "lucide-react";
 import { sfx } from "@/lib/sound";
 import type { LaneId } from "@/lib/game/types";
 
@@ -58,7 +58,7 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
       <div className="relative flex items-center justify-between gap-2 border-b border-amber-700/15 bg-gradient-to-b from-zinc-900/80 to-zinc-950/60 px-3 py-1.5">
         {/* LEFT: Turn text (plain, no pill) */}
         <div className="flex items-baseline gap-1">
-          <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+          <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">
             Turno
           </span>
           <span
@@ -72,7 +72,7 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
 
         {/* CENTER: Big energy circle with golden border + lightning + number */}
         <div className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-amber-400 bg-zinc-950 shadow-[0_0_10px_rgba(251,191,36,0.4)]">
-          <span className="absolute -top-1 -right-0.5 text-[10px] text-amber-300" aria-hidden>⚡</span>
+          <Zap className="absolute -top-1 -right-0.5 h-2.5 w-2.5 text-amber-300" aria-hidden />
           <span
             className="text-base font-black tabular-nums text-amber-300"
             style={{ fontFamily: 'var(--font-cinzel), serif' }}
@@ -83,7 +83,7 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
 
         {/* RIGHT: Draw pile count */}
         <div className="flex items-center gap-1">
-          <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+          <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">
             Mazo
           </span>
           <span

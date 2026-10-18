@@ -27,6 +27,8 @@ import { PvpLane } from "./PvpLane";
 import { PvpHandBar } from "./PvpHandBar";
 import { CardPreviewModal } from "../CardPreviewModal";
 import { FxLayer } from "../FxLayer";
+import { CardJuiceLayer } from "../CardJuiceLayer";
+import { CornerOrnaments } from "../CardFrame";
 import { Confetti } from "../Confetti";
 import { LegendaryBurst } from "../LegendaryBurst";
 import { SettingsModal } from "../SettingsModal";
@@ -133,9 +135,15 @@ export function PvpGame() {
         )}
       </AnimatePresence>
 
-      {/* ══ TABLERO: fila rival + separador + fila propia ══ */}
+      {/* ══ TABLERO: fila rival + separador + fila propia ══
+          data-board-root: ancla de la sacudida global del tablero (juice). */}
       <main className="app-main mx-auto flex w-full flex-1 flex-col px-1.5 py-1">
-        <div className="grid h-full min-h-0 flex-1 grid-rows-[1fr_auto_1fr] gap-1">
+        <div
+          data-board-root
+          className="relative grid h-full min-h-0 flex-1 grid-rows-[1fr_auto_1fr] gap-1 rounded-lg"
+        >
+          {/* Filigranas heráldicas en las esquinas del tablero completo */}
+          <CornerOrnaments size={26} className="-inset-x-1 -inset-y-1 z-20" />
           {/* FILA RIVAL — sus 3 specs con sus fondos */}
           <div className="grid min-h-0 grid-cols-3 gap-1">
             {[0, 1, 2].map((p) => (
@@ -171,6 +179,7 @@ export function PvpGame() {
       <PvpTurnBanner banner={turnBanner} />
       <PvpFloatingNumbersLayer floats={floatingNumbers} />
       <FxLayer />
+      <CardJuiceLayer />
       <Confetti trigger={view.phase === "ended" && view.finalResult?.result === "WIN"} />
       <LegendaryBurst trigger={legendaryBurst} onDone={() => usePvpStore.setState({ legendaryBurst: false })} />
 

@@ -3,12 +3,13 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Info } from "lucide-react";
 import type { HandCard } from "@/lib/game/types";
-import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
+import { CATEGORY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 import { isLowPowerDevice } from "@/lib/game/perf";
 import { useEffect, useRef, useState } from "react";
 import { CostBadge, PowerBadge } from "./CardBadges";
+import { CardShell } from "./CardFrame";
 import { createPortal } from "react-dom";
 import { sfx } from "@/lib/sound";
 
@@ -22,16 +23,6 @@ interface HandCardComponentProps {
   onPreview?: (card: HandCard) => void;
   phase: "playing" | "enemy" | "ended";
 }
-
-// Prominent rarity border colors — replaces old subtle borderClass.
-// Common uses emerald (was zinc — user requested change so common cards
-// have a more visible color frame, matching RARITY_META.common.borderClass).
-const RARITY_BORDER: Record<string, string> = {
-  common: "border-2 border-emerald-500",
-  rare: "border-2 border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.3)]",
-  epic: "border-2 border-violet-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]",
-  legendary: "border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.5)]",
-};
 
 // Direction the user is dragging the card — determines whether we
 // drag the card to the board (vertical) or scroll the hand (horizontal).
@@ -183,7 +174,8 @@ export function HandCardComponent({
     }
   };
 
-  // The actual card visual (shared between the in-place button and the drag ghost)
+  // The actual card visual (shared between the in-place button and the drag ghost).
+  // Va DENTRO del CardShell (marco TCG): aquí solo arte + badges + chips.
   const CardVisual = (
     <>
       {/* Full-bleed art */}
@@ -197,15 +189,15 @@ export function HandCardComponent({
       />
 
       {/* Dark gradient at the bottom for badge legibility */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-black/95 via-black/65 to-transparent" />
 
       {/* Cost badge (top-left) — crystal */}
-      <div className="absolute left-1 top-1 z-30">
+      <div className="absolute left-1.5 top-1.5 z-30">
         <CostBadge cost={card.cost} size="sm" />
       </div>
 
       {/* Power badge (top-right) — shield */}
-      <div className="absolute right-1 top-1 z-30">
+      <div className="absolute right-1.5 top-1.5 z-30">
         <PowerBadge power={effectivePower} size="sm" />
       </div>
 
@@ -222,8 +214,9 @@ export function HandCardComponent({
         </div>
       ) : null}
 
-      {/* Bottom info panel overlay */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-0.5 px-1.5 py-1">
+      {/* Bottom info panel overlay — el nombre vive en el NAME PLATE del marco;
+          aquí solo quedan chips (categoría/subtipos arriba, trigger/keyword abajo) */}
+      <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-0.5 px-1.5 pb-[19px] pt-1">
         {/* Type chip (left) + ALL subtype icons (right) */}
         <div className="flex items-center justify-between gap-0.5">
           <span
@@ -251,13 +244,8 @@ export function HandCardComponent({
           </div>
         </div>
 
-        {/* Card name */}
-        <div className="text-center text-[9px] font-black uppercase tracking-wider text-amber-300 [text-shadow:1px_1px_0_#000,0_0_4px_rgba(0,0,0,0.85)] leading-tight">
-          {card.name}
-        </div>
-
         {/* Bottom row: trigger (left) + keyword (right) — parallel, side by side */}
-        <div className="flex items-center justify-between gap-0.5">
+        <div className="mt-auto flex items-center justify-between gap-0.5">
           <span
             title={triggerMeta.description}
             className={cn(
@@ -304,25 +292,22 @@ export function HandCardComponent({
         onPointerCancel={handlePointerCancel}
         data-hand-card-uid={card.uid}
         className={cn(
-          "relative flex h-44 w-28 shrink-0 touch-pan-x select-none flex-col overflow-hidden rounded-lg border-2 shadow-2xl shadow-black/80",
-          "bg-zinc-950",
-          selected
-            ? "border-amber-400 ring-2 ring-amber-400/70 z-10"
-            : RARITY_BORDER[card.rarity],
+          "relative flex h-44 w-28 shrink-0 touch-pan-x select-none rounded-xl shadow-2xl shadow-black/80",
+          selected && "z-10 ring-2 ring-amber-400 ring-offset-1 ring-offset-zinc-950",
           !affordable && "opacity-65 grayscale",
           // While dragging the in-place card is dimmed (ghost takes over)
           isDragging && "opacity-30"
         )}
         style={{
-          boxShadow:
-            "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 6px rgba(0,0,0,0.6), 0 6px 14px rgba(0,0,0,0.7)" +
-            (selected ? ", 0 0 18px rgba(251,191,36,0.5)" : ""),
           willChange: "transform",
           // Hide the in-place card visual during drag (ghost is shown instead)
           visibility: isDragging ? "hidden" : "visible",
         }}
       >
-        {CardVisual}
+        {/* Marco TCG por rareza + name plate integrado */}
+        <CardShell rarity={card.rarity} name={card.name} nameSize="sm" className="h-full w-full">
+          {CardVisual}
+        </CardShell>
       </motion.button>
 
       {/* Drag ghost: follows the pointer while the card is being dragged */}
@@ -342,9 +327,11 @@ export function HandCardComponent({
               transformOrigin: "center",
               filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.7))",
             }}
-            className="relative overflow-hidden rounded-lg border-2 border-amber-400 bg-zinc-950 shadow-2xl"
+            className="relative rounded-xl shadow-2xl"
           >
-            {CardVisual}
+            <CardShell rarity={card.rarity} name={card.name} nameSize="sm" className="h-full w-full">
+              {CardVisual}
+            </CardShell>
           </div>
         )}
     </>

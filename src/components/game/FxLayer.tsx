@@ -226,6 +226,16 @@ export function FxLayer() {
       setTimeout(() => el.classList.remove("fx-shake"), 480);
     };
 
+    /** Sacudida global del tablero (explosiones grandes / impactos fuertes). */
+    const shakeBoard = () => {
+      const board = document.querySelector("[data-board-root]");
+      if (!board) return;
+      board.classList.remove("fx-shake-board");
+      void (board as HTMLElement).offsetWidth;
+      board.classList.add("fx-shake-board");
+      setTimeout(() => board.classList.remove("fx-shake-board"), 400);
+    };
+
     // ── Spawning de partículas ──
     const push = (p: Particle) => {
       if (particles.length >= MAX_PARTICLES) return;
@@ -341,6 +351,40 @@ export function FxLayer() {
         size: 10, alpha0: 0.95, drag: 0.99, gravity: 0, rotSpeed: 0,
       }));
     };
+
+    /** PROYECTIL: orbe brillante con estela que viaja de `from` a `to`.
+        Núcleo grueso + 5 gotas de estela desfasadas (convergencia easiada). */
+    const orb = (
+      from: { x: number; y: number },
+      to: { x: number; y: number },
+      color: RGB,
+      size = 4.2,
+      life = 0.3
+    ) => {
+      push(baseParticle(from.x, from.y, color, {
+        endX: to.x, endY: to.y,
+        life, maxLife: life,
+        size, alpha0: 1, drag: 1, gravity: 0, shape: "dot", rotSpeed: 0,
+      }));
+      for (let i = 1; i <= 5; i++) {
+        const t = i / 6;
+        push(baseParticle(
+          from.x + (to.x - from.x) * t,
+          from.y + (to.y - from.y) * t,
+          color,
+          {
+            endX: to.x, endY: to.y,
+            life: life * (1 - t * 0.55), maxLife: life,
+            size: size * (0.72 - t * 0.42), alpha0: 0.55,
+            drag: 1, gravity: 0, shape: "dot", rotSpeed: 0,
+          }
+        ));
+      }
+    };
+
+    /** Rect de la carta origen (para proyectiles), si sigue en el DOM. */
+    const sourceRectOf = (ev: FxEvent): DOMRect | null =>
+      ev.sourceUid ? uidRect(ev.sourceUid) : null;
 
     // ── Recetas por keyword ──
 
@@ -469,12 +513,28 @@ export function FxLayer() {
             break;
           }
           case "target_debuff": {
-            ring(c.x, c.y, color, c.w * 0.4, 0, 0.55, 2);
-            for (let d = 0; d < 5; d++) {
-              push(baseParticle(c.x + rand(-c.w * 0.3, c.w * 0.3), c.y - c.h * 0.35, color, {
-                vy: rand(30, 60), life: rand(0.4, 0.7), maxLife: 0.7,
-                size: rand(1.8, 3), gravity: 60, shape: "dot",
-              }));
+            // Crueldad: proyectil de sombra desde el atacante si está en el DOM
+            const srcD = sourceRectOf(ev);
+            if (srcD) {
+              orb(rectCenter(srcD), c, color, 3.8, 0.28);
+              queued.push(setTimeout(() => {
+                ring(c.x, c.y, color, c.w * 0.4, 0, 0.55, 2);
+                for (let d = 0; d < 5; d++) {
+                  push(baseParticle(c.x + rand(-c.w * 0.3, c.w * 0.3), c.y - c.h * 0.35, color, {
+                    vy: rand(30, 60), life: rand(0.4, 0.7), maxLife: 0.7,
+                    size: rand(1.8, 3), gravity: 60, shape: "dot",
+                  }));
+                }
+                burst(c.x, c.y, color, 6, 50);
+              }, 280));
+            } else {
+              ring(c.x, c.y, color, c.w * 0.4, 0, 0.55, 2);
+              for (let d = 0; d < 5; d++) {
+                push(baseParticle(c.x + rand(-c.w * 0.3, c.w * 0.3), c.y - c.h * 0.35, color, {
+                  vy: rand(30, 60), life: rand(0.4, 0.7), maxLife: 0.7,
+                  size: rand(1.8, 3), gravity: 60, shape: "dot",
+                }));
+              }
             }
             break;
           }
@@ -490,10 +550,24 @@ export function FxLayer() {
             break;
           }
           case "explosion": {
-            burst(c.x, c.y, color, 26, 150 * intensity, { gravity: 40 });
-            burst(c.x, c.y, [255, 237, 213], 10, 90);
-            ring(c.x, c.y, color, 10, 130, 0.5, 3);
-            shakeEl(laneSelector(ev) ? document.querySelector(laneSelector(ev)!) : null);
+            // Combustión: bola de fuego desde el atacante + detonación al aterrizar
+            const srcE = sourceRectOf(ev);
+            if (srcE) {
+              orb(rectCenter(srcE), c, color, 6, 0.3);
+              queued.push(setTimeout(() => {
+                burst(c.x, c.y, color, 26, 150 * intensity, { gravity: 40 });
+                burst(c.x, c.y, [255, 237, 213], 10, 90);
+                ring(c.x, c.y, color, 10, 130, 0.5, 3);
+                const sel = laneSelector(ev);
+                if (sel) shakeEl(document.querySelector(sel));
+                shakeBoard();
+              }, 300));
+            } else {
+              burst(c.x, c.y, color, 26, 150 * intensity, { gravity: 40 });
+              burst(c.x, c.y, [255, 237, 213], 10, 90);
+              ring(c.x, c.y, color, 10, 130, 0.5, 3);
+              shakeBoard();
+            }
             break;
           }
           case "frost_renew": {
@@ -529,14 +603,30 @@ export function FxLayer() {
             break;
           }
           case "crosshair": {
-            ring(c.x, c.y, color, c.w * 0.42, 0, 0.5, 2);
-            push(baseParticle(c.x, c.y, color, {
-              shape: "slash", size: c.w * 0.5, rot: 0, life: 0.4, maxLife: 0.4, alpha0: 0.8, rotSpeed: 0,
-            }));
-            push(baseParticle(c.x, c.y, color, {
-              shape: "slash", size: c.w * 0.5, rot: Math.PI / 2, life: 0.4, maxLife: 0.4, alpha0: 0.8, rotSpeed: 0,
-            }));
-            burst(c.x, c.y, color, 8, 65);
+            // Golpe Certero: daga-proyectil desde el atacante
+            const srcC = sourceRectOf(ev);
+            if (srcC) {
+              orb(rectCenter(srcC), c, color, 3.2, 0.24);
+              queued.push(setTimeout(() => {
+                ring(c.x, c.y, color, c.w * 0.42, 0, 0.5, 2);
+                push(baseParticle(c.x, c.y, color, {
+                  shape: "slash", size: c.w * 0.5, rot: 0, life: 0.4, maxLife: 0.4, alpha0: 0.8, rotSpeed: 0,
+                }));
+                push(baseParticle(c.x, c.y, color, {
+                  shape: "slash", size: c.w * 0.5, rot: Math.PI / 2, life: 0.4, maxLife: 0.4, alpha0: 0.8, rotSpeed: 0,
+                }));
+                burst(c.x, c.y, color, 8, 65);
+              }, 240));
+            } else {
+              ring(c.x, c.y, color, c.w * 0.42, 0, 0.5, 2);
+              push(baseParticle(c.x, c.y, color, {
+                shape: "slash", size: c.w * 0.5, rot: 0, life: 0.4, maxLife: 0.4, alpha0: 0.8, rotSpeed: 0,
+              }));
+              push(baseParticle(c.x, c.y, color, {
+                shape: "slash", size: c.w * 0.5, rot: Math.PI / 2, life: 0.4, maxLife: 0.4, alpha0: 0.8, rotSpeed: 0,
+              }));
+              burst(c.x, c.y, color, 8, 65);
+            }
             break;
           }
           case "shadow_blink": {

@@ -228,3 +228,77 @@
 .fx-shake {
   animation: fx-shake 0.42s ease-in-out;
 }
+
+/* ── FX: sacudida global del tablero (explosiones grandes / multi-baja) ── */
+@keyframes fx-shake-board {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-3px, 2px) rotate(-0.35deg); }
+  40% { transform: translate(3px, -2px) rotate(0.35deg); }
+  60% { transform: translate(-2px, 1px) rotate(-0.2deg); }
+  80% { transform: translate(2px, -1px) rotate(0.2deg); }
+}
+.fx-shake-board {
+  animation: fx-shake-board 0.36s ease-in-out;
+}
+
+/* ============================================================
+   MARCOS DE CARTA TCG — foil holográfico + grano de pergamino
+   ============================================================ */
+
+/* Foil épico (suave, iridiscencia estática tenue) */
+.foil-holo-soft {
+  background: linear-gradient(
+    115deg,
+    transparent 22%,
+    rgba(255, 82, 197, 0.13) 36%,
+    rgba(56, 232, 255, 0.14) 47%,
+    rgba(255, 226, 89, 0.15) 58%,
+    rgba(168, 108, 255, 0.13) 70%,
+    transparent 84%
+  );
+  background-size: 220% 100%;
+  mix-blend-mode: screen;
+}
+
+/* Foil legendario (banda iridiscente que barre la carta) */
+.foil-holo-full {
+  background: linear-gradient(
+    115deg,
+    transparent 18%,
+    rgba(255, 82, 197, 0.22) 34%,
+    rgba(56, 232, 255, 0.24) 45%,
+    rgba(255, 226, 89, 0.26) 55%,
+    rgba(168, 108, 255, 0.22) 66%,
+    transparent 82%
+  );
+  background-size: 220% 100%;
+  mix-blend-mode: screen;
+  animation: foil-sweep 3.4s linear infinite;
+}
+
+@keyframes foil-sweep {
+  0% { background-position: -160% 0; }
+  100% { background-position: 260% 0; }
+}
+
+/* Grano de pergamino: ruido sutil que unifica el arte AI bajo el marco */
+.card-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+/* ── Slots vacíos heráldicos: runa que respira al poder soltar ── */
+@keyframes slot-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.06); }
+}
+.slot-pulse {
+  animation: slot-pulse 1.15s ease-in-out infinite;
+}
+
+/* Respeto a usuarios de movimiento reducido para TODO lo nuevo */
+@media (prefers-reduced-motion: reduce) {
+  .foil-holo-full { animation: none; }
+  .slot-pulse { animation: none; }
+  .fx-shake-board { animation: none; }
+}

@@ -19,6 +19,8 @@ import { CardPreviewModal } from "@/components/game/CardPreviewModal";
 import { TurnTransitionBanner } from "@/components/game/TurnTransitionBanner";
 import { FloatingNumbersLayer } from "@/components/game/FloatingNumbers";
 import { FxLayer } from "@/components/game/FxLayer";
+import { CardJuiceLayer } from "@/components/game/CardJuiceLayer";
+import { CornerOrnaments } from "@/components/game/CardFrame";
 import { Confetti } from "@/components/game/Confetti";
 import { LegendaryBurst } from "@/components/game/LegendaryBurst";
 import type { LaneId } from "@/lib/game/types";
@@ -88,8 +90,14 @@ export default function Home() {
       <main className="app-main mx-auto flex w-full flex-1 flex-col px-2 py-2">
         {/* h-full + grid-rows-1 + min-h-0 makes the grid fill the available
             vertical space, stretching the lane sections to cover the gap
-            between the (removed) header and the hand bar. */}
-        <div className="grid h-full grid-cols-3 grid-rows-1 gap-1.5 min-h-0">
+            between the (removed) header and the hand bar.
+            data-board-root: ancla de la sacudida global del tablero (juice). */}
+        <div
+          data-board-root
+          className="relative grid h-full grid-cols-3 grid-rows-1 gap-1.5 min-h-0 rounded-lg"
+        >
+          {/* Filigranas heráldicas en las esquinas del tablero completo */}
+          <CornerOrnaments size={30} className="-inset-x-1 -inset-y-1 z-20" />
           {activeLanes.map((lane: LaneId) => (
             <LaneComponent key={lane} laneId={lane} />
           ))}
@@ -106,6 +114,7 @@ export default function Home() {
       <TurnTransitionBanner visible={aiTurnPhase === "thinking"} phase="thinking" />
       <FloatingNumbersLayer />
       <FxLayer />
+      <CardJuiceLayer />
       <Confetti trigger={phase === "ended" && finalResult?.result === "WIN"} />
       <LegendaryBurst trigger={legendaryBurst} onDone={() => useGameStore.setState({ legendaryBurst: false })} />
 

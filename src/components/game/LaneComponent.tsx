@@ -12,6 +12,7 @@ import {
   isCardCostAllowed,
 } from "@/lib/game/engine";
 import { cn } from "@/lib/utils";
+import { EmptySlot, LaneBanner, LaneEmblem, LANE_HEX } from "./LaneDecor";
 
 // Tabla de paletas por color de carril — compartida con el tablero PvP
 // (PvpLane) para que ambos tableros se vean idénticos.
@@ -142,6 +143,7 @@ interface LaneComponentProps {
 export function LaneComponent({ laneId }: LaneComponentProps) {
   const meta = LANE_META[laneId];
   const colors = LANE_COLOR_CLASSES[meta.color];
+  const hex = LANE_HEX[meta.color] ?? "#fbbf24";
 
   const board = useGameStore((s) => s.board);
   const selectedCardUid = useGameStore((s) => s.selectedCardUid);
@@ -207,14 +209,20 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
     >
       {/* Lane background image — subtype-specific per class.
           For Guerrero: armas / proteccion / furia each have a distinct bg.
-          Very light overlay so the art is clearly visible.
+          Overlay ALIGERADO (V2 gráficos): el arte ahora es protagonista;
+          solo una viñeta suave para legibilidad de chips.
           Scale-105 to zoom slightly past any white border artifacts at the
           image edges (some AI-generated lane bgs have a thin white frame). */}
       <div
         className="pointer-events-none absolute inset-0 z-0 scale-105 bg-cover bg-center"
         style={{ backgroundImage: `url(/menu/lane-${laneId}.png)` }}
       />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/35 via-black/10 to-black/35" />
+      {/* Tinte del color del carril (cohesión) + viñeta ligera */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{ background: `linear-gradient(180deg, ${hex}14 0%, transparent 30%, transparent 65%, rgba(0,0,0,0.42) 100%)` }}
+      />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/15 via-transparent to-black/25" />
 
       {/* C3: Bonus background tint (sits above the image) */}
       {laneBonus && BONUS_TINT[laneBonus.kind] && (
@@ -226,22 +234,8 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         />
       )}
 
-      {/* Lane header — JUST the name (top), bonus moved INSIDE the lane body */}
-      <div className={cn(
-        "relative z-10 flex items-center justify-center rounded border border-white/5 px-1 py-0.5 bg-black/30",
-        colors.headerBg
-      )}>
-        <meta.icon className="h-3 w-3 shrink-0 drop-shadow" />
-        <span
-          className={cn(
-            "ml-0.5 truncate text-[8px] font-black uppercase tracking-wider drop-shadow",
-            colors.text
-          )}
-          style={{ fontFamily: 'var(--font-cinzel), serif' }}
-        >
-          {meta.title}
-        </span>
-      </div>
+      {/* Lane header — BANNER HERÁLDICO (estandarte con remates metálicos) */}
+      <LaneBanner title={meta.title} icon={meta.icon} hex={hex} />
 
       {/* Enemy slots — fixed 2x2 grid, always 4 slots. flex-1 so it stretches
           vertically to fill the lane height (was fixed before, leaving empty space). */}
@@ -254,55 +248,57 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         )}
         style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
+        <AnimatePresence initial={false}>
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.enemy[i];
           if (card) {
             return <BoardCardMini key={card.uid} card={card} side="enemy" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, powerLog: bc.powerLog, basePower: bc.basePower, currentPower: bc.currentPower })} />;
           }
-          return <div key={`enemy-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
+          return <EmptySlot key={`enemy-empty-${i}`} hex={hex} icon={meta.icon} enemy />;
         })}
+        </AnimatePresence>
       </div>
 
-      {/* Central divider with VS + bonus chip inside the lane (not in header) */}
+      {/* Central divider with EMBLEMA HERÁLDICO + bonus chip inside the lane */}
       <div className="relative z-10 flex items-center justify-center gap-1 py-0.5">
-        <div className={cn("h-[1px] flex-1 rounded-full bg-gradient-to-r to-transparent", colors.dividerLine)} />
+        <div className={cn("h-[1.5px] flex-1 rounded-full bg-gradient-to-r to-transparent", colors.dividerLine)} />
         {/* Bonus chip — sits INSIDE the lane body so the header stays clean */}
         {laneBonus ? (
           <span
             title={laneBonus.description}
             className={cn(
-              "rounded-full border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wide shadow-sm",
+              "rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide shadow-sm",
               BONUS_CHIP_CLASS[laneBonus.flavor].chip
             )}
           >
             {laneBonus.label}
           </span>
         ) : (
-          <span className="text-[6px] font-black uppercase tracking-widest text-zinc-600">VS</span>
+          <LaneEmblem hex={hex} size={15} />
         )}
-        <div className={cn("h-[1px] flex-1 rounded-full bg-gradient-to-l to-transparent", colors.dividerLine)} />
+        <div className={cn("h-[1.5px] flex-1 rounded-full bg-gradient-to-l to-transparent", colors.dividerLine)} />
       </div>
 
       {/* Score panel with visual bar */}
       <div className="relative z-10 rounded border border-white/5 bg-black/50 px-1 py-0.5">
         <div className="flex items-center justify-between mb-0.5">
           <div className="text-right leading-none">
-            <div className="text-[5px] uppercase tracking-widest text-zinc-500">Rival</div>
-            <div className={cn("text-[10px] font-black tabular-nums leading-none", enemyWinning ? "text-rose-400" : "text-zinc-300")}>
+            <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">Rival</div>
+            <div className={cn("text-[12px] font-black tabular-nums leading-none", enemyWinning ? "text-rose-400" : "text-zinc-300")}>
               {enemyScore}
             </div>
           </div>
           {scoreDiff > 0 && (
             <span className={cn(
-              "text-[6px] font-bold tabular-nums",
+              "text-[8px] font-bold tabular-nums",
               playerWinning ? "text-emerald-500" : "text-rose-500"
             )}>
               +{scoreDiff}
             </span>
           )}
           <div className="text-left leading-none">
-            <div className="text-[5px] uppercase tracking-widest text-zinc-500">Tú</div>
-            <div className={cn("text-[10px] font-black tabular-nums leading-none", playerWinning ? "text-emerald-400" : "text-zinc-300")}>
+            <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">Tú</div>
+            <div className={cn("text-[12px] font-black tabular-nums leading-none", playerWinning ? "text-emerald-400" : "text-zinc-300")}>
               {playerScore}
             </div>
           </div>
@@ -329,13 +325,15 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
         )}
         style={{ boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
       >
+        <AnimatePresence initial={false}>
         {Array.from({ length: maxCards }).map((_, i) => {
           const card = laneState.player[i];
           if (card) {
             return <BoardCardMini key={card.uid} card={card} side="player" onPreview={(bc) => useGameStore.getState().setPreviewCard?.({ id: bc.defId, name: bc.name, category: bc.category, subtypes: bc.subtypes, cost: bc.cost, power: bc.basePower, text: bc.text, effectId: bc.effectId, rarity: bc.rarity, keyword: bc.keyword, keywordValue: bc.keywordValue, trigger: bc.trigger, powerLog: bc.powerLog, basePower: bc.basePower, currentPower: bc.currentPower })} />;
           }
-          return <div key={`player-empty-${i}`} className="aspect-[3/4] rounded border border-dashed border-white/5 bg-black/20" />;
+          return <EmptySlot key={`player-empty-${i}`} hex={hex} icon={meta.icon} active={canDrop} />;
         })}
+        </AnimatePresence>
       </div>
 
       {/* Bonus flash overlay — brief animated effect shown when lane bonuses
