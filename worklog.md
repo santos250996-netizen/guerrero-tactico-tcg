@@ -259,3 +259,18 @@ Work Log:
 
 Stage Summary:
 - Repo 100% commiteado y limpio, listo para push en cuanto el usuario aporte remote + credenciales
+
+---
+Task ID: 13
+Agent: Z.ai main agent
+Task: Push a GitHub (repo santos250996-netizen/guerrero-tactico-tcg)
+
+Work Log:
+- Token validado vía API (scope repo, usuario santos250996-netizen); repo del proyecto identificado: guerrero-tactico-tcg (154 commits, último push ayer, HEAD 5b3ed8c = clean slate keywords)
+- Historias locales (14 snapshots desde bootstrap) y remota (154 commits dev) NO relacionadas (sin merge-base); verificado por contenido: local ES superconjunto del remoto (flashLaneBonuses/deckSlots/com.pacto.guerra presentes + fx.ts, pvp, 24 keywords, 3 clases nuevos)
+- Push sin pérdida: historia legacy preservada en rama legacy-pre-reset (5b3ed8c, 154 commits); main forzada con --force-with-lease a 4c5b8da (HEAD local, incluye FX completo + db sync)
+- Remoto origin configurado en .git/config con token embebido (no viaja en el tree)
+- Verificado ls-remote: main=4c5b8da, legacy-pre-reset=5b3ed8c
+
+Stage Summary:
+- https://github.com/santos250996-netizen/guerrero-tactico-tcg — main = estado actual del juego (FX + PvP + 3 clases), legacy-pre-reset = historia anterior completa
