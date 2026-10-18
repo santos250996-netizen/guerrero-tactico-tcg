@@ -310,3 +310,24 @@ Work Log:
 Stage Summary:
 - APK con renders más ligeros: sin blend CSS global, FX escalados al dispositivo, pausa en background, menos re-renders de React y decodificación de imágenes asíncrona
 - Siguiente calibración posible tras prueba real: ajustar umbrales de perf.ts o rate de partículas si algún móvil sigue throttling
+
+---
+Task ID: 16
+Agent: Z.ai main agent
+Task: PvP offline por hotspot — servidor dentro de la APK ("no me deja crear la sala")
+
+Work Log:
+- Root cause: la APK es export estático sin servidor Node; /api/pvp/* no existe en el dispositivo → "¿el servidor está activo?"
+- Solución: @cantoo/capacitor-http-server (NanoHTTPD, foreground service, Cap 6/7/8) — el anfitrión sirve el API /api/pvp/* desde su propia app en el puerto 8787; invitado entra por IP+codigo desde el WiFi del hotspot; sin internet
+- Nuevo src/lib/pvp/local-server.ts: salas EN MEMORIA (sin Prisma) + router 1:1 con las rutas Next (status/mensajes idénticos) + listeners request/server-error + CORS + OPTIONS + lan-info/health
+- pvpStore: apiJson unificado (hostingLocal → in-process / remoteBase invitado / mismo origen web); createRoom nativo = start servidor + sala local; joinRoom nativo = probe 3.5s + error claro; resume restaura remoteBase (sessionStorage pvp-remote-base); exitToMenu/openSetup paran el servidor
+- UI: PvpSetup input IP anfitrión (prefill 192.168.43.1) + copy sin-internet; PvpLobby ayuda offline si hostingLocal
+- Config: server.androidScheme http + allowMixedContent (http://localhost es contexto seguro; localStorage se resetea UNA vez al instalar) + AndroidManifest usesCleartextTraffic; cap sync registró el plugin en gradle
+- INCIDENCIA CI 1: build falló "Module not found @/lib/pvp/local-server" — la regla local-* de .gitignore tragaba el archivo (92bb557: negación + subir módulo)
+- TESTS: scripts/test-local-pvp.ts 32/32 · pvp-engine 51/51 · fx 51/51 · v3 30/30 · v2 34/34 · tsc limpio · builds OK
+- CI run 39134828198 TODO VERDE — APK con servidor PvP offline subida (artefacto guerrero-tactico-apk)
+
+Stage Summary:
+- PvP offline completo: hotspot del anfitrión → IP+codigo en el invitado → partida igual que online (mismo bus de FX, banner, revancha)
+- Limitación v1: salas solo en memoria del anfitrión (si cierra la app, muere la sala) — mismo comportamiento que el backend preview salvo persistencia de historial
+- Web/preview conserva el flujo por rutas Next sin cambios
