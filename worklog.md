@@ -406,3 +406,22 @@ Work Log:
 Stage Summary:
 - El pase de turno es ahora infalible: server avanza aunque un efecto crashee; cliente muestra por qué fue rechazado y re-sincroniza al instante; feedback táctil del botón
 - Nota de diseño para el usuario: quien CIERRA una ronda abre la siguiente (alternante) — puede percibirse como "no pasó" cuando le vuelve a tocar; el Registro de Batalla muestra "X pasa el turno." + "Turno N"
+
+---
+Task ID: 20
+Agent: Z.ai main agent
+Task: Paquete visual V2 — "el juego está pobre en gráficos" (ideas 1+2+3: marcos TCG, tablero heráldico, juice de combate)
+
+Work Log:
+- Diagnóstico previo (Explore): el juego es 100% DOM (phaser/interactjs instalados pero sin uso); cartas = imagen full-bleed + badges + border-2 plano; tablero con gradientes negros al 35-80% enterrando el arte; textos de 5-7px; sin animaciones de combate; grids de cartas SIN AnimatePresence (muertes = corte seco)
+- FASE 1 (marcos): nuevo src/components/game/CardFrame.tsx — FRAME_META por rareza (metal/acento/glow/foil), CardShell (bisel metálico + FrameCorners SVG con filigranas + name plate Cinzel integrado + foil-holo-soft épica / foil-holo-full animada legendaria + card-grain feTurbulence), CornerOrnaments reutilizable; integrado en HandCardComponent (y ghost del drag), BoardCardMini (mini, corners 9px) y CardPreviewModal (nameSize lg); CSS en globals.css (foil-sweep, card-grain, slot-pulse, fx-shake-board + prefers-reduced-motion)
+- FASE 2 (tablero heráldico): nuevo src/components/game/LaneDecor.tsx — LaneBanner (estandarte con remates metálicos + rombo central, texto Cinzel 8.5px), EmptySlot (runa circular SVG + silueta lucide del tipo; pulsa ámbar con canDrop), LaneEmblem (escudo con espadas cruzadas reemplaza el "VS" de 6px), LANE_HEX; aplicado a LaneComponent y PvpLane; gradientes de fondo aligerados (from-black/35→/15) + tinte de color de carril; CornerOrnaments en page.tsx y PvpGame con data-board-root; tipografía: 5px→7px labels, 10px→12px scores, energía ⚡→icono Zap
+- FASE 3 (juice): fx.ts añade kind "mutation" y eventsFromPlayResult emite hits/buffs agrupados por bando (viaja solo por PvP vía fxRelToAbs); BoardCardMini: entrada con embestida desde la mano (y±78 + rotate) + data-spec + exit de muerte; AnimatePresence en los 4 grids; nuevo src/components/game/CardJuiceLayer.tsx (WAAPI imperativo, sin re-renders): pulso de buff, hit-flash + knockback direccional desde sourceUid, clon de muerte por spec (fuego/hielo/veneno/sigilo/default) capturando rect+src sincrónicamente, shake global con 2+ bajas; FxLayer: helper orb (proyectil con estela de 5 partículas) para Golpe Certero/Combustión/Crueldad cuando hay sourceUid, detonación retardada al aterrizar, shakeBoard en explosiones
+- Fix intermedio: chip de bono del banner PvP apilaba 2 líneas (23px en banner de 17px) → shrink-0 + leading-[11px] + title flex-1 min-w-0
+- Verificación: tsc limpio; lint idéntico al estado previo (20 errores preexistentes); tests FX 51/51, V3 30/30, PvP 51/51, V2 34/34; build estático RC=0; E2E agent-browser 480×900: menú→clase→partida, preview con marco+pergamino, jugadas reales (Hacha→PROTECCIÓN con ÍTEM+3, Berserker→ARMAS con pulso de buff e ÍMPETU flotante), feedback de bonos coste exacto en FURIA/PROTECCIÓN/HIELO, PvP 2-tab (UJY6: Thralgrim vs Selene) con 6 fondos + banners + marcador de pareja consistente (DOM: "Selene 3 ↔ Tú 1"); 0 errores consola (5 [error] transitorios = HMR durante ediciones, no reproducibles), 0 imágenes rotas
+- Nota: dev server muere entre comandos bash → relanzar con `setsid nohup bash .zscripts/dev.sh`
+
+Stage Summary:
+- Commit 5839c9d en main: 3 componentes nuevos (CardFrame, LaneDecor, CardJuiceLayer), 11 editados, +1203/−244
+- El juego pasa de "prototipo" a look TCG: arte de carril protagonista, marcos con rareza legible de un vistazo, foil en épicas/legendarias, y feedback físico por cada mutación/muerte
+- Pendiente visual restante (backlog): menús vivos (parallax/transiciones), iconos de fantasía propios, WebP de las 164 cartas, confetti temático
