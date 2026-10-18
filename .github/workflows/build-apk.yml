@@ -67,7 +67,14 @@ jobs:
       - name: Build web (Next.js static export)
         env:
           DATABASE_URL: "file:./db/custom.db"
-        run: bun run build
+        run: |
+          # output:export no admite rutas force-dynamic (/api/*). En el APK las
+          # APIs no se sirven (webDir estático) y el cliente ya gestiona los
+          # fallos de fetch — se excluyen del árbol durante el export.
+          mv src/app/api /tmp/api-routes-backup
+          bun run build:static; RC=$?
+          mv /tmp/api-routes-backup src/app/api
+          exit $RC
 
       - name: Sync Capacitor
         run: bunx @capacitor/cli sync android
