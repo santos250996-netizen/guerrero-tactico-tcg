@@ -228,7 +228,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
 
       {/* Lane header — JUST the name (top), bonus moved INSIDE the lane body */}
       <div className={cn(
-        "relative z-10 flex items-center justify-center rounded border border-white/5 px-1 py-0.5 backdrop-blur-sm",
+        "relative z-10 flex items-center justify-center rounded border border-white/5 px-1 py-0.5 bg-black/30",
         colors.headerBg
       )}>
         <meta.icon className="h-3 w-3 shrink-0 drop-shadow" />
@@ -348,7 +348,7 @@ export function LaneComponent({ laneId }: LaneComponentProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/85"
           >
             <LaneBonusFlashContent bonus={laneBonusFlash} />
           </motion.div>

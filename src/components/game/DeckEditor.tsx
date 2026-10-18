@@ -537,6 +537,7 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
         alt={card.name}
         className="absolute inset-0 h-full w-full object-cover"
         loading="lazy"
+        decoding="async"
         draggable={false}
         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
       />

@@ -128,6 +128,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             alt={card.name}
             className="absolute inset-0 h-full w-full object-cover"
             draggable={false}
+        decoding="async"
           />
 
           {/* Dark gradient at the bottom for legibility */}

@@ -6,6 +6,7 @@ import type { HandCard } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
+import { isLowPowerDevice } from "@/lib/game/perf";
 import { useEffect, useRef, useState } from "react";
 import { CostBadge, PowerBadge } from "./CardBadges";
 import { createPortal } from "react-dom";
@@ -192,6 +193,7 @@ export function HandCardComponent({
         className="absolute inset-0 h-full w-full object-cover"
         loading="lazy"
         draggable={false}
+        decoding="async"
       />
 
       {/* Dark gradient at the bottom for badge legibility */}
@@ -226,7 +228,7 @@ export function HandCardComponent({
         <div className="flex items-center justify-between gap-0.5">
           <span
             className={cn(
-              "rounded border px-1 py-0 text-[7px] font-bold uppercase tracking-wider backdrop-blur-sm",
+              "rounded border px-1 py-0 text-[7px] font-bold uppercase tracking-wider",
               cat.bgClass,
               cat.textClass,
               cat.borderClass
@@ -240,7 +242,7 @@ export function HandCardComponent({
                 <span
                   key={lm.title}
                   title={lm.title}
-                  className="flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-black/60 leading-none backdrop-blur-sm"
+                  className="flex h-4 w-4 items-center justify-center rounded-full border border-white/40 bg-black/80 leading-none"
                 >
                   <lm.icon className="h-2.5 w-2.5" />
                 </span>
@@ -259,7 +261,7 @@ export function HandCardComponent({
           <span
             title={triggerMeta.description}
             className={cn(
-              "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[7px] font-bold uppercase tracking-wider backdrop-blur-sm",
+              "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[7px] font-bold uppercase tracking-wider",
               triggerMeta.color
             )}
           >
@@ -270,7 +272,7 @@ export function HandCardComponent({
             <span
               title={keywordMeta.description}
               className={cn(
-                "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[7px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                "inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-1 py-0 text-[7px] font-bold uppercase tracking-wider",
                 keywordMeta.color
               )}
             >
@@ -289,7 +291,7 @@ export function HandCardComponent({
     <>
       <motion.button
         ref={buttonRef}
-        layout
+        layout={!isLowPowerDevice() || undefined}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 30, scale: 0.85 }}

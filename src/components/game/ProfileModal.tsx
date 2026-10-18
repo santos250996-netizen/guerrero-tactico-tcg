@@ -32,7 +32,8 @@ export function ProfileModal({ open, onOpenChange }: { open: boolean; onOpenChan
           <div className="rounded border border-zinc-700 bg-zinc-900 p-1.5 text-center"><Zap className="mx-auto mb-0.5 h-3 w-3 text-emerald-400" /><div className="text-sm font-bold text-white">{stats.totalBuffsApplied}</div><div className="text-[8px] text-zinc-500">Buffs</div></div>
           <div className="rounded border border-zinc-700 bg-zinc-900 p-1.5 text-center"><Target className="mx-auto mb-0.5 h-3 w-3 text-amber-400" /><div className="text-sm font-bold text-white">{stats.totalEnemiesDestroyed}</div><div className="text-[8px] text-zinc-500">Bajas</div></div>
         </div>
-        {mpCard && <div className="rounded border border-zinc-700 bg-zinc-900 p-2"><div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Carta más jugada</div><div className="mt-1 flex items-center gap-2"><div className="h-10 w-10 overflow-hidden rounded border border-zinc-700"><img src={`/cards/${mpCard.id}.png`} alt={mpCard.name} className="h-full w-full object-cover" draggable={false} /></div><div><div className="text-sm font-bold text-white">{mpCard.name}</div><div className="text-[10px] text-zinc-500">Jugada {stats.cardPlayCounts[mpCard.id]} veces</div></div></div></div>}
+        {mpCard && <div className="rounded border border-zinc-700 bg-zinc-900 p-2"><div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Carta más jugada</div><div className="mt-1 flex items-center gap-2"><div className="h-10 w-10 overflow-hidden rounded border border-zinc-700"><img src={`/cards/${mpCard.id}.png`} alt={mpCard.name} className="h-full w-full object-cover" draggable={false}
+        decoding="async" /></div><div><div className="text-sm font-bold text-white">{mpCard.name}</div><div className="text-[10px] text-zinc-500">Jugada {stats.cardPlayCounts[mpCard.id]} veces</div></div></div></div>}
       </div>}
     </DialogContent>
   </Dialog>;

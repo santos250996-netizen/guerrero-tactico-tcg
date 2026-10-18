@@ -63,6 +63,7 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false, onOp
               alt=""
               className="h-7 w-7 object-contain"
               aria-hidden
+        decoding="async"
             />
           </div>
           <div className="flex flex-col leading-tight">

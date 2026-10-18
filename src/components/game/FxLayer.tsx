@@ -10,8 +10,11 @@
 //   ▸ Anclaje: [data-card-uid] (preciso) → [data-pvp-lane] / [data-lane-id]
 //     (fallback del carril) → centro de pantalla (último recurso).
 //
-// Rendimiento: presupuesto de partículas, dt del rAF, DPR limitado a 2.
-// Respeta settings.animationsOn y prefers-reduced-motion (apaga TODO).
+// Rendimiento: calidad adaptativa por dispositivo (lib/game/perf.ts) —
+// presupuesto de partículas / DPR / tope de FPS / rate ambiental según tier.
+// Sin mix-blend-mode CSS (caro en móvil): el glow se logra con
+// globalCompositeOperation="lighter" DENTRO del canvas. Se pausa con la
+// pestaña oculta. Respeta settings.animationsOn y prefers-reduced-motion.
 // ============================================================================
 
 import { useEffect, useRef } from "react";
@@ -26,6 +29,7 @@ import {
   type FxRecipe,
 } from "@/lib/game/fx";
 import { useSettings } from "@/lib/settings";
+import { perfTier } from "@/lib/game/perf";
 
 // ---------------------------------------------------------------------------
 // Paletas
@@ -162,16 +166,24 @@ export function FxLayer() {
     const enabled = () =>
       useSettings.getState().animationsOn && !reducedMotion;
 
-    // ── Estado ──
+    // ── Estado + calidad adaptativa ──
+    const CFG = {
+      low:  { maxParticles: 190, dprCap: 1.25, fps: 30, ambientMul: 0.55, textGlow: false },
+      med:  { maxParticles: 320, dprCap: 1.5,  fps: 60, ambientMul: 0.8,  textGlow: false },
+      high: { maxParticles: 460, dprCap: 2,    fps: 60, ambientMul: 1,    textGlow: true },
+    }[perfTier()];
+    const FRAME_MS = 1000 / CFG.fps;
+
     let particles: Particle[] = [];
-    const MAX_PARTICLES = 460;
+    const MAX_PARTICLES = CFG.maxParticles;
     let emitters: AmbientEmitter[] = [];
     let raf = 0;
     let lastT = performance.now();
+    let lastFrame = 0;
     let resyncT = 0;
     let disposed = false;
 
-    const dpr = () => Math.min(2, window.devicePixelRatio || 1);
+    const dpr = () => Math.min(CFG.dprCap, window.devicePixelRatio || 1);
 
     const resize = () => {
       const r = dpr();
@@ -664,7 +676,7 @@ export function FxLayer() {
     const spawnAmbient = (e: AmbientEmitter, dt: number) => {
       const recipe = LANE_AMBIENT[e.laneId];
       const color = AMBIENT_COLOR[recipe];
-      e.acc += AMBIENT_RATE[recipe] * dt;
+      e.acc += AMBIENT_RATE[recipe] * dt * CFG.ambientMul;
       while (e.acc >= 1) {
         e.acc -= 1;
         if (particles.length >= MAX_PARTICLES) break;
@@ -723,10 +735,12 @@ export function FxLayer() {
       }
     };
 
-    // ── Loop ──
+    // ── Loop (con tope de FPS por tier) ──
     const loop = (t: number) => {
       if (disposed) return;
       raf = requestAnimationFrame(loop);
+      if (t - lastFrame < FRAME_MS - 1) return; // salta frames intermedios
+      lastFrame = t;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
 
@@ -742,6 +756,10 @@ export function FxLayer() {
         if (particles.length) particles = [];
         return;
       }
+
+      // Glow aditivo DENTRO del canvas (equivale al antiguo mix-blend screen
+      // CSS, pero sin forzar el recompositado de toda la página cada frame).
+      ctx!.globalCompositeOperation = "lighter";
 
       for (const e of emitters) spawnAmbient(e, dt);
 
@@ -890,8 +908,10 @@ export function FxLayer() {
             ctx!.font = `800 ${p.size}px ui-sans-serif, system-ui, sans-serif`;
             ctx!.textAlign = "center";
             ctx!.fillStyle = `rgb(${r},${g},${b})`;
-            ctx!.shadowColor = `rgba(${r},${g},${b},0.8)`;
-            ctx!.shadowBlur = 6;
+            if (CFG.textGlow) {
+              ctx!.shadowColor = `rgba(${r},${g},${b},0.8)`;
+              ctx!.shadowBlur = 6;
+            }
             ctx!.fillText(p.text ?? "", p.x, p.y);
             ctx!.shadowBlur = 0;
             break;
@@ -901,7 +921,19 @@ export function FxLayer() {
       }
       particles = next;
       ctx!.globalAlpha = 1;
+      ctx!.globalCompositeOperation = "source-over";
     };
+
+    // Pausa total con la pestaña/app oculta (batería + FPS al volver).
+    const onVis = () => {
+      cancelAnimationFrame(raf);
+      if (!document.hidden && !disposed) {
+        lastT = performance.now();
+        lastFrame = 0;
+        raf = requestAnimationFrame(loop);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
     raf = requestAnimationFrame(loop);
 
     // ── Limpieza ──
@@ -911,6 +943,7 @@ export function FxLayer() {
       for (const t of queued) clearTimeout(t);
       queued.length = 0;
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", onVis);
       unsubFx();
       if (w.__fxLayerActive === myToken) delete w.__fxLayerActive;
     };
@@ -921,7 +954,6 @@ export function FxLayer() {
       ref={canvasRef}
       aria-hidden
       className="pointer-events-none fixed inset-0 z-[45]"
-      style={{ mixBlendMode: "screen" }}
     />
   );
 }

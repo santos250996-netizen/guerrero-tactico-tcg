@@ -11,7 +11,7 @@ interface HeaderBarProps {
 
 export function HeaderBar({ onOpenRules, onOpenHistory, onOpenSettings }: HeaderBarProps) {
   return (
-    <header className="relative flex items-center justify-end gap-0.5 bg-zinc-950/95 px-2 pt-2 pb-1.5 backdrop-blur">
+    <header className="relative flex items-center justify-end gap-0.5 bg-zinc-950 px-2 pt-2 pb-1.5">
       {/* Slim header — only essential action buttons on the right.
           Brand, deck editor, profile, turn/energy were moved out to keep
           the top clean (user can still access deck/profile via main menu,

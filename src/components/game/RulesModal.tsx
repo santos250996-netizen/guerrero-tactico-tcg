@@ -175,6 +175,7 @@ export function RulesModal({ open, onOpenChange }: RulesModalProps) {
                         className="h-full w-full object-cover"
                         loading="lazy"
                         draggable={false}
+        decoding="async"
                       />
                       {/* Power + cost badges overlay */}
                       <div className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-sky-600 text-[9px] font-bold text-white">

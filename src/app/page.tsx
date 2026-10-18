@@ -25,7 +25,7 @@ import type { LaneId } from "@/lib/game/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Activity, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { BattleLogList } from "@/components/game/BattleLogList";
 
 export default function Home() {
   const initGame = useGameStore((s) => s.initGame);
@@ -33,7 +33,6 @@ export default function Home() {
   const deckLoading = useGameStore((s) => s.deckLoading);
   const phase = useGameStore((s) => s.phase);
   const view = useGameStore((s) => s.view);
-  const log = useGameStore((s) => s.log);
   const aiTurnPhase = useGameStore((s) => s.aiTurnPhase);
   const previewCard = useGameStore((s) => s.previewCard);
   const setPreviewCard = useGameStore((s) => s.setPreviewCard);
@@ -142,34 +141,7 @@ export default function Home() {
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] overflow-y-auto">
-            <div className="space-y-1 p-1">
-              <AnimatePresence initial={false}>
-                {log.length === 0 ? (
-                  <div className="py-3 text-center text-[11px] text-zinc-600">Sin actividad todavía.</div>
-                ) : (
-                  log.map((entry) => (
-                    <motion.div
-                      key={entry.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className={`rounded border px-2 py-1 text-[10px] leading-tight ${
-                        entry.side === "player"
-                          ? "border-emerald-800/40 bg-emerald-950/30 text-emerald-200"
-                          : entry.side === "enemy"
-                            ? "border-rose-800/40 bg-rose-950/30 text-rose-200"
-                            : "border-zinc-800 bg-zinc-900/40 text-zinc-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-[9px] uppercase opacity-70">
-                        <span>{entry.side === "player" ? "Tú" : entry.side === "enemy" ? "Rival" : "Sistema"}</span>
-                        <span>T{entry.turn}</span>
-                      </div>
-                      <div>{entry.text}</div>
-                    </motion.div>
-                  ))
-                )}
-              </AnimatePresence>
-            </div>
+            <BattleLogList />
           </ScrollArea>
         </DialogContent>
       </Dialog>

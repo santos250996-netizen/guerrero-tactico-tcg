@@ -1,10 +1,12 @@
 "use client";
 
+import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { BoardCard } from "@/lib/game/types";
 import { CATEGORY_META, RARITY_META } from "@/lib/game/types";
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isLowPowerDevice } from "@/lib/game/perf";
 
 interface BoardCardMiniProps {
   card: BoardCard;
@@ -12,7 +14,7 @@ interface BoardCardMiniProps {
   onPreview?: (card: BoardCard) => void;
 }
 
-export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
+function BoardCardMiniImpl({ card, side, onPreview }: BoardCardMiniProps) {
   const cat = CATEGORY_META[card.category];
   const rar = RARITY_META[card.rarity];
   const isBuffed = card.currentPower > card.basePower;
@@ -20,7 +22,8 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
 
   return (
     <motion.div
-      layout
+      // layout-anim FLIP: se omite en móviles low-power (medición costosa)
+      layout={!isLowPowerDevice() || undefined}
       initial={{ opacity: 0, scale: 0.5, y: side === "player" ? 20 : -20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.3 }}
@@ -48,6 +51,7 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
         alt={card.name}
         className="absolute inset-0 h-full w-full object-cover"
         loading="lazy"
+        decoding="async"
         draggable={false}
       />
 
@@ -99,3 +103,7 @@ export function BoardCardMini({ card, side, onPreview }: BoardCardMiniProps) {
     </motion.div>
   );
 }
+
+// Memo: los objetos BoardCard se recrean de forma inmutable en la store —
+// si la referencia no cambia, el subtree completo se salta el re-render.
+export const BoardCardMini = memo(BoardCardMiniImpl);

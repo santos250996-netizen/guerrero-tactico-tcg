@@ -294,6 +294,7 @@ export function ProfileScreen() {
                   src={avatarSrc}
                   alt="Avatar"
                   className="h-full w-full object-cover"
+        decoding="async"
                 />
                 {/* Hover overlay with "Cambiar" hint */}
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 opacity-0 transition-opacity group-hover:opacity-100">
@@ -513,6 +514,7 @@ function AvatarPickerModal({
                 src="/menu/game-icon-transparent.png"
                 alt="Ícono del juego"
                 className="h-full w-full scale-110 object-contain"
+        decoding="async"
               />
             </div>
             <div className="flex flex-col items-start">
@@ -590,6 +592,7 @@ function CardAvatarOption({
         alt={card.name}
         className="h-full w-full object-cover"
         loading="lazy"
+        decoding="async"
       />
       {locked && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/70">
