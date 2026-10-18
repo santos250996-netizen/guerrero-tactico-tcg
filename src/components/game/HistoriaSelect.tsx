@@ -1,17 +1,18 @@
 "use client";
 
 // ============================================================================
-// HISTORIA · selección de batalla — elige tu clase y el bot al que retas.
+// HISTORIA · selección de batalla — elige tu clase y a batallar.
+// El rival es ALEATORIO: cualquier clase con cualquiera de sus 2 mazos.
 // Victoria = 2 cartas aleatorias para la colección (para fusionar).
 // ============================================================================
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, Crown, Swords, Trophy } from "lucide-react";
+import { ChevronLeft, Dices, Swords, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
-import { usePvpStore, HISTORIA_BOTS } from "@/store/pvpStore";
+import { usePvpStore } from "@/store/pvpStore";
 import { CLASS_META, type GameClass } from "@/lib/game/types";
 import { ALL_CARDS_V3 } from "@/lib/game/cards";
 import { sfx } from "@/lib/sound";
@@ -34,7 +35,6 @@ export function HistoriaSelect() {
   const soundOn = useSettings((s) => s.soundOn);
 
   const [playerClass, setPlayerClass] = useState<GameClass>("guerrero");
-  const [botClass, setBotClass] = useState<GameClass>("mago");
 
   useEffect(() => {
     hydrateCollection();
@@ -42,7 +42,7 @@ export function HistoriaSelect() {
 
   function start() {
     if (soundOn) sfx.click();
-    startHistoria({ playerClass, botClass });
+    startHistoria({ playerClass });
   }
 
   return (
@@ -104,37 +104,10 @@ export function HistoriaSelect() {
           })}
         </div>
 
-        {/* RIVAL */}
-        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.3em] text-zinc-500" style={{ fontFamily: "var(--font-cinzel), serif" }}>
-          Tu rival
-        </p>
-        <div className="grid grid-cols-3 gap-1.5">
-          {CLASSES.map((cls) => {
-            const meta = CLASS_META[cls];
-            const active = botClass === cls;
-            return (
-              <motion.button
-                key={cls}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => { if (soundOn) sfx.select(); setBotClass(cls); }}
-                className={cn(
-                  "relative overflow-hidden rounded-lg border-2 transition-colors",
-                  active ? "border-rose-500 shadow-[0_0_14px_-2px_rgba(244,63,94,0.6)]" : "border-zinc-800"
-                )}
-              >
-                <div className="absolute inset-x-0 top-0 z-10 flex justify-center pt-0.5">
-                  {active && <Crown className="h-3 w-3 text-rose-400" />}
-                </div>
-                <div
-                  className={cn("h-14 w-full bg-cover bg-center bg-no-repeat", !active && "opacity-60 grayscale")}
-                  style={{ backgroundImage: `url(${CLASS_ART[cls]})` }}
-                />
-                <div className={cn("truncate px-1 py-1 text-center text-[8px] font-black uppercase tracking-wider", active ? "bg-rose-950/80 text-rose-200" : "bg-zinc-950/90 text-zinc-500")}>
-                  {HISTORIA_BOTS[cls].split(",")[0]}
-                </div>
-              </motion.button>
-            );
-          })}
+        {/* RIVAL ALEATORIO — no se elige: sorteo entre las 3 clases y sus 2 mazos */}
+        <div className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-rose-900/50 bg-rose-950/30 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-rose-300">
+          <Dices className="h-3.5 w-3.5 shrink-0" />
+          <span>Rival aleatorio · cualquier clase, cualquiera de sus 2 mazos</span>
         </div>
 
         {/* Botón de batalla */}

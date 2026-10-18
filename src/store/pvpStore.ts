@@ -108,8 +108,8 @@ interface PvpStoreState {
   openSetup: () => void;
   exitToMenu: () => void;
 
-  /** Modo historia: crea la partida local contra un bot predeterminado. */
-  startHistoria: (opts: { playerClass: GameClass; botClass: GameClass; playerName?: string }) => void;
+  /** Modo historia: partida local contra un bot ALEATORIO (cualquier clase, cualquiera de sus 2 mazos). */
+  startHistoria: (opts: { playerClass: GameClass; playerName?: string }) => void;
 
   createRoom: () => Promise<void>;
   joinRoom: () => Promise<void>;
@@ -491,7 +491,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       });
     },
 
-    startHistoria: ({ playerClass, botClass, playerName }) => {
+    startHistoria: ({ playerClass, playerName }) => {
       cancelBotTimer();
       get().stopPolling();
       if (get().hostingLocal) void stopLocalPvpServer();
@@ -509,7 +509,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         gameClass: playerClass,
         deck,
       });
-      // El bot lleva CUALQUIERA de los 2 mazos predeterminados de su clase (50/50).
+      // Bot ALEATORIO: cualquier clase con cualquiera de sus 2 mazos
+      // (sorteo uniforme: 3 clases × 2 mazos = 6 rivales posibles).
+      const BOT_CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
+      const botClass = BOT_CLASSES[Math.floor(Math.random() * BOT_CLASSES.length)];
       const botDecks = classDecksOf(botClass);
       joinBotPvpState(state, {
         name: HISTORIA_BOTS[botClass],
