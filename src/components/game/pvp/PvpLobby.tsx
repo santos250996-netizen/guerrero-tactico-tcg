@@ -19,6 +19,7 @@ export function PvpLobby() {
   const view = usePvpStore((s) => s.view);
   const lanUrls = usePvpStore((s) => s.lanUrls);
   const mySide = usePvpStore((s) => s.mySide);
+  const hostingLocal = usePvpStore((s) => s.hostingLocal);
   const openSetup = usePvpStore((s) => s.openSetup);
   const copyShareUrl = usePvpStore((s) => s.copyShareUrl);
   const [copied, setCopied] = useState(false);
@@ -88,12 +89,21 @@ export function PvpLobby() {
               {showHelp ? "Ocultar ayuda" : "¿Cómo invito a mi rival?"}
             </button>
             {showHelp && (
-              <ol className="mt-1 list-decimal space-y-1 pl-4 text-[9px] leading-relaxed text-zinc-400">
-                <li>El anfitrión crea un <b>hotspot</b> (o ambos se conectan al mismo WiFi).</li>
-                <li>El rival abre el navegador y entra a una de las URLs de arriba.</li>
-                <li>En la pantalla PvP escribe el código de sala y pulsa <b>Unirse</b>.</li>
-                <li>La partida arranca sola con <b>sorteo aleatorio</b> de quién empieza.</li>
-              </ol>
+              hostingLocal ? (
+                <ol className="mt-1 list-decimal space-y-1 pl-4 text-[9px] leading-relaxed text-zinc-400">
+                  <li>Activa el <b>hotspot</b> de tu móvil (ajustes de Android) y deja esta pantalla abierta.</li>
+                  <li>El rival se conecta al WiFi de tu hotspot (sin internet, suficiente).</li>
+                  <li>En la app del rival: PvP → escribe tu <b>IP</b> (la de arriba) y el <b>código</b> → Unirse.</li>
+                  <li>La partida arranca sola con <b>sorteo aleatorio</b> de quién empieza.</li>
+                </ol>
+              ) : (
+                <ol className="mt-1 list-decimal space-y-1 pl-4 text-[9px] leading-relaxed text-zinc-400">
+                  <li>El anfitrión crea un <b>hotspot</b> (o ambos se conectan al mismo WiFi).</li>
+                  <li>El rival abre el navegador y entra a una de las URLs de arriba.</li>
+                  <li>En la pantalla PvP escribe el código de sala y pulsa <b>Unirse</b>.</li>
+                  <li>La partida arranca sola con <b>sorteo aleatorio</b> de quién empieza.</li>
+                </ol>
+              )
             )}
           </div>
         )}

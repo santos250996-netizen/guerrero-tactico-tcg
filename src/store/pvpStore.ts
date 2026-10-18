@@ -8,11 +8,18 @@
 // ============================================================================
 
 import { create } from "zustand";
+import { Capacitor } from "@capacitor/core";
 import type { PvpClientView, PvpSide } from "@/lib/game/pvp";
 import type { CardDef, GameClass } from "@/lib/game/types";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
+import {
+  LOCAL_PVP_PORT,
+  handleLocalPvpApi,
+  startLocalPvpServer,
+  stopLocalPvpServer,
+} from "@/lib/pvp/local-server";
 
 export type PvpScreen = "setup" | "lobby" | "game";
 
@@ -40,6 +47,13 @@ interface PvpStoreState {
   lanUrls: string[];
   lanPort: number;
 
+  // PvP offline por hotspot (APK nativa)
+  hostingLocal: boolean; // este dispositivo sirve el API en proceso
+  localPort: number | null;
+  localIps: string[];
+  remoteBase: string | null; // invitado: http://<ip-anfitrión>:8787
+  hostIp: string; // input del invitado
+
   // Polling / sincronización
   polling: boolean;
   connectionLost: boolean;
@@ -59,6 +73,7 @@ interface PvpStoreState {
   setName: (n: string) => void;
   setGameClass: (c: GameClass) => void;
   setJoinCode: (c: string) => void;
+  setHostIp: (ip: string) => void;
   setPreviewCard: (c: CardDef | null) => void;
   dismissInvalidMsg: () => void;
   clearError: () => void;
@@ -191,15 +206,28 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     }
   }
 
-  async function postJson<T>(url: string, body: unknown, token?: string): Promise<{ ok: boolean; status: number; data: T | null }> {
+  async function apiJson<T>(
+    method: "GET" | "POST",
+    path: string,
+    opts: { body?: unknown; token?: string; base?: string | null } = {}
+  ): Promise<{ ok: boolean; status: number; data: T | null }> {
+    // Anfitrión offline: el API corre en proceso (sin red) → respuesta directa.
+    if (get().hostingLocal) {
+      const query: Record<string, string> = {};
+      if (opts.token) query.token = opts.token;
+      const res = handleLocalPvpApi(method, path, query, opts.body);
+      const data = (res.body ?? null) as T | null;
+      return { ok: res.status >= 200 && res.status < 300, status: res.status, data };
+    }
+    const base = opts.base !== undefined ? opts.base : get().remoteBase;
     try {
-      const res = await fetch(url, {
-        method: "POST",
+      const res = await fetch(`${base ?? ""}${path}`, {
+        method,
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { "x-pvp-token": token } : {}),
+          ...(opts.token ? { "x-pvp-token": opts.token } : {}),
         },
-        body: JSON.stringify(body),
+        ...(method === "POST" && opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
       });
       const data = (await res.json().catch(() => null)) as T | null;
       return { ok: res.ok, status: res.status, data };
@@ -221,6 +249,11 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     error: null,
     lanUrls: [],
     lanPort: 3000,
+    hostingLocal: false,
+    localPort: null,
+    localIps: [],
+    remoteBase: null,
+    hostIp: "192.168.43.1",
     polling: false,
     connectionLost: false,
     lastActionSeq: 0,
@@ -241,12 +274,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     setName: (n) => set({ playerName: n }),
     setGameClass: (c) => set({ gameClass: c }),
     setJoinCode: (c) => set({ joinCode: c.toUpperCase().slice(0, 4) }),
+    setHostIp: (ip) => set({ hostIp: ip }),
     setPreviewCard: (c) => set({ previewCard: c }),
     dismissInvalidMsg: () => set({ invalidPlayMsg: null }),
     clearError: () => set({ error: null }),
 
     openSetup: () => {
       get().stopPolling();
+      if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
         code: null,
@@ -259,11 +294,16 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         lastActionSeq: 0,
         resumed: false,
         selectedCardUid: null,
+        hostingLocal: false,
+        localPort: null,
+        localIps: [],
+        remoteBase: null,
       });
     },
 
     exitToMenu: () => {
       get().stopPolling();
+      if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
         code: null,
@@ -276,6 +316,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         lastActionSeq: 0,
         resumed: false,
         selectedCardUid: null,
+        hostingLocal: false,
+        localPort: null,
+        localIps: [],
+        remoteBase: null,
       });
       // vuelve al menú principal (gameStore)
       import("@/store/gameStore").then(({ useGameStore }) => {
@@ -286,13 +330,58 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     createRoom: async () => {
       const { playerName, gameClass } = get();
       set({ busy: true, error: null });
-      const { ok, data } = await postJson<{ code: string; token: string; view: PvpClientView }>(
-        "/api/pvp/rooms",
-        {
-          name: playerName || "Anfitrión",
-          gameClass,
-          deckIds: myDeckIds(gameClass),
+      const payload = {
+        name: playerName || "Anfitrión",
+        gameClass,
+        deckIds: myDeckIds(gameClass),
+      };
+
+      // ── APK nativa: servidor PvP DENTRO de la app (PvP offline por hotspot) ──
+      if (Capacitor.isNativePlatform()) {
+        let info;
+        try {
+          info = await startLocalPvpServer();
+        } catch (err) {
+          set({ busy: false, error: `No se pudo iniciar el servidor local: ${(err as Error).message}` });
+          return;
         }
+        const res = handleLocalPvpApi("POST", "/api/pvp/rooms", {}, payload);
+        const data = res.body as { code: string; token: string; view: PvpClientView } | { error: string } | null;
+        if (res.status !== 201 || !data || !("code" in data)) {
+          void stopLocalPvpServer();
+          set({ busy: false, error: "No se pudo crear la sala local." });
+          return;
+        }
+        const ok = data as { code: string; token: string; view: PvpClientView };
+        try {
+          sessionStorage.setItem(`pvp-token-${ok.code}`, ok.token);
+          sessionStorage.setItem("pvp-code", ok.code);
+        } catch {
+          // noop
+        }
+        set({
+          hostingLocal: true,
+          localPort: info.port,
+          localIps: info.ips,
+          remoteBase: null,
+          code: ok.code,
+          token: ok.token,
+          mySide: "a",
+          busy: false,
+          lastActionSeq: 0,
+        });
+        applyView(ok.view);
+        set({ screen: "lobby" });
+        set({ lanUrls: info.ips.map((ip) => `http://${ip}:${info.port}`), lanPort: info.port });
+        get().startPolling();
+        return;
+      }
+
+      // ── Web/preview: backend Next en el mismo origen ──
+      const { ok, data } = await apiJson<{ code: string; token: string; view: PvpClientView }>(
+        "POST",
+        "/api/pvp/rooms",
+        { body: payload, base: "" }
       );
       if (!ok || !data) {
         set({ busy: false, error: "No se pudo crear la sala. ¿El servidor está activo?" });
@@ -329,13 +418,47 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         return;
       }
       set({ busy: true, error: null });
-      const { ok, status, data } = await postJson<{ token: string; view: PvpClientView }>(
-        `/api/pvp/rooms/${joinCode}/join`,
-        {
-          name: playerName || "Reto",
-          gameClass,
-          deckIds: myDeckIds(gameClass),
+      const payload = {
+        name: playerName || "Reto",
+        gameClass,
+        deckIds: myDeckIds(gameClass),
+      };
+
+      // ── APK nativa: conectar al servidor del anfitrión por su IP (hotspot) ──
+      let base: string | null = null;
+      if (Capacitor.isNativePlatform()) {
+        const ip = (get().hostIp || "").trim() || "192.168.43.1";
+        base = `http://${ip}:${LOCAL_PVP_PORT}`;
+        // Probe rápido con timeout corto → mensaje claro si no hay ruta
+        let reachable = false;
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 3500);
+          const r = await fetch(`${base}/api/pvp/lan-info`, { signal: ctrl.signal });
+          clearTimeout(timer);
+          reachable = r.ok;
+        } catch {
+          reachable = false;
         }
+        if (!reachable) {
+          set({
+            busy: false,
+            error: `No llego a ${ip}:${LOCAL_PVP_PORT}. Conéctate al WiFi del hotspot del anfitrión y verifica su IP en su pantalla de sala.`,
+          });
+          return;
+        }
+        set({ remoteBase: base });
+        try {
+          sessionStorage.setItem("pvp-remote-base", base);
+        } catch {
+          // noop
+        }
+      }
+
+      const { ok, status, data } = await apiJson<{ token: string; view: PvpClientView }>(
+        "POST",
+        `/api/pvp/rooms/${joinCode}/join`,
+        { body: payload, base }
       );
       if (!ok || !data) {
         const msg =
@@ -363,10 +486,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       if (!code || !token || actionInFlight) return;
       actionInFlight = true;
       try {
-      const { ok, data } = await postJson<{ view: PvpClientView; error?: string }>(
+      const { ok, data } = await apiJson<{ view: PvpClientView; error?: string }>(
+        "POST",
         `/api/pvp/rooms/${code}/action`,
-        { token, action: { type: "play", uid, lane } },
-        token
+        { body: { token, action: { type: "play", uid, lane } }, token }
       );
       if (ok && data?.view) {
         set({ invalidPlayMsg: null, selectedCardUid: null });
@@ -386,10 +509,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       actionInFlight = true;
       try {
       if (useSettings.getState().soundOn) sfx.click();
-      const { ok, data } = await postJson<{ view: PvpClientView }>(
+      const { ok, data } = await apiJson<{ view: PvpClientView }>(
+        "POST",
         `/api/pvp/rooms/${code}/action`,
-        { token, action: { type: "pass" } },
-        token
+        { body: { token, action: { type: "pass" } }, token }
       );
       if (ok && data?.view) {
         applyView(data.view);
@@ -403,10 +526,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     requestRematch: async () => {
       const { code, token } = get();
       if (!code || !token) return;
-      const { ok, data } = await postJson<{ view: PvpClientView }>(
+      const { ok, data } = await apiJson<{ view: PvpClientView }>(
+        "POST",
         `/api/pvp/rooms/${code}/rematch`,
-        { token },
-        token
+        { body: { token }, token }
       );
       if (ok && data?.view) applyView(data.view);
     },
@@ -433,15 +556,33 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         return;
       }
       if (!code || !token) return;
+      // Restaurar la base remota si el invitado se recargó a mitad de partida
+      let base: string | null = get().remoteBase;
       try {
-        const res = await fetch(`/api/pvp/rooms/${code}/state`, {
-          headers: { "x-pvp-token": token },
+        const saved = sessionStorage.getItem("pvp-remote-base");
+        if (!base && saved) base = saved;
+      } catch {
+        // noop
+      }
+      if (Capacitor.isNativePlatform() && !base) {
+        // Sin IP recordada no hay ruta al anfitrión — limpia y vuelve a setup
+        try {
+          sessionStorage.removeItem("pvp-code");
+        } catch {
+          // noop
+        }
+        return;
+      }
+      try {
+        const res = await apiJson<{ view: PvpClientView }>("GET", `/api/pvp/rooms/${code}/state`, {
+          token,
+          base,
         });
-        if (!res.ok) {
+        if (!res.ok || !res.data) {
           sessionStorage.removeItem("pvp-code");
           return;
         }
-        const data = (await res.json()) as { view: PvpClientView };
+        const data = res.data as { view: PvpClientView };
         set({ code, token, mySide: data.view.you.side });
         applyView(data.view);
         // La vista puede seguir en lobby: mueve la pantalla según la fase real
@@ -458,24 +599,22 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       pollTimer = setInterval(async () => {
         const { code, token } = get();
         if (!code || !token) return;
-        try {
-          const res = await fetch(`/api/pvp/rooms/${code}/state`, {
-            headers: { "x-pvp-token": token },
-          });
-          if (res.status === 404 || res.status === 403) {
-            get().stopPolling();
-            set({ error: "La sala ya no existe." });
-            return;
-          }
-          if (!res.ok) {
-            set({ connectionLost: true });
-            return;
-          }
-          const data = (await res.json()) as { view: PvpClientView };
-          applyView(data.view);
-        } catch {
-          set({ connectionLost: true });
+        const { ok, status, data } = await apiJson<{ view: PvpClientView }>(
+          "GET",
+          `/api/pvp/rooms/${code}/state`,
+          { token }
+        );
+        if (status === 404 || status === 403) {
+          get().stopPolling();
+          set({ error: "La sala ya no existe." });
+          return;
         }
+        if (!ok || !data) {
+          set({ connectionLost: true });
+          return;
+        }
+        set({ connectionLost: false });
+        applyView(data.view);
       }, POLL_MS);
     },
 

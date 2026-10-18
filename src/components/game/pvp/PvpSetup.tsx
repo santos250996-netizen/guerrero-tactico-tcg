@@ -5,12 +5,15 @@
 // sala o únete con el código de 4 letras que te pase el anfitrión.
 // ============================================================================
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Swords, Wand2, EyeOff, Radio, LogIn, Loader2, Wifi } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { usePvpStore } from "@/store/pvpStore";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
+import { LOCAL_PVP_PORT } from "@/lib/pvp/local-server";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
@@ -24,14 +27,23 @@ export function PvpSetup() {
   const playerName = usePvpStore((s) => s.playerName);
   const gameClass = usePvpStore((s) => s.gameClass);
   const joinCode = usePvpStore((s) => s.joinCode);
+  const hostIp = usePvpStore((s) => s.hostIp);
   const busy = usePvpStore((s) => s.busy);
   const error = usePvpStore((s) => s.error);
   const setName = usePvpStore((s) => s.setName);
   const setGameClass = usePvpStore((s) => s.setGameClass);
   const setJoinCode = usePvpStore((s) => s.setJoinCode);
+  const setHostIp = usePvpStore((s) => s.setHostIp);
   const createRoom = usePvpStore((s) => s.createRoom);
   const joinRoom = usePvpStore((s) => s.joinRoom);
   const exitToMenu = usePvpStore((s) => s.exitToMenu);
+
+  // Solo en la APK existe modo sin internet (servidor dentro de la app).
+  const isNative = Capacitor.isNativePlatform();
+  const [isNativeState] = useState(isNative);
+  useEffect(() => {
+    // noop — isNative se evalúa en cliente tras hidratar
+  }, []);
 
   return (
     <div className="app-frame text-zinc-100">
@@ -51,8 +63,18 @@ export function PvpSetup() {
         </div>
 
         <p className="mt-2 text-center text-[10px] leading-relaxed text-zinc-500">
-          Dos jugadores en la misma red WiFi o hotspot. El anfitrión crea la sala y
-          comparte el código; el rival se une desde su dispositivo.
+          {isNativeState ? (
+            <>
+              <b className="text-amber-400">Sin internet:</b> el anfitrión activa su hotspot y crea
+              la sala; el rival se conecta al WiFi del hotspot y une con el código + la IP que
+              muestra la pantalla del anfitrión.
+            </>
+          ) : (
+            <>
+              Dos jugadores en la misma red WiFi o hotspot. El anfitrión crea la sala y
+              comparte el código; el rival se une desde su dispositivo.
+            </>
+          )}
         </p>
 
         {/* Nombre */}
@@ -120,6 +142,20 @@ export function PvpSetup() {
             <div className="mb-2 text-center text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
               ¿Tienes un código?
             </div>
+            {isNativeState && (
+              <div className="mb-2">
+                <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+                  IP del anfitrión (ver su pantalla de sala)
+                </label>
+                <input
+                  value={hostIp}
+                  onChange={(e) => setHostIp(e.target.value.trim())}
+                  placeholder={`192.168.43.1 (hotspot típico)`}
+                  inputMode="decimal"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-center text-sm font-bold tracking-wider text-teal-200 placeholder:text-zinc-700 focus:border-teal-500/70 focus:outline-none"
+                />
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input
                 value={joinCode}

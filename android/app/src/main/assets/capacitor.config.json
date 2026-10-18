@@ -1,5 +1,11 @@
 {
-	"appId": "com.guerrero.tactico",
-	"appName": "Guerrero Tactico TCG",
-	"webDir": "out"
+	"appId": "com.pacto.guerra",
+	"appName": "Pacto de Guerra",
+	"webDir": "out",
+	"server": {
+		"androidScheme": "http"
+	},
+	"android": {
+		"allowMixedContent": true
+	}
 }

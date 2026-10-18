@@ -1,1 +1,6 @@
-[]
+[
+	{
+		"pkg": "@cantoo/capacitor-http-server",
+		"classpath": "com.cantooscribe.httpserver.HttpServerPlugin"
+	}
+]
