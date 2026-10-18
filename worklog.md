@@ -291,3 +291,22 @@ Work Log:
 Stage Summary:
 - Pipeline APK 100% funcional: push a main → APK debug con FX + PvP + 3 clases descargable en Actions
 - El APK sirve el juego completo cliente-side; las APIs (matches/pvp) solo existen en despliegues con servidor (runtime preview)
+
+---
+Task ID: 15
+Agent: Z.ai main agent
+Task: Optimización de rendimiento en móvil ("q no corra lento en móvil")
+
+Work Log:
+- Auditoría de hot paths: FxLayer (mix-blend-mode:screen a pantalla completa + rAF 60fps sin pausa + DPR 2 + 460 partículas fijos), ~50 backdrop-blur simultáneos (badges de 12 cartas de mano, cabeceras de 9 carriles, header, overlay de bono), framer-motion layout (FLIP) en mano y tablero, cero React.memo, BattleLog suscrito desde page.tsx (cada entrada re-renderizaba el tablero), 9 <img> sin decoding async
+- Nuevo src/lib/game/perf.ts: detección SSR-safe de tier (low/med/high) por hardwareConcurrency/deviceMemory/UA móvil
+- FxLayer: mix-blend CSS → globalCompositeOperation="lighter" dentro del canvas; CFG por tier (190/320/460 partículas, DPR 1.25/1.5/2, tope 30/60fps, ambientMul 0.55/0.8/1, textGlow solo desktop); pausa total con visibilitychange; dt inalterado para partículas
+- CSS: backdrop-blur eliminado en HandCardComponent (badges), LaneComponent + PvpLane (cabeceras → bg-black/30, overlay bono → bg-black/85), HeaderBar (bg opaco)
+- React: BattleLogList.tsx nuevo (log aislado del tablero); BoardCardMini envuelto en memo (cards inmutables verificado en store/engine); layout-anim FLIP desactivada solo en tier low (mano + tablero)
+- Imágenes: decoding="async" en las 9 <img> (script scripts/add-img-decoding.py persistido)
+- Verificación: tsc src/ limpio, eslint touched limpio, FX 51/51, V3 30/30, V2 34/34, PvP 51/51, build estático OK, build servidor OK
+- Commit f613259 → CI run 39132219972 TODO VERDE, APK optimizado subido
+
+Stage Summary:
+- APK con renders más ligeros: sin blend CSS global, FX escalados al dispositivo, pausa en background, menos re-renders de React y decodificación de imágenes asíncrona
+- Siguiente calibración posible tras prueba real: ajustar umbrales de perf.ts o rate de partículas si algún móvil sigue throttling
