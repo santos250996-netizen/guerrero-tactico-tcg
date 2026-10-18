@@ -243,3 +243,19 @@ Stage Summary:
 - Arquitectura: engine describe (FxEvent) → store emite → FxLayer pinta; el servidor PvP viaja ligero (solo lanePos + uids, nunca DOM)
 - El pacing del turno rival ahora es cinemático con animaciones activas (reveal carta a carta) y sigue instantáneo con animaciones off
 - Pendiente (de la lista global): historial PvP en perfil, custom decks Mago/Asesino en BD, equilibrado fino con datos reales, design pass impeccable
+
+---
+Task ID: 12
+Agent: Z.ai main agent
+Task: Commit para GitHub
+
+Work Log:
+- Diagnóstico: 375 archivos "modified" eran solo cambios de permisos (100644→100755, chmod espurio del contenedor, 0 contenido); verificado con git diff --numstat
+- Fix: git config core.filemode false → árbol limpio (gradlew y .zscripts conservan 755 en el índice)
+- Auditado .env trackeado: solo DATABASE_URL=file: (ruta SQLite local, sin secretos) — OK para repo privado
+- Commit 5821168: db/custom.db sincronizada tras testing FX
+- HEAD: 5821168 (chore db) sobre 1fc565d (feat FX completo); working tree 0 cambios
+- Pendiente de credenciales del usuario: no existe remote, ni gh CLI, ni token en el entorno → push a GitHub requiere URL del repo + PAT
+
+Stage Summary:
+- Repo 100% commiteado y limpio, listo para push en cuanto el usuario aporte remote + credenciales
