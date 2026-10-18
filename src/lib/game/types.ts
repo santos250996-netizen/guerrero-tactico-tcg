@@ -6,6 +6,7 @@ import {
   Sparkles, ChevronsUp, Target,
   Wand2, FlameKindling, Snowflake, FlaskConical, EyeOff, Sword,
   Wind, Bug, Crosshair,
+  Flag, ShieldCheck, Droplets, Bomb, Hammer, CloudFog, Telescope, Handshake,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -126,20 +127,24 @@ export const MOD_ONCE_PER_TURN = 0.8; // Efecto que se repite indefinidamente (M
 //   6 NEUTRALES (cualquier clase, cualquier carril):
 //     Fervor [X] · Coraza [X] · Insignia [X] · Remate [X] · Legado [X] · Fortaleza [X]
 //
-//   6 DE GUERRERO (exclusivas por spec/subtype):
-//     ARMAS:        Hender Armadura [X] · Duelista [X]
-//     PROTECCIÓN:   Amparo [X] · Purificación
-//     FURIA:        Ímpetu [X] · Crueldad [X]
+//   6+1 DE GUERRERO (exclusivas por spec/subtype):
+//     ARMAS:        Hender Armadura [X] · Duelista [X] · Orden de Batalla [X]
+//     PROTECCIÓN:   Amparo [X] · Purificación · Custodia [X]
+//     FURIA:        Ímpetu [X] · Crueldad [X] · Desafío [X]
 //
-//   6 DE MAGO (spec V3 — Burst: poder alto y frágil):
-//     ARCANA:  Convergencia [X] · Sobrecarga [X]
-//     FUEGO:   Llamarada [X] · Combustión [X]
-//     HIELO:   Escarcha [X] · Ventisca [X]
+//   6+1 DE MAGO (spec V3 — Burst: poder alto y frágil):
+//     ARCANA:  Convergencia [X] · Sobrecarga [X] · Drenar Poder [X]
+//     FUEGO:   Llamarada [X] · Combustión [X] · Detonación [X]
+//     HIELO:   Escarcha [X] · Ventisca [X] · Ruptura Glacial [X]
 //
-//   6 DE ASESINO (spec V3 — Precisión condicional):
-//     VENENO:  Veneno [X] · Contagio [X]
-//     COMBATE: Refriega [X] · Golpe Certero [X]
-//     SIGILO:  Emboscada [X] · Purga [X]
+//   6+1 DE ASESINO (spec V3 — Precisión condicional):
+//     VENENO:  Veneno [X] · Contagio [X] · Miasma [X]
+//     COMBATE: Refriega [X] · Golpe Certero [X] · Caza Mayor [X]
+//     SIGILO:  Emboscada [X] · Purga [X] · Conspiración [X]
+//
+// TERCERA TANDA (2026-10): 9 keywords nuevas (1 por spec) para los
+// segundos mazos de cada clase. Conspiración es la PRIMERA keyword de
+// MANO (buffa cartas que aún no han entrado al tablero).
 // ============================================================================
 export type Keyword =
   | "none"
@@ -170,7 +175,17 @@ export type Keyword =
   | "refriega" // Al Jugar: +X por cada carta ENEMIGA ya en el carril (combate)
   | "golpe_certero" // Al Jugar: −X al enemigo más fuerte (escudos SÍ absorben) (combate)
   | "emboscada" // Al Jugar: +2X si es tu 1ª carta del turno, si no +X (sigilo)
-  | "purga"; // Al Jugar: destruye la carta enemiga MÁS DÉBIL con poder ≤ X (sigilo)
+  | "purga" // Al Jugar: destruye la carta enemiga MÁS DÉBIL con poder ≤ X (sigilo)
+  // --- 3ª tanda: 1 keyword nueva por spec (mazos 2) ---
+  | "orden_batalla" // Al Jugar: +X a esta carta y a tus demás cartas del carril (armas)
+  | "custodia" // Inicio de Turno: escudo del aliado más débil restaurado hasta X (protección)
+  | "desafio" // Inicio de Turno: +X mientras el carril enemigo supere al tuyo (furia)
+  | "drenar_poder" // Al Jugar: gana +X y reduce X al enemigo más fuerte (arcana)
+  | "detonacion" // Último Aliento: −X a TODOS los enemigos del carril (fuego)
+  | "ruptura_glacial" // Al Jugar: −X al enemigo con más reducciones, IGNORA escudos (hielo)
+  | "miasma" // Al Jugar: −X a TODOS los enemigos del carril, IGNORA escudos (veneno)
+  | "caza_mayor" // Al Jugar: +2X si el enemigo más fuerte del carril te supera; si no +X (combate)
+  | "conspiracion"; // Al Jugar: el resto de tu mano gana +X permanente (sigilo)
 
 /**
  * El effectId de una carta coincide con su keyword (mismo string) — el engine
@@ -353,6 +368,64 @@ export const KEYWORD_META: Record<
     label: "Purga", short: "PURGA", icon: Skull, color: "text-indigo-300",
     description: "Al Jugar: destruye la carta enemiga más débil de este carril con poder ≤ X.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "sigilo",
+  },
+
+  // ------------------------------------------------------------------
+  // 3ª TANDA — 1 keyword nueva por spec (mazos segundos)
+  // ------------------------------------------------------------------
+  orden_batalla: {
+    label: "Orden de Batalla", short: "ORDEN", icon: Flag, color: "text-amber-300",
+    description: "Al Jugar: esta carta y tus demás cartas de este carril ganan +X de poder permanente.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "armas",
+  },
+  custodia: {
+    label: "Custodia", short: "CUSTODIA", icon: ShieldCheck, color: "text-sky-300",
+    description: "Inicio de Turno: el escudo del aliado más débil de este carril (puede ser ella misma) se restaura hasta X puntos.",
+    trigger: "start_turn", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "proteccion",
+  },
+  desafio: {
+    label: "Desafío", short: "DESAFÍO", icon: Flame, color: "text-rose-300",
+    description: "Inicio de Turno: gana +X mientras el poder total enemigo de este carril supere al tuyo.",
+    trigger: "start_turn", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "furia",
+  },
+  drenar_poder: {
+    label: "Drenar Poder", short: "DRENAJE", icon: Droplets, color: "text-violet-300",
+    description: "Al Jugar: gana +X de poder y reduce en X el poder del enemigo más fuerte de este carril. Los escudos absorben la reducción.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "arcana",
+  },
+  detonacion: {
+    label: "Detonación", short: "DETONACIÓN", icon: Bomb, color: "text-orange-300",
+    description: "Último Aliento: reduce en X el poder de TODAS las cartas enemigas de este carril.",
+    trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "fuego",
+  },
+  ruptura_glacial: {
+    label: "Ruptura Glacial", short: "RUPTURA", icon: Hammer, color: "text-cyan-300",
+    description: "Al Jugar: reduce en X el poder del enemigo con MÁS reducciones acumuladas de este carril. Los escudos no lo impiden.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "hielo",
+  },
+  miasma: {
+    label: "Miasma", short: "MIASMA", icon: CloudFog, color: "text-lime-300",
+    description: "Al Jugar: reduce en X el poder de TODAS las cartas enemigas de este carril. El gas ignora los escudos.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "veneno",
+  },
+  caza_mayor: {
+    label: "Caza Mayor", short: "CAZA MAYOR", icon: Telescope, color: "text-red-300",
+    description: "Al Jugar: gana +2X si la carta enemiga más fuerte de este carril supera el poder base de esta carta; si no, gana +X.",
+    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "combate",
+  },
+  conspiracion: {
+    label: "Conspiración", short: "CONSPIR.", icon: Handshake, color: "text-indigo-300",
+    description: "Al Jugar: el resto de cartas de tu mano gana +X de poder permanente.",
+    trigger: "on_play", hasValue: true, scope: "MANO",
     exclusiveSubtype: "sigilo",
   },
 };

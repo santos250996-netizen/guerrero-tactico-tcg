@@ -39,7 +39,7 @@ import {
   type TrapState,
   type TriggerResult,
 } from "@/lib/game/engine";
-import { ALL_CARDS, buildDrawPileFrom, CLASS_DECKS, cardPoolForClass, WARRIOR_DECK } from "@/lib/game/cards";
+import { buildDrawPileFrom, CLASS_DECKS, cardPoolForClass, WARRIOR_DECK } from "@/lib/game/cards";
 import { emitFx, eventsFromPlayResult, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
@@ -1027,8 +1027,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set({ deckLoading: true });
     try {
       const cls = get().gameClass;
-      // Pool por clase: neutrales + exclusivas de la clase (evita mezclar keywords)
-      const cardPool: CardDef[] = cls === "guerrero" ? ALL_CARDS : cardPoolForClass(cls);
+      // Pool por clase: neutrales + exclusivas de la clase (evita mezclar
+      // keywords). Para las 3 clases por igual — incluye los 2 mazos (I y II).
+      const cardPool: CardDef[] = cardPoolForClass(cls);
 
       const storageKey = cls === "guerrero" ? "guerrero-tactico-deck" : `guerrero-tactico-deck-${cls}`;
       // Load deck from localStorage (fallback al mazo espejo de la clase)

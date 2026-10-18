@@ -13,6 +13,7 @@ import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { usePvpStore, HISTORIA_BOTS } from "@/store/pvpStore";
 import { CLASS_META, type GameClass } from "@/lib/game/types";
+import { ALL_CARDS_V3 } from "@/lib/game/cards";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
 
@@ -69,7 +70,7 @@ export function HistoriaSelect() {
 
         {/* Colección rápida */}
         <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 text-center text-[9px] uppercase tracking-widest text-zinc-400">
-          Colección: <span className="font-black text-amber-300">{distinctCards()}</span> / 36 cartas ·{" "}
+          Colección: <span className="font-black text-amber-300">{distinctCards()}</span> / {ALL_CARDS_V3.length} cartas ·{" "}
           <span className="font-black text-amber-300">{totalCopies()}</span> copias
         </div>
 

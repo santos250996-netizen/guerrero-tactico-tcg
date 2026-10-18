@@ -490,11 +490,81 @@ function applyEffectLogic(
       break;
     }
 
+    // ---- ORDEN DE BATALLA [X]: +X a esta carta y a las ya colocadas del carril ----
+    case "orden_batalla": {
+      if (x > 0) {
+        accum.bonusPower += x; // la propia carta (aún no colocada)
+        for (const ally of allyLane) {
+          accum.mutations.push({ side, lane, uid: ally.uid, powerDelta: x });
+        }
+      }
+      break;
+    }
+
+    // ---- DRENAR PODER [X]: gana +X y reduce X al enemigo más fuerte ----
+    // viaDebuff: los escudos absorben la reducción (honesto); el +X propio
+    // se aplica SIEMPRE (la energía se canaliza aunque el golpe rebote).
+    case "drenar_poder": {
+      if (x > 0) {
+        accum.bonusPower += x;
+        const target = highestPowerCard(enemyLane);
+        if (target) {
+          accum.mutations.push({
+            side: enemySide, lane, uid: target.uid, powerDelta: -x, viaDebuff: true,
+          });
+        }
+      }
+      break;
+    }
+
+    // ---- RUPTURA GLACIAL [X]: −X al enemigo con MÁS reducciones acumuladas ----
+    // Mutación directa: perfora escudos (rompe la barrera congelada).
+    // Empate de reducciones → el MÁS FUERTE (finisher del desgaste).
+    case "ruptura_glacial": {
+      if (x > 0) {
+        const cracked = enemyLane.filter((c) => (c.debuffTaken ?? 0) > 0);
+        if (cracked.length > 0) {
+          let target = cracked[0];
+          for (const c of cracked) {
+            if (
+              (c.debuffTaken ?? 0) > (target.debuffTaken ?? 0) ||
+              ((c.debuffTaken ?? 0) === (target.debuffTaken ?? 0) && c.currentPower > target.currentPower)
+            ) {
+              target = c;
+            }
+          }
+          accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -x });
+        }
+      }
+      break;
+    }
+
+    // ---- MIASMA [X]: −X a TODAS las cartas enemigas del carril, IGNORA escudos ----
+    case "miasma": {
+      if (x > 0) {
+        for (const enemy of enemyLane) {
+          accum.mutations.push({ side: enemySide, lane, uid: enemy.uid, powerDelta: -x });
+        }
+      }
+      break;
+    }
+
+    // ---- CAZA MAYOR [X]: +2X si el enemigo más fuerte supera el poder base de esta; si no +X ----
+    case "caza_mayor": {
+      if (x > 0) {
+        const target = highestPowerCard(enemyLane);
+        const preyed = !!target && target.currentPower > card.power;
+        accum.bonusPower += preyed ? 2 * x : x;
+      }
+      break;
+    }
+
     // ---- Keywords que disparan en OTROS triggers (no-op aquí) ----
-    // fervor / duelista / purificacion / escarcha / veneno → start_turn
+    // fervor / duelista / purificacion / escarcha / veneno / custodia / desafio → start_turn
     // fortaleza / crueldad / ventisca / contagio → end_turn
-    // legado / combustion → on_death
+    // legado / combustion / detonacion → on_death
     // coraza → escudo inicial otorgado en playCard (init del BoardCard)
+    // conspiracion → buff de mano aplicado en playCard (sobre la nueva mano)
     default:
       break;
   }
@@ -688,10 +758,21 @@ export function playCard(
   };
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
 
-  // Build a NEW hand (without the played card)
-  const newHand: HandCard[] = hand
+  // Build a NEW hand (without the played card) — Conspiración buffa el resto.
+  let newHand: HandCard[] = hand
     .filter((c) => c.uid !== handCard.uid)
     .map((c) => ({ ...c }));
+  if (keyword === "conspiracion" && (handCard.keywordValue ?? 0) > 0) {
+    const conspirX = handCard.keywordValue ?? 0;
+    newHand = newHand.map((c) => ({
+      ...c,
+      handBonus: (c.handBonus ?? 0) + conspirX,
+      handBonusSources: [
+        ...(c.handBonusSources ?? []),
+        { source: handCard.name, delta: conspirX },
+      ],
+    }));
+  }
 
   return {
     board: newBoard,
@@ -840,6 +921,24 @@ export function scoreAIPlay(
   }
   if (card.keyword === "llamarada") {
     score += x * 1.2 * board[lane].player.length; // one-shot AoE (mutations also counted by sim)
+  }
+  // ---- 3ª tanda: estimaciones que la simulación no ve ----
+  if (card.keyword === "custodia") {
+    score += x * 1.2; // escudo renovable al aliado más débil
+  }
+  if (card.keyword === "desafio") {
+    const losing = calcLanePower(board[lane].enemy) < calcLanePower(board[lane].player);
+    score += losing ? x * 2 : 0.3; // remontada condicional
+  }
+  if (card.keyword === "detonacion") {
+    score += x * 1.2 * board[lane].player.length; // explosión AoE al morir
+  }
+  if (card.keyword === "conspiracion") {
+    score += x * (sim.hand.length + 1); // buff a la mano restante
+  }
+  if (card.keyword === "ruptura_glacial") {
+    const anyCracked = board[lane].player.some((c) => (c.debuffTaken ?? 0) > 0);
+    if (anyCracked) score += x * 0.5; // el sim ya cuenta la mutación; prima si hay grieta
   }
 
   // 11. Avoid playing into a player-owned trap if it would kill the card
@@ -1110,6 +1209,38 @@ export function applyStartTurnEffects(
           break;
         }
 
+        // ---- CUSTODIA [X]: escudo del aliado más débil restaurado hasta X ----
+        case "custodia": {
+          if (x > 0) {
+            const target = lowestPowerCard(ownLane); // incluye a la propia carta
+            if (target) {
+              const before = target.shieldRemaining ?? 0;
+              const after = Math.min(x, before + x);
+              const idx = newBoard[lane][side].findIndex((c) => c.uid === target.uid);
+              newBoard[lane][side][idx] = { ...target, shieldRemaining: after };
+              if (after > before) {
+                logs.push({ side, text: `🛡️ ${card.name} (Custodia): escudo de ${target.name} restaurado a ${after}` });
+                fx.push({ kind: "keyword", keyword: "custodia", lane, side, targetUids: [target.uid], value: after - before });
+              }
+            }
+          }
+          break;
+        }
+
+        // ---- DESAFÍO [X]: +X mientras el carril enemigo supere al tuyo ----
+        case "desafio": {
+          if (x > 0) {
+            const enemyPower = calcLanePower(newBoard[lane][enemySideOf(side)]);
+            const ownPower = calcLanePower(newBoard[lane][side]);
+            if (enemyPower > ownPower) {
+              applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Desafío)`, "start_turn");
+              logs.push({ side, text: `🔥 ${card.name} (Desafío): +${x} (el carril es desafiable)` });
+              fx.push({ kind: "keyword", keyword: "desafio", lane, side, targetUids: [card.uid], value: x });
+            }
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -1313,6 +1444,21 @@ export function applyOnDeathEffects(
       applyPowerDelta(newBoard, enemySideOf(side), lane, target.uid, -2 * x, `${deadCard.name} (Combustión)`, "on_death");
       logs.push({ side, text: `🔥 ${deadCard.name} (Combustión): −${2 * x} a ${target.name} (explota, perfora escudos)` });
       fx.push({ kind: "keyword", keyword: "combustion", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: [target.uid], value: 2 * x });
+    }
+  }
+
+  // ---- DETONACIÓN [X]: al morir, −X a TODOS los enemigos del carril ----
+  // Pasa por applyDebuff: los escudos absorben su parte (no perfora — Combustión es la perforante).
+  if (deadCard.keyword === "detonacion" && x > 0) {
+    const enemies = [...newBoard[lane][enemySideOf(side)]];
+    if (enemies.length > 0) {
+      const uids: string[] = [];
+      for (const enemy of enemies) {
+        applyDebuff(newBoard, enemySideOf(side), lane, enemy.uid, -x, `${deadCard.name} (Detonación)`, "on_death");
+        uids.push(enemy.uid);
+      }
+      logs.push({ side, text: `💥 ${deadCard.name} (Detonación): −${x} a ${enemies.length} enemigo(s) del carril` });
+      fx.push({ kind: "keyword", keyword: "detonacion", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: uids, value: x });
     }
   }
 

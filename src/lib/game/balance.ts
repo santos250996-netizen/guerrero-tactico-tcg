@@ -101,6 +101,16 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   golpe_certero: 1.0, // −X one-shot honesto (escudos absorben)
   emboscada: 1.5, // media entre +2X (1ª carta) y +X
   purga: 1.8, // destrucción del más débil ≤X (algo más fácil que Remate)
+  // --- 3ª tanda (mazos segundos, 1 por spec) ---
+  orden_batalla: 1.2, // +X AoE one-shot al carril (media ~2-3 aliados + sí misma)
+  custodia: 1.4, // escudo renovable hasta X al aliado más débil (espejo de Escarcha)
+  desafio: 2.0, // +X/turno condicional mientras pierdes el carril (remontada)
+  drenar_poder: 1.5, // swing emparejado: +X propio Y −X al más fuerte (escudos absorben)
+  detonacion: 1.2, // −X AoE one-shot al morir (condicional; Llamarada al jugar vale 1.5)
+  ruptura_glacial: 1.6, // −X one-shot perforante al más debuffeado (condicional)
+  miasma: 1.8, // −X AoE one-shot PERFORANTE (prima de perforación sobre Llamarada)
+  caza_mayor: 1.4, // media entre +2X (si el más fuerte te supera) y +X
+  conspiracion: 0.8, // +X a toda la mano (media ~4-5 cartas futuras, muy valioso)
 };
 
 export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): number {

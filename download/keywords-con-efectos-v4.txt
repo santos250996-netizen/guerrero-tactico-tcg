@@ -1,0 +1,297 @@
+================================================================================
+GUERRERO TÁCTICO TCG — SPEC KEYWORDS V3 (2026-10)
+CLASES MAGO + ASESINO — Paquete completo aprobado por el usuario
+================================================================================
+Base: motor V2 (4 triggers, escudos finitos, deltas permanentes).
+Identidades elegidas:
+  MAGO    = Burst: poder alto y frágil (números grandes que entran ya y se
+            desinflan), escudos mágicos que se restauran.
+  ASESINO = Precisión condicional: remata débiles, castiga descuidos,
+            veneno que perfora defensas.
+Neutrales V2 (Fervor/Coraza/Insignia/Remate/Legado/Fortaleza) COMPARTIDAS
+por las 3 clases. Cada clase añade 6 propias (2 por spec).
+
+CARRILES POR CLASE (el tablero usa los 3 de la clase elegida):
+  GUERRERO: armas · proteccion · furia   (V2, existente)
+  MAGO:     arcana · fuego · hielo       (nuevo)
+  ASESINO:  veneno · combate · sigilo    (nuevo)
+
+================================================================================
+MAGO — ARCANA (icono Wand2, violeta) — crecimiento y poder bruto
+================================================================================
+
+01. CONVERGENCIA [X]                        id: convergencia
+    Trigger: on_play | Scope: PROPIO
+    Efecto: Al Jugar: gana +X por cada carta tuya que ya esté en este carril.
+    Nicho: escalado por POSICIONamiento (premia entrar a carril propio poblado)
+    — distinto de Ímpetu (cartas jugadas en el turno).
+    Valor base PTP: 1.0 × X
+
+02. SOBRECARGA [X]                          id: sobrecarga
+    Trigger: on_play (con decaimiento end_turn) | Scope: PROPIO
+    Efecto: Al Jugar: gana +2X. Fin de Turno: pierde X. (neto +X, frontloaded)
+    Nicho: BURST puro del Mago — número grande al entrar, frágil después.
+    Implementación: BoardCard.powerDecay = X; barrido en applyEndTurnEffects.
+    Valor base PTP: 1.5 × X
+
+================================================================================
+MAGO — FUEGO (icono FlameKindling, naranja) — daño directo
+================================================================================
+
+03. LLAMARADA [X]                           id: llamarada
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Al Jugar: −X a TODAS las cartas enemigas de este carril.
+    Nicho: AoE de un solo golpe (los escudos absorben — pasa por applyDebuff).
+    Valor base PTP: 1.5 × X
+
+04. COMBUSTIÓN [X]                          id: combustion
+    Trigger: on_death | Scope: CARRIL_LOCAL
+    Efecto: Último Aliento: −2X al enemigo más fuerte del carril. Ignora
+    escudos (la explosión de fuego no se bloquea).
+    Nicho: primer on_death OFENSIVO — espejo oscuro de Legado.
+    Valor base PTP: 1.0 × X (sobre efecto 2X, condicionado a morir)
+
+================================================================================
+MAGO — HIELO (icono Snowflake, cian) — control y defensa restaurable
+================================================================================
+
+05. ESCARCHA [X]                            id: escarcha
+    Trigger: start_turn | Scope: PROPIO
+    Efecto: Inicio de Turno: tu escudo se restaura hasta X puntos.
+    Nicho: ÚNICO escudo renovable del juego (Coraza/Amparo son finitos) —
+    defensa sostenida del hielo.
+    Valor base PTP: 1.5 × X
+
+06. VENTISCA [X]                            id: ventisca
+    Trigger: end_turn | Scope: CARRIL_LOCAL
+    Efecto: Fin de Turno: −X a TODAS las cartas enemigas de este carril.
+    Nicho: AoE peri-turno (desgaste frío) — Llamarada es su versión burst.
+    Valor base PTP: 1.5 × X
+
+================================================================================
+ASESINO — VENENO (icono FlaskConical, lima) — daño progresivo perforante
+================================================================================
+
+07. VENENO [X]                              id: veneno
+    Trigger: start_turn | Scope: CARRIL_LOCAL
+    Efecto: Inicio de Turno: −X al enemigo más fuerte. El veneno IGNORA
+    escudos (se cuela por las junturas del armor).
+    Nicho: presión anti-tanque peri-turno — anti-Coraza/Amparo por diseño.
+    Valor base PTP: 2.0 × X
+
+08. CONTAGIO [X]                            id: contagio
+    Trigger: end_turn | Scope: CARRIL_LOCAL
+    Efecto: Fin de Turno: −X al enemigo con MÁS reducciones acumuladas
+    (debuffTaken). Si ninguna carta enemiga tiene reducciones, no hace nada.
+    Nicho: ÚNICO keyword condicional por estado del rival — castiga descuidos,
+    sinergia con Veneno/Llamarada/Crueldad.
+    Valor base PTP: 1.5 × X
+
+================================================================================
+ASESINO — COMBATE (icono Sword, rojo) — golpes limpios
+================================================================================
+
+09. REFRIEGA [X]                            id: refriega
+    Trigger: on_play | Scope: PROPIO
+    Efecto: Al Jugar: gana +X por cada carta ENEMIGA que ya esté en el carril.
+    Nicho: anti-numbers — castiga carriles saturados (espejo de Convergencia).
+    Valor base PTP: 1.0 × X
+
+10. GOLPE CERTERO [X]                       id: golpe_certero
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Al Jugar: −X al enemigo más fuerte del carril. Los escudos SÍ lo
+    absorben (golpe honesto).
+    Nicho: el "golpe limpio" — distinción mecánica con Hender Armadura
+    (perforante) vía BoardMutation.viaDebuff.
+    Valor base PTP: 1.0 × X
+
+================================================================================
+ASESINO — SIGILO (icono EyeOff, índigo) — emboscadas y condiciones
+================================================================================
+
+11. EMBOSCADA [X]                           id: emboscada
+    Trigger: on_play | Scope: PROPIO
+    Efecto: Al Jugar: gana +2X si es tu PRIMERA carta del turno; si no, +X.
+    Nicho: condición de orden de juego (playsThisTurn === 1) — anti-sinergia
+    deliberada con Ímpetu.
+    Valor base PTP: 1.5 × X (media entre +2X y +X)
+
+12. PURGA [X]                               id: purga
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Al Jugar: destruye la carta enemiga MÁS DÉBIL con poder ≤ X.
+    Nicho: limpieza de tokens — espejo exacto de Remate (que mata al más
+    FUERTE ≤ X).
+    Valor base PTP: 1.8 × X
+
+================================================================================
+3ª TANDA (2026-10) — 9 KEYWORDS NUEVAS, 1 POR SPEC (segundos mazos)
+================================================================================
+Cada spec estrena una keyword mecánicamente distinta a las 24 anteriores.
+Todas calibradas dentro de la fórmula PTP (coste×4+1.5) vía valor base.
+
+GUERRERO — ARMAS
+
+01. ORDEN DE BATALLA [X]                        id: orden_batalla
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Al Jugar: esta carta y tus demás cartas de este carril ganan +X de poder permanente.
+    Nicho: buff AoE one-shot al carril (la carta y sus aliados) — la versión INSTANTÁNEA de Fortaleza.
+    Valor base PTP: 1.2 × X
+
+GUERRERO — PROTECCIÓN
+
+02. CUSTODIA [X]                                id: custodia
+    Trigger: start_turn | Scope: CARRIL_LOCAL
+    Efecto: Inicio de Turno: el escudo del aliado más débil de este carril (puede ser ella misma) se restaura hasta X puntos.
+    Nicho: escudo renovable al aliado más débil (puede ser ella misma) — el espejo defensivo de Escarcha repartido al más vulnerable.
+    Valor base PTP: 1.4 × X
+
+GUERRERO — FURIA
+
+03. DESAFÍO [X]                                 id: desafio
+    Trigger: start_turn | Scope: PROPIO
+    Efecto: Inicio de Turno: gana +X mientras el poder total enemigo de este carril supere al tuyo.
+    Nicho: remontada: +X/turno SOLO mientras el carril enemigo supere al tuyo — cuanto peor está el carril, más pega.
+    Valor base PTP: 2.0 × X
+
+MAGO — ARCANA
+
+04. DRENAR PODER [X]                            id: drenar_poder
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Al Jugar: gana +X de poder y reduce en X el poder del enemigo más fuerte de este carril. Los escudos absorben la reducción.
+    Nicho: único swing emparejado del juego: gana +X propio Y reduce X al más fuerte (la reducción es honesta, los escudos absorben).
+    Valor base PTP: 1.5 × X
+
+MAGO — FUEGO
+
+05. DETONACIÓN [X]                              id: detonacion
+    Trigger: on_death | Scope: CARRIL_LOCAL
+    Efecto: Último Aliento: reduce en X el poder de TODAS las cartas enemigas de este carril.
+    Nicho: explosión AoE al morir (los escudos absorben) — Combustión es su hermana perforante single-target.
+    Valor base PTP: 1.2 × X
+
+MAGO — HIELO
+
+06. RUPTURA GLACIAL [X]                         id: ruptura_glacial
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Al Jugar: reduce en X el poder del enemigo con MÁS reducciones acumuladas de este carril. Los escudos no lo impiden.
+    Nicho: finisher del desgaste: −X perforante al enemigo con MÁS reducciones acumuladas (empate → el más fuerte). Sin grietas no hace nada.
+    Valor base PTP: 1.6 × X
+
+ASESINO — VENENO
+
+07. MIASMA [X]                                  id: miasma
+    Trigger: on_play | Scope: CARRIL_LOCAL
+    Efecto: Al Jugar: reduce en X el poder de TODAS las cartas enemigas de este carril. El gas ignora los escudos.
+    Nicho: AoE perforante al jugar: el gas atraviesa escudos — la versión venenosa de Llamarada.
+    Valor base PTP: 1.8 × X
+
+ASESINO — COMBATE
+
+08. CAZA MAYOR [X]                              id: caza_mayor
+    Trigger: on_play | Scope: PROPIO
+    Efecto: Al Jugar: gana +2X si la carta enemiga más fuerte de este carril supera el poder base de esta carta; si no, gana +X.
+    Nicho: cazar gigantes: +2X si el enemigo más fuerte del carril supera el poder base de esta carta; si no, +X.
+    Valor base PTP: 1.4 × X
+
+ASESINO — SIGILO
+
+09. CONSPIRACIÓN [X]                            id: conspiracion
+    Trigger: on_play | Scope: MANO
+    Efecto: Al Jugar: el resto de cartas de tu mano gana +X de poder permanente.
+    Nicho: PRIMERA keyword de MANO del juego: el resto de tu mano gana +X permanente (handBonus ya tipado en el motor).
+    Valor base PTP: 0.8 × X
+
+
+
+================================================================================
+MAZOS PREDETERMINADOS (6 — 2 por clase, 12 cartas, curva 1×2 · 2×3 · 3×5 · 4×1 · 5×1)
+Por spec: 2 Ataque + 1 Ítem + 1 Acción · 12 keywords distintas por mazo ·
+PTP calibrado 72/72 (scripts/audit-balance.ts). La rareza se GANA por fusión:
+todas las cartas nacen comunes (+2 poder por tier de rareza).
+================================================================================
+
+GUERRERO I (CLASS_DECKS.guerrero):
+  ARMAS    Tajo Quebrantamuros       Ataque  c5 p17 Hender Armadura[3]
+          Duelista Errante          Ataque  c3 p11 Duelista[1]
+          Amoladora de Campamento   Ítem    c1 p3  Fervor[1]
+          Toque de Guerra           Acción  c3 p11 Fortaleza[1]
+  PROTECCIONAdarga del Centinela      Ítem    c2 p6  Coraza[3]
+          Abanderado de la Cohorte  Ataque  c3 p12 Amparo[2]
+          Oración del Bastión       Acción  c3 p12 Purificación[0]
+          Guardián Juramentado      Ataque  c3 p10 Insignia[3]
+  FURIA    Berserker Recluta         Ataque  c2 p8  Ímpetu[1]
+          Colmillo del Verdugo      Ataque  c4 p16 Crueldad[1]
+          Hacha de Ejecución        Ítem    c1 p1  Remate[2]
+          Veterano Caído            Acción  c2 p6  Legado[3]
+
+GUERRERO II — COHORTE DE HIERRO (CLASS_DECKS_SECOND.guerrero):
+  ARMAS    Legionario de Vanguardia  Ataque  c3 p12 Orden de Batalla[1]
+          Quebrantador de Filas     Ataque  c2 p7  Hender Armadura[2]
+          Muñonera de Asedio        Ítem    c1 p3  Coraza[2]
+          Justicia de la Legión     Acción  c4 p8  Remate[4]
+  PROTECCIONBaluarte Errante          Ataque  c3 p11 Custodia[2]
+          Centinela Anclado         Ataque  c2 p8  Amparo[2]
+          Estandarte de la Cohorte  Ítem    c3 p9  Insignia[4]
+          Concentración de Batalla  Acción  c5 p17 Fortaleza[2]
+  FURIA    Gladiador Enfrentado      Ataque  c3 p10 Desafío[2]
+          Fiera Ensangrentada       Ataque  c2 p7  Fervor[1]
+          Emblema de Sangre         Ítem    c1 p4  Ímpetu[1]
+          Furia Desatada            Acción  c3 p10 Crueldad[2]
+
+MAGO I (CLASS_DECKS.mago):
+  ARCANA   Conjurador de Estrellas   Ataque  c3 p11 Convergencia[2]
+          Aberración Arcana         Ataque  c2 p7  Sobrecarga[2]
+          Grimorio Anotado          Ítem    c1 p3  Fervor[1]
+          Cántico Arcano            Acción  c3 p11 Fortaleza[1]
+  FUEGO    Tormenta de Brasas        Acción  c3 p12 Llamarada[1]
+          Salamandra Anciana        Ataque  c2 p7  Combustión[2]
+          Farol Ígneo               Ítem    c2 p6  Insignia[3]
+          Estallido Ígneo           Ataque  c4 p13 Remate[2]
+  HIELO    Coloso de Escarcha        Ataque  c1 p3  Escarcha[2]
+          Viento Cortante           Acción  c3 p12 Ventisca[1]
+          Carapacho Glacial         Ítem    c3 p10 Coraza[3]
+          Anciano del Norte         Ataque  c5 p18 Legado[3]
+
+MAGO II — CÓNCLAVE PRISMÁTICO (CLASS_DECKS_SECOND.mago):
+  ARCANA   Tejedor de Maná           Ataque  c3 p10 Drenar Poder[2]
+          Chispazo Incontrolado     Ataque  c2 p8  Sobrecarga[1]
+          Prisma de Enfoque         Ítem    c1 p3  Insignia[2]
+          Bóveda Prismática         Acción  c5 p17 Coraza[4]
+  FUEGO    Fénix de Ascuas           Ataque  c4 p15 Detonación[2]
+          Lengua de Fuego           Ataque  c2 p8  Llamarada[1]
+          Yesca Ardiente            Ítem    c1 p3  Fervor[1]
+          Bomba de Fuego Inestable  Acción  c3 p10 Combustión[3]
+  HIELO    Maza Glacial              Ataque  c3 p10 Ruptura Glacial[2]
+          Alma del Glaciar          Ataque  c3 p10 Legado[3]
+          Aguja Glacial             Ítem    c2 p5  Remate[2]
+          Cúpula de Invierno        Acción  c3 p10 Escarcha[3]
+
+ASESINO I (CLASS_DECKS.asesino):
+  VENENO   Colmillos Curvos          Ataque  c3 p12 Veneno[1]
+          Frasco de Peste           Ítem    c2 p8  Contagio[1]
+          Víbora Ponzoñosa          Ataque  c1 p3  Fervor[1]
+          Nube Tóxica               Acción  c3 p11 Fortaleza[1]
+  COMBATE  Bandido de la Ruta        Ataque  c2 p8  Refriega[2]
+          Estoque Afilado           Ítem    c3 p10 Golpe Certero[3]
+          Capitán de Milicia        Ataque  c3 p10 Insignia[3]
+          Ajuste de Cuentas         Acción  c4 p13 Remate[2]
+  SIGILO   Acechador Nocturno        Ataque  c2 p7  Emboscada[2]
+          Cuchilla del Silencio     Ítem    c3 p9  Purga[2]
+          Fundirse en Sombras       Acción  c1 p2  Coraza[3]
+          Maestro Caído             Ataque  c5 p18 Legado[3]
+
+ASESINO II — GREMIO DE LA DAGA (CLASS_DECKS_SECOND.asesino):
+  VENENO   Culebra de Peste          Ataque  c3 p9  Miasma[2]
+          Serpiente del Ciénago     Ataque  c4 p14 Veneno[2]
+          Tónica Reconstituyente    Ítem    c1 p3  Insignia[2]
+          Vaho Pútrido              Acción  c3 p11 Contagio[2]
+  COMBATE  Cazador de Titanes        Ataque  c3 p11 Caza Mayor[2]
+          Mercenario Sin Bandera    Ataque  c2 p8  Refriega[1]
+          Daga de Contrabando       Ítem    c2 p7  Golpe Certero[2]
+          Grito de Agonía           Acción  c1 p4  Legado[1]
+  SIGILO   Emisario Oculto           Ataque  c3 p12 Conspiración[2]
+          Sombra Veloz              Ataque  c3 p10 Emboscada[2]
+          Dardo Sombrío             Ítem    c2 p5  Purga[2]
+          Pacto de las Sombras      Acción  c5 p17 Coraza[4]
+
+Total catálogo: 72 cartas.

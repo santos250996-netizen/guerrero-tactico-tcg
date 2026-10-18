@@ -78,6 +78,10 @@ export type FxRecipe =
   | "poison_drip" | "poison_spread" // veneno / contagio
   | "clash_multi" | "crosshair" // refriega / golpe certero
   | "shadow_blink" | "skull_burst" // emboscada / purga
+  // 3ª tanda (reutilizan recetas existentes — sin trabajo en FxLayer)
+  // orden_batalla→fortify_sweep · custodia→bless_rings · desafio→rage_burst
+  // drenar_poder→spirit_transfer · detonacion→explosion · ruptura_glacial→shatter
+  // miasma→poison_spread · caza_mayor→crosshair · conspiracion→buff_up
   // genéricos
   | "shield_flash" | "trap_burst" | "play_dust" | "shatter";
 
@@ -111,6 +115,16 @@ export const KEYWORD_FX: Record<Keyword, FxRecipe | null> = {
   golpe_certero: "crosshair",
   emboscada: "shadow_blink",
   purga: "skull_burst",
+  // 3ª tanda (recetas existentes)
+  orden_batalla: "fortify_sweep",
+  custodia: "bless_rings",
+  desafio: "rage_burst",
+  drenar_poder: "spirit_transfer",
+  detonacion: "explosion",
+  ruptura_glacial: "shatter",
+  miasma: "poison_spread",
+  caza_mayor: "crosshair",
+  conspiracion: "buff_up",
 };
 
 // ---------------------------------------------------------------------------

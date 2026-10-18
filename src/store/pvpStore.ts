@@ -18,7 +18,7 @@ import {
   startPvpMatch,
 } from "@/lib/game/pvp";
 import type { CardDef, GameClass } from "@/lib/game/types";
-import { CLASS_DECKS } from "@/lib/game/cards";
+import { CLASS_DECKS, classDecksOf } from "@/lib/game/cards";
 import { materializeCard } from "@/lib/game/balance";
 import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
@@ -509,10 +509,12 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         gameClass: playerClass,
         deck,
       });
+      // El bot lleva CUALQUIERA de los 2 mazos predeterminados de su clase (50/50).
+      const botDecks = classDecksOf(botClass);
       joinBotPvpState(state, {
         name: HISTORIA_BOTS[botClass],
         gameClass: botClass,
-        deck: CLASS_DECKS[botClass],
+        deck: botDecks[Math.floor(Math.random() * botDecks.length)],
       });
 
       set({

@@ -11,7 +11,7 @@ import { ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
-import { CLASS_DECKS } from "@/lib/game/cards";
+import { ALL_CARDS_V3, CLASS_DECKS } from "@/lib/game/cards";
 import {
   FUSION_COPIES,
   RARITY_LABEL,
@@ -83,7 +83,7 @@ export function CollectionScreen() {
             Colección
           </h1>
           <div className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2 py-1 text-[9px] font-bold text-zinc-300">
-            {distinctCards()}/36 · {totalCopies()} copias
+            {distinctCards()}/{ALL_CARDS_V3.length} · {totalCopies()} copias
           </div>
         </div>
 
