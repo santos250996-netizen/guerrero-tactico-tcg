@@ -41,6 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 local-*
+# módulo del servidor PvP offline por hotspot (NO es un archivo local-env)
+!src/lib/pvp/local-server.ts
 .claude
 .z-ai-config
 *.log
