@@ -511,3 +511,26 @@ Stage Summary:
 - El rival del modo historia es sorpresa total: no se elige ni clase ni mazo; el chip lo anuncia y el nombre real (Thralgrim/Selene/Umbris) se revela en la partida
 - sample-bots.sh queda como sondeo reproducible del sorteo
 - Sin cambios en motor, colección ni recompensas
+
+---
+Task ID: 25
+Agent: Z.ai main agent
+Task: Explicar la fusión + progresión (mazo inicial neutral, desbloqueo jugando) + fix botón Opciones + nombre PvP del perfil
+
+Work Log:
+- cards.ts: starterDeckFor(cls) — todas las neutrales de la clase (guerrero 11, mago 11, asesino 9) + exclusivas más baratas hasta 12 únicas; battleDeckFromOwned(cls, tierRankOf) — las 12 mejores propias (rareza desc, empate por catálogo); NEUTRAL_KEYWORD_IDS + classCardsOf exportados
+- collectionStore: grantStarterDeck usa el starter neutral; añade tierRankOf (−1 sin copias, 0..3) y owns()
+- startHistoria: mazo del jugador = battleDeckFromOwned materializado (antes preset fijo)
+- HistoriaSelect: grant de los 3 starters al entrar + chip "Mazo: tus 12 mejores de X · N/24 desbloqueadas"; FIX de re-render (distinctCards/owns como selectores-función no re-renderizaban → suscripción a copies)
+- CollectionScreen: 24 cartas por clase (antes solo mazo I), bloqueadas "🔒 gana partidas", explainer del bucle en 3 pasos
+- MainMenu FIX: elementFromPoint sobre el engranaje daba el DIV "Práctica PvP Local" (filas absolute full-width en z-20 pintadas después del botón) → pointer-events-none en las 3 filas + pointer-events-auto en sus botones; versión v2.2
+- PvpSetup: nombre = perfil (chip fijo "de tu Perfil", sembrado en el store al montar; input solo si el perfil no tiene nombre)
+- SettingsModal: "Reiniciar colección" con confirm en 2 pasos; reset por evento al cerrar (no effect) por react-hooks/set-state-in-effect
+- test-collection-historia.ts: +sección 4 (18 checks) → 65/65
+- Verificación: tsc limpio · lint OK · turn-flow 27/27 · engine 51/51 · V2 34/34 · V3 30/30 · V4 71/71 · FX 51/51 · stress 300/300 · build RC=0 · E2E: Opciones clicable, reset colección, grant 36 copias, chip 12/24, Colección 24 filas/12 bloqueadas, PvP chip "Santos · de tu Perfil", partida historia con starter (mano 100% neutrales)
+- Commit e981902 push a main (CI genera APK)
+
+Stage Summary:
+- El juego tiene progresión real: entras con las neutrales de tu clase, cada victoria te da 2 cartas, 3 iguales se fusionan (+2 poder), y en batalla juegas SIEMPRE tus 12 mejores propias
+- "Reiniciar colección" en Ajustes para volver a empezar
+- El botón Opciones del menú vuelve a ser tocable (era un problema de capas pointer-events)
