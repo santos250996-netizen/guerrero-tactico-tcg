@@ -113,14 +113,14 @@ console.log("\n━━ 2. applyStartTurnEffects.fx ━━");
 
   // Escarcha (restaura escudo → fx)
   b = emptyBoard();
-  const escarcha = makeCard({ name: "Cristal Glacial", keyword: "escarcha", keywordValue: 2, trigger: "start_turn" }, { shieldRemaining: 0 });
+  const escarcha = makeCard({ name: "Coloso de Escarcha", keyword: "escarcha", keywordValue: 2, trigger: "start_turn" }, { shieldRemaining: 0 });
   b.hielo.player = [escarcha];
   res = applyStartTurnEffects(b, "player", [], ["hielo"]);
   assert("Escarcha emite frost_renew (escudo 0→2)", res.fx.some((f) => f.keyword === "escarcha" && f.side === "player" && f.value === 2));
 
   // Escarcha con escudo lleno → SIN fx (after==before)
   b = emptyBoard();
-  const llena = makeCard({ name: "Cristal Glacial", keyword: "escarcha", keywordValue: 2, trigger: "start_turn" }, { shieldRemaining: 2 });
+  const llena = makeCard({ name: "Coloso de Escarcha", keyword: "escarcha", keywordValue: 2, trigger: "start_turn" }, { shieldRemaining: 2 });
   b.hielo.player = [llena];
   res = applyStartTurnEffects(b, "player", [], ["hielo"]);
   assert("Escarcha con escudo lleno NO emite fx", res.fx.length === 0);
@@ -146,7 +146,7 @@ console.log("\n━━ 2. applyStartTurnEffects.fx ━━");
 
   // Duelista condicional
   b = emptyBoard();
-  const duo = makeCard({ name: "Espada del Duelista", keyword: "duelista", keywordValue: 2, trigger: "start_turn" });
+  const duo = makeCard({ name: "Duelista Errante", keyword: "duelista", keywordValue: 2, trigger: "start_turn" });
   b.armas.player = [duo];
   res = applyStartTurnEffects(b, "player", [], ["armas"]);
   assert("Duelista única → sword_glint", res.fx.some((f) => f.keyword === "duelista"));
@@ -200,7 +200,7 @@ console.log("\n━━ 3. applyEndTurnEffects.fx ━━");
 
   // Contagio condicional
   b = emptyBoard();
-  const contagio = makeCard({ name: "Cultivo de Hongos", keyword: "contagio", keywordValue: 2, trigger: "end_turn" });
+  const contagio = makeCard({ name: "Espora Viviente", keyword: "contagio", keywordValue: 2, trigger: "end_turn" });
   const limpio = makeCard({ name: "Berserker" });
   b.veneno.player = [contagio];
   b.veneno.enemy = [limpio];
@@ -213,7 +213,7 @@ console.log("\n━━ 3. applyEndTurnEffects.fx ━━");
 
   // Sobrecarga decay
   b = emptyBoard();
-  const sobre = makeCard({ name: "Núcleo Inestable", keyword: "sobrecarga", keywordValue: 2, trigger: "on_play" }, { powerDecay: 2 });
+  const sobre = makeCard({ name: "Aberración Arcana", keyword: "sobrecarga", keywordValue: 2, trigger: "on_play" }, { powerDecay: 2 });
   b.arcana.player = [sobre];
   res = applyEndTurnEffects(b, "player", [], ["arcana"]);
   assert("Sobrecarga disipa → overload_decay a sí misma", res.fx.some((f) => f.keyword === "sobrecarga" && f.targetUids?.[0] === sobre.uid && f.side === "player"));

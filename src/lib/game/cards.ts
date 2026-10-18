@@ -7,18 +7,23 @@ import { CLASS_META } from "./types";
 // 6 keywords neutrales + 6 keywords de Guerrero (2 por spec), todas las cartas
 // llevan exactamente una keyword y los 4 triggers están cubiertos:
 //
-//   ARMAS (4):       Mandoble Quebrantamuros (Hender Armadura on_play)
-//                    Espada del Duelista      (Duelista start_turn)
+//   ARMAS (4):       Tajo Quebrantamuros      (Hender Armadura on_play)
+//                    Duelista Errante         (Duelista start_turn)
 //                    Amoladora de Campamento  (Fervor start_turn)
-//                    Cuerno de Guerra         (Fortaleza end_turn)
+//                    Toque de Guerra          (Fortaleza end_turn)
 //   PROTECCIÓN (4):  Adarga del Centinela     (Coraza on_play)
-//                    Estandarte de la Cohorte (Amparo on_play)
+//                    Abanderado de la Cohorte (Amparo on_play)
 //                    Oración del Bastión      (Purificación start_turn)
-//                    Martillo del Veterano    (Insignia on_play)
+//                    Guardián Juramentado     (Insignia on_play)
 //   FURIA (4):       Berserker Recluta        (Ímpetu on_play)
 //                    Colmillo del Verdugo     (Crueldad end_turn)
-//                    Hacha de Ejecución       (Remate on_play — fuente de destrucción)
-//                    Veterano Caído           (Legado on_death)
+//                    Hacha de Ejecución       (Remate on_play — Ítem: fuente de destrucción)
+//                    Veterano Caído           (Legado on_death — Acción: su caída)
+//
+// PATRÓN DE DISEÑO (docs/design-pattern-cards.md): el NOMBRE evoca la categoría
+// (Ataque = ser/golpe · Ítem = objeto · Acción = hecho/evento) y la spec
+// (imaginería del carril). Cada spec = 2 Ataque + 1 Ítem + 1 Acción. El arte se
+// deriva de nombre + tipo + spec (public/cards/{id}.png).
 //
 // Curva de costes: 1×2, 2×3, 3×5, 4×1, 5×1 (energía = nº de turno, 6 turnos).
 // Cadena de muerte testeable: Hacha de Ejecución remata (≤2) → si mata al
@@ -28,8 +33,8 @@ import { CLASS_META } from "./types";
 export const ALL_CARDS: CardDef[] = [
   // ------------------------- CARRIL ARMAS -------------------------
   {
-    id: "mandoble_quebrantamuros",
-    name: "Mandoble Quebrantamuros",
+    id: "tajo_quebrantamuros",
+    name: "Tajo Quebrantamuros",
     category: "Ataque",
     subtypes: ["armas"],
     cost: 5,
@@ -42,8 +47,8 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "espada_del_duelista",
-    name: "Espada del Duelista",
+    id: "duelista_errante",
+    name: "Duelista Errante",
     category: "Ataque",
     subtypes: ["armas"],
     cost: 3,
@@ -70,8 +75,8 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "start_turn",
   },
   {
-    id: "cuerno_de_guerra",
-    name: "Cuerno de Guerra",
+    id: "toque_de_guerra",
+    name: "Toque de Guerra",
     category: "Acción",
     subtypes: ["armas"],
     cost: 3,
@@ -100,9 +105,9 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "estandarte_de_la_cohorte",
-    name: "Estandarte de la Cohorte",
-    category: "Ítem",
+    id: "abanderado_de_la_cohorte",
+    name: "Abanderado de la Cohorte",
+    category: "Ataque",
     subtypes: ["proteccion"],
     cost: 3,
     power: 2,
@@ -127,8 +132,8 @@ export const ALL_CARDS: CardDef[] = [
     trigger: "start_turn",
   },
   {
-    id: "martillo_del_veterano",
-    name: "Martillo del Veterano",
+    id: "guardian_juramentado",
+    name: "Guardián Juramentado",
     category: "Ataque",
     subtypes: ["proteccion"],
     cost: 3,
@@ -173,7 +178,7 @@ export const ALL_CARDS: CardDef[] = [
   {
     id: "hacha_de_ejecucion",
     name: "Hacha de Ejecución",
-    category: "Ataque",
+    category: "Ítem",
     subtypes: ["furia"],
     cost: 1,
     power: 1,
@@ -187,7 +192,7 @@ export const ALL_CARDS: CardDef[] = [
   {
     id: "veterano_caido",
     name: "Veterano Caído",
-    category: "Ataque",
+    category: "Acción",
     subtypes: ["furia"],
     cost: 2,
     power: 3,
@@ -210,9 +215,9 @@ export const WARRIOR_DECK: CardDef[] = ALL_CARDS;
 export const MAGE_CARDS: CardDef[] = [
   // ------------------------- CARRIL ARCANA -------------------------
   {
-    id: "baston_de_estrellas",
-    name: "Bastón de Estrellas",
-    category: "Ítem",
+    id: "conjurador_de_estrellas",
+    name: "Conjurador de Estrellas",
+    category: "Ataque",
     subtypes: ["arcana"],
     cost: 3,
     power: 11,
@@ -224,9 +229,9 @@ export const MAGE_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "nucleo_inestable",
-    name: "Núcleo Inestable",
-    category: "Ítem",
+    id: "aberracion_arcana",
+    name: "Aberración Arcana",
+    category: "Ataque",
     subtypes: ["arcana"],
     cost: 2,
     power: 7,
@@ -310,8 +315,8 @@ export const MAGE_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "espada_candente",
-    name: "Espada Candente",
+    id: "golpe_fundidor",
+    name: "Golpe Fundidor",
     category: "Ataque",
     subtypes: ["fuego"],
     cost: 4,
@@ -326,9 +331,9 @@ export const MAGE_CARDS: CardDef[] = [
 
   // ------------------------- CARRIL HIELO -------------------------
   {
-    id: "cristal_glacial",
-    name: "Cristal Glacial",
-    category: "Ítem",
+    id: "coloso_de_escarcha",
+    name: "Coloso de Escarcha",
+    category: "Ataque",
     subtypes: ["hielo"],
     cost: 1,
     power: 3,
@@ -420,9 +425,9 @@ export const ROGUE_CARDS: CardDef[] = [
     trigger: "end_turn",
   },
   {
-    id: "cultivo_de_hongos",
-    name: "Cultivo de Hongos",
-    category: "Ítem",
+    id: "espora_viviente",
+    name: "Espora Viviente",
+    category: "Ataque",
     subtypes: ["veneno"],
     cost: 1,
     power: 3,
@@ -466,7 +471,7 @@ export const ROGUE_CARDS: CardDef[] = [
   {
     id: "estoque_afilado",
     name: "Estoque Afilado",
-    category: "Ataque",
+    category: "Ítem",
     subtypes: ["combate"],
     cost: 3,
     power: 10,
@@ -524,7 +529,7 @@ export const ROGUE_CARDS: CardDef[] = [
   {
     id: "cuchilla_del_silencio",
     name: "Cuchilla del Silencio",
-    category: "Ataque",
+    category: "Ítem",
     subtypes: ["sigilo"],
     cost: 3,
     power: 9,
@@ -536,9 +541,9 @@ export const ROGUE_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "capa_de_sombras",
-    name: "Capa de Sombras",
-    category: "Ítem",
+    id: "fundirse_en_sombras",
+    name: "Fundirse en Sombras",
+    category: "Acción",
     subtypes: ["sigilo"],
     cost: 1,
     power: 2,

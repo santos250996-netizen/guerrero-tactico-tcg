@@ -154,13 +154,13 @@ function byId(cards: CardDef[], id: string): CardDef {
 console.log("\n🧙 MAGO — ARCANA (convergencia · sobrecarga)");
 {
   const lane: LaneId = "arcana";
-  const def = byId(MAGE_CARDS, "baston_de_estrellas"); // Convergencia[2]
+  const def = byId(MAGE_CARDS, "conjurador_de_estrellas"); // Convergencia[2]
 
   // Con 2 aliados ya en carril: +2×2=4 (+2 sinergia de subtipo)
   let b = emptyBoard();
   b[lane].player = [
     makeCard(byId(MAGE_CARDS, "grimorio_anotado"), { uid: "a1", currentPower: 3 }),
-    makeCard(byId(MAGE_CARDS, "nucleo_inestable"), { uid: "a2", currentPower: 7 }),
+    makeCard(byId(MAGE_CARDS, "aberracion_arcana"), { uid: "a2", currentPower: 7 }),
   ];
   const r1 = simulatePlay(b, "player", lane, def);
   // poder 11 + sinergia 2 + convergencia 4 = 17
@@ -172,7 +172,7 @@ console.log("\n🧙 MAGO — ARCANA (convergencia · sobrecarga)");
   assert("Convergencia: carril vacío → +0", r2.finalPower === 13, `finalPower=${r2.finalPower} (esperado 11+2)`);
 
   // SOBRECARGA: +2X al jugar; powerDecay = X
-  const sob = byId(MAGE_CARDS, "nucleo_inestable"); // X=2
+  const sob = byId(MAGE_CARDS, "aberracion_arcana"); // X=2
   b = emptyBoard();
   const r3 = simulatePlay(b, "player", lane, sob);
   // poder 7 + sinergia 2 + 4 = 13
@@ -194,7 +194,7 @@ console.log("\n🔥 MAGO — FUEGO (llamarada · combustión)");
   // Llamarada: −1 a TODOS los enemigos; escudos absorben
   let b = emptyBoard();
   b[lane].enemy = [
-    makeCard(byId(MAGE_CARDS, "espada_candente"), { uid: "e1", currentPower: 13 }),
+    makeCard(byId(MAGE_CARDS, "golpe_fundidor"), { uid: "e1", currentPower: 13 }),
     makeCard(byId(MAGE_CARDS, "antorcha_guia"), { uid: "e2", currentPower: 6, shieldRemaining: 5 }),
   ];
   const r1 = simulatePlay(b, "player", lane, lla);
@@ -208,7 +208,7 @@ console.log("\n🔥 MAGO — FUEGO (llamarada · combustión)");
   b = emptyBoard();
   b[lane].player = [makeCard(com, { uid: "dead" })];
   b[lane].enemy = [
-    makeCard(byId(MAGE_CARDS, "espada_candente"), { uid: "big", currentPower: 13, shieldRemaining: 10 }),
+    makeCard(byId(MAGE_CARDS, "golpe_fundidor"), { uid: "big", currentPower: 13, shieldRemaining: 10 }),
     makeCard(byId(MAGE_CARDS, "antorcha_guia"), { uid: "small", currentPower: 6 }),
   ];
   const deathRes = applyOnDeathEffects(b, "player", lane, makeCard(com, { uid: "dead" }));
@@ -222,7 +222,7 @@ console.log("\n🔥 MAGO — FUEGO (llamarada · combustión)");
 console.log("\n❄️ MAGO — HIELO (escarcha · ventisca)");
 {
   const lane: LaneId = "hielo";
-  const esc = byId(MAGE_CARDS, "cristal_glacial"); // X=2
+  const esc = byId(MAGE_CARDS, "coloso_de_escarcha"); // X=2
 
   // Escarcha: escudo restaurado hasta X (0 → 2; 1 → 2 cap)
   let b = emptyBoard();
@@ -242,7 +242,7 @@ console.log("\n❄️ MAGO — HIELO (escarcha · ventisca)");
   b = emptyBoard();
   b[lane].player = [makeCard(ven, { uid: "v1" })];
   b[lane].enemy = [
-    makeCard(byId(MAGE_CARDS, "espada_candente"), { uid: "e1", currentPower: 13 }),
+    makeCard(byId(MAGE_CARDS, "golpe_fundidor"), { uid: "e1", currentPower: 13 }),
     makeCard(byId(MAGE_CARDS, "antorcha_guia"), { uid: "e2", currentPower: 1 }),
   ];
   const endRes = applyEndTurnEffects(b, "player", [], ["arcana", "fuego", "hielo"]);
