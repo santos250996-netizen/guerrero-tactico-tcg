@@ -351,3 +351,23 @@ Stage Summary:
 - Pendiente usuario: probar APK en móvil real (botones sistema, atrás) — safe-area de Android lo resuelve nativo, iOS/PWA vía env()
 - Alternativas escudo disponibles a 1 línea: banda inferior / chip centrado sobre arte / bottom-center
 - Nota: cierra modales con atrás funciona vía Escape sintético (Radix DismissableLayer)
+
+---
+Task ID: 17
+Agent: Z.ai main agent
+Task: Patrón de diseño de cartas — nombre juega con tipo y spec; revisar y recrear lo incoherente
+
+Work Log:
+- Auditoría de las 36 cartas (nombre ↔ categoría ↔ spec). Reglas definidas: Ataque=ser/golpe, Ítem=objeto, Acción=hecho; imaginería por spec; distribución 2 Ataque + 1 Ítem + 1 Acción por spec (evita bonos de categoría muertos)
+- Documentado en docs/design-pattern-cards.md (semántica, litmus test, tabla de specs, regla de arte con plantilla de prompt, tabla de correcciones, checklist)
+- 15 correcciones en src/lib/game/cards.ts: 4 recategorizaciones con id mantenido (Hacha de Ejecución→Ítem, Veterano Caído→Acción, Estoque Afilado→Ítem, Cuchilla del Silencio→Ítem) + 11 renombres con nuevo id (Tajo Quebrantamuros, Duelista Errante, Toque de Guerra, Abanderado de la Cohorte, Guardián Juramentado, Conjurador de Estrellas, Aberración Arcana, Golpe Fundidor, Coloso de Escarcha, Espora Viviente, Fundirse en Sombras) con recategorización donde correspondía
+- 11 artes nuevos generados con z-ai-web-dev-sdk (scripts/gen-card-art-v3.mjs, 864x1152 3:4, estilo dark fantasy consistente; prompts derivados de nombre+tipo+spec)
+- scripts/audit-card-pattern.ts (auditor automático: 2/1/1 por spec, id=slug(nombre), arte presente) — 36/36 OK
+- Tests actualizados a nuevos ids (v2: 10 refs, v3: 4 refs, fx: 4 nombres cosméticos). Resultados: V2 34/34, V3 30/30, FX 51/51, PvP engine 51/51
+- Decks guardados en localStorage con ids viejos: resolveDeck ya cae al mazo espejo si algún id no existe (sin crash)
+- Verificación: lint OK en archivos tocados, build estático RC=0, E2E agent-browser: partida Guerrero muestra Veterano Caído=ACCIÓN y Hacha de Ejecución=ÍTEM, Asesino muestra Fundirse en Sombras; 0 imágenes rotas; las 11 artes nuevas sirven con HTTP 200
+
+Stage Summary:
+- Commit a36c53c push a main; CI generando APK
+- El patrón queda documentado para futuras cartas (checklist §6 del doc)
+- Arte viejo de cartas renombradas queda huérfano en public/cards (no se borra por seguridad con CustomCards del editor)
