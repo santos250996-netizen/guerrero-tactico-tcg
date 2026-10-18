@@ -425,3 +425,24 @@ Stage Summary:
 - Commit 5839c9d en main: 3 componentes nuevos (CardFrame, LaneDecor, CardJuiceLayer), 11 editados, +1203/−244
 - El juego pasa de "prototipo" a look TCG: arte de carril protagonista, marcos con rareza legible de un vistazo, foil en épicas/legendarias, y feedback físico por cada mutación/muerte
 - Pendiente visual restante (backlog): menús vivos (parallax/transiciones), iconos de fantasía propios, WebP de las 164 cartas, confetti temático
+
+---
+Task ID: 21
+Agent: Z.ai main agent
+Task: Pregunta del usuario "¿el balance está basado en PTP y está actualizado?" → auditoría + opción A (re-escalar Guerrero al objetivo PTP)
+
+Work Log:
+- Auditoría PTP con script nuevo scripts/audit-balance.ts: fórmula coste*4+1.5 correcta y actual (24 keywords), pero el catálogo NO estaba calibrado — mago 12/12 OK (delta -0.01), asesino 12/12 (+0.09), guerrero 1/12 (11 cartas BAJO, delta medio -6.97; peores Tajo -12.2, Colmillo -11.6). El guerrero era el mazo prototipo V2 y nunca se re-escaló al aterrizar la fórmula ×4 con V3 (~⅓ del poder a igual coste)
+- Usuario eligió opción A: re-escalar Guerrero al objetivo PTP
+- scripts/rebalance-warrior-suggest.ts calcula el power entero más cercano al target dentro del rango ±0.5; varios quedan forzados al único entero válido
+- cards.ts: solo `power` cambia (coste/keywords/keywordValue/arte intactos): Tajo 5→17, Duelista 3→11, Amoladora 1→3, Toque 2→11, Adarga 1→6, Abanderado 2→12, Oración 2→12, Guardián 3→10, Berserker 2→8, Colmillo 4→16, Veterano 3→6
+- Re-auditoría: 36/36 en rango (guerrero delta medio +0.03)
+- test-keywords-v2.ts: aserciones actualizadas a los nuevos stats (sinergia de carril +2 incluida en los cálculos). Hallazgo: Purificación restaura currentPower+debuffTaken (lo acumulado), NO hasta basePower — el motor estaba bien; con los stats viejos ambas lecturas daban 3 y el test confundía una con otra. Aserción corregida y documentada
+- keywords-con-efectos-v3.txt y docs/design-pattern-cards.md no referencian stats del guerrero (nada que sincronizar)
+- Verificación: V2 34/34 · V3 30/30 · FX 51/51 · PvP 51/51 · stress PvP 300/300 sin atascos · tsc limpio · lint OK en tocados · build estático RC=0
+- Commit b45495b push a main (CI genera APK)
+
+Stage Summary:
+- Los 3 mazos quedan calibrados al PTP objetivo: 36/36 en rango; el guerrero compite a la misma escala que mago/asesino (p.ej. coste 3 ahora p10-12 en los 3 mazos)
+- balance.ts sigue sin consumidor en runtime (regla documental); scripts/audit-balance.ts queda como auditor reproducible para futuras cartas
+- Aprendizaje registrado: Purificación restaura lo acumulado, no la base — relevante para futuros tests/stats
