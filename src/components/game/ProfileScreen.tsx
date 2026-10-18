@@ -8,6 +8,7 @@ import { ALL_CARDS } from "@/lib/game/cards";
 import type { CardDef } from "@/lib/game/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RARITY_META } from "@/lib/game/types";
+import { PROFILE_STORAGE_KEY } from "@/lib/profile-storage";
 
 /** Hex colors for the tiny rarity dot on card thumbnails. */
 const RARITY_DOT_COLOR: Record<CardDef["rarity"], string> = {
@@ -35,7 +36,7 @@ interface ProfileData {
   unlockedAvatarCardIds: string[];
 }
 
-const STORAGE_KEY = "pacto-de-guerra-profile";
+const STORAGE_KEY = PROFILE_STORAGE_KEY; // clave compartida con el botón PERFIL del menú
 const MATCHES_PER_LEVEL = 5;
 const USERNAME_MAX = 8;
 

@@ -104,13 +104,16 @@ export function PvpLane({ position, side }: PvpLaneProps) {
       />
       <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/35 via-black/10 to-black/35" />
 
-      {/* Header del carril (propietario) + bono compartido de la pareja */}
+      {/* Header del carril (propietario). El chip de bono SOLO en la fila propia:
+          el bono es compartido por la pareja de carriles (positionBonuses[p] en
+          pvp.ts), pintarlo también en la fila rival era redundante y robaba
+          altura de pantalla. */}
       <div className={cn("relative z-10 flex items-center justify-center rounded border border-white/5 px-1 py-0.5 bg-black/30", colors.headerBg)}>
         <meta.icon className="h-3 w-3 shrink-0 drop-shadow" />
         <span className={cn("ml-0.5 truncate text-[8px] font-black uppercase tracking-wider drop-shadow", colors.text)} style={{ fontFamily: "var(--font-cinzel), serif" }}>
           {meta.title}
         </span>
-        {bonus && (
+        {side === "me" && bonus && (
           <span title={bonus.description} className={cn("ml-1 rounded-full border px-1 py-0 text-[6px] font-bold uppercase", BONUS_CHIP_CLASS[bonus.flavor].chip)}>
             {bonus.label}
           </span>

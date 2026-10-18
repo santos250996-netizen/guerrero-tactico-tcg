@@ -1,11 +1,12 @@
 {
-	"appId": "com.pacto.guerra",
-	"appName": "Pacto de Guerra",
-	"webDir": "out",
-	"server": {
-		"androidScheme": "http"
-	},
-	"android": {
-		"allowMixedContent": true
-	}
+        "appId": "com.pacto.guerra",
+        "appName": "Pacto de Guerra",
+        "webDir": "out",
+        "server": {
+                "androidScheme": "http"
+        },
+        "android": {
+                "allowMixedContent": true,
+                "adjustMarginsForEdgeToEdge": "force"
+        }
 }

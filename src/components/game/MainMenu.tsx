@@ -3,14 +3,32 @@
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { sfx } from "@/lib/sound";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Settings as SettingsIcon, Wifi } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
+import { loadStoredProfileBrief } from "@/lib/profile-storage";
 
 export function MainMenu() {
   const setView = useGameStore((s) => s.setView);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Avatar elegido en Perfil → visible en el propio botón (si no, icono User).
+  const [avatarCardId, setAvatarCardId] = useState<string | null>(null);
+  const [avatarBroken, setAvatarBroken] = useState(false);
+
+  useEffect(() => {
+    // El menú se remonta en cada cambio de vista → se relee el perfil fresco.
+    // Diferido en microtask (mismo patrón que page.tsx) para no hacer setState
+    // síncrono dentro del effect y evitar mismatch de hidratación SSR↔cliente.
+    let alive = true;
+    Promise.resolve().then(() => {
+      if (!alive) return;
+      const brief = loadStoredProfileBrief();
+      setAvatarCardId(brief?.avatarCardId ?? null);
+      setAvatarBroken(false);
+    });
+    return () => { alive = false; };
+  }, []);
 
   const click = () => {
     // Unified sound system (src/lib/sound.ts) — replaces the old
@@ -51,10 +69,22 @@ export function MainMenu() {
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.95 }}
         onClick={goToProfile}
-        className="absolute left-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/40 bg-zinc-950/70 backdrop-blur-sm text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] hover:bg-zinc-900/80 hover:border-amber-400/70"
+        className="absolute left-3 top-3 z-20 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-amber-500/40 bg-zinc-950/70 backdrop-blur-sm text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] hover:bg-zinc-900/80 hover:border-amber-400/70"
         title="Perfil"
+        aria-label="Perfil"
       >
-        <User className="h-4 w-4" strokeWidth={2.2} />
+        {avatarCardId && !avatarBroken ? (
+          <img
+            src={`/cards/${avatarCardId}.png`}
+            alt="Tu avatar"
+            className="pointer-events-none h-full w-full rounded-full object-cover"
+            decoding="async"
+            draggable={false}
+            onError={() => setAvatarBroken(true)}
+          />
+        ) : (
+          <User className="h-4 w-4" strokeWidth={2.2} />
+        )}
       </motion.button>
 
       {/* ── BOTTOM-RIGHT: OPCIONES (small icon button — same style as PERFIL) ── */}

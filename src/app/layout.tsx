@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Cinzel } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { BackButtonBridge } from "@/components/native/BackButtonBridge";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,6 +21,17 @@ const cinzel = Cinzel({
   subsets: ["latin"],
   weight: ["400", "600", "700", "900"],
 });
+
+// viewport-fit=cover → habilita env(safe-area-inset-*) para respetar las
+// zonas seguras del móvil (notch, barra de gestos). userScalable=false evita
+// zooms accidentales al tocar rápido durante una partida.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "Pacto de Guerra",
@@ -61,6 +73,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} antialiased bg-background text-foreground`}
       >
+        {/* Traduce el botón "atrás" de Android a navegación interna de la app
+            (solo activo en el APK nativo; en navegador no-op). */}
+        <BackButtonBridge />
         {children}
         <Toaster />
       </body>

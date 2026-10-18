@@ -75,11 +75,14 @@ function BoardCardMiniImpl({ card, side, onPreview }: BoardCardMiniProps) {
         {card.currentPower}
       </div>
 
-      {/* Shield badge (top-center) — remaining shield pool (Coraza/Amparo) */}
+      {/* Shield badge (apilado bajo el coste) — escudo restante (Coraza/Amparo).
+          Antes iba en el centro superior, en medio de coste y poder, tapando ambos.
+          En la columna izquierda forma una columna de stats: coste arriba, escudo
+          debajo; el poder (top-right) y el arte central quedan siempre legibles. */}
       {(card.shieldRemaining ?? 0) > 0 && (
         <div
           title={`Escudo: absorbe ${card.shieldRemaining} puntos de reducción`}
-          className="absolute left-1/2 top-0.5 z-20 flex h-4 -translate-x-1/2 items-center gap-0.5 rounded-full border border-sky-200/90 bg-gradient-to-b from-sky-400 to-sky-700 px-1 text-[8px] font-black text-white shadow-md"
+          className="absolute left-0.5 top-[21px] z-20 flex h-4 items-center gap-0.5 rounded-full border border-sky-200/90 bg-gradient-to-b from-sky-400 to-sky-700 px-1 text-[8px] font-black text-white shadow-md"
         >
           <Shield className="h-2 w-2" />
           {card.shieldRemaining}
