@@ -331,3 +331,23 @@ Stage Summary:
 - PvP offline completo: hotspot del anfitrión → IP+codigo en el invitado → partida igual que online (mismo bus de FX, banner, revancha)
 - Limitación v1: salas solo en memoria del anfitrión (si cierra la app, muere la sala) — mismo comportamiento que el backend preview salvo persistencia de historial
 - Web/preview conserva el flujo por rutas Next sin cambios
+
+---
+Task ID: 16
+Agent: Z.ai main agent
+Task: 5 fixes reportados del APK/PvP — bono carril duplicado, botones sistema superpuestos, escudo tapando coste/poder, avatar en menú, botón atrás cierra app
+
+Work Log:
+- Diagnosticado overlap de botones del sistema: targetSdk=36 → Android 15+ fuerza edge-to-edge y el WebView pinta bajo las barras. Fix nativo: capacitor.config.ts android.adjustMarginsForEdgeToEdge="force" (Capacitor 7.6.9 lo soporta; aplica márgenes al WebView = insets). Complemento web: export const viewport con viewportFit=cover + userScalable=false en layout.tsx, y @media <640px padding env(safe-area-inset-*) en .app-frame
+- Botón atrás Android: instalado @capacitor/app@7.1.2 (v7 para compatibilidad con core 7); nuevo src/components/native/BackButtonBridge.tsx montado en layout.tsx. Lógica: dialog abierto→Escape sintético (Radix), pvp game/lobby→exitToMenu(), pvp setup y resto de vistas→setView("main-menu"), main-menu→doble pulsación <2.2s→exitApp con toast. No-op en navegador (isNativePlatform)
+- Bono carril PvP duplicado: PvpLane pintaba el chip en AMBAS filas del emparejamiento (positionBonuses[p] es compartido, verificado en pvp.ts:350). Fix: chip solo en side==="me"
+- Escudo: BoardCardMini movía el chip a top-center entre coste (top-left) y poder (top-right) tapándolos. Nuevo sitio: apilado bajo el coste (left-0.5 top-[21px]), misma píldora sky con icono Shield
+- Avatar en menú: nuevo src/lib/profile-storage.ts (PROFILE_STORAGE_KEY + loadStoredProfileBrief SSR-safe); MainMenu lee avatarCardId y muestra /cards/{id}.png en el botón Perfil (fallback User icon + onError); ProfileScreen refactor a la clave compartida
+- Verificación: lint (0 errores propios; MainMenu setState-en-effect corregido con microtask diferida como page.tsx), tsc src/ limpio, tests PvP 51/51 + FX 51/51, build estático OK (RC=0, paridad CI)
+- E2E agent-browser 2 pestañas: sala creada (UMAD) + rival unido; board muestra chips de bono SOLO en fila propia (rival-0/1/2: 0 chips, me-1/me-2: 1 chip), avatar visible en menú (screenshot), 0 errores de consola
+
+Stage Summary:
+- Commit 0ee56fd push a main; CI generando APK nuevo
+- Pendiente usuario: probar APK en móvil real (botones sistema, atrás) — safe-area de Android lo resuelve nativo, iOS/PWA vía env()
+- Alternativas escudo disponibles a 1 línea: banda inferior / chip centrado sobre arte / bottom-center
+- Nota: cierra modales con atrás funciona vía Escape sintético (Radix DismissableLayer)
