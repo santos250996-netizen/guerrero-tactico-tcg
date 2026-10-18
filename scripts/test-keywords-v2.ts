@@ -96,16 +96,16 @@ function place(board: Board, side: "player" | "enemy", lane: LaneId, card: Board
 console.log("\n🔵 INSIGNIA (on_play)");
 {
   const board = emptyBoard();
-  const vet = boardCard(cardById("veterano_caido")); // p3
-  const colmillo = boardCard(cardById("colmillo_del_verdugo")); // p4
+  const vet = boardCard(cardById("veterano_caido")); // p6
+  const colmillo = boardCard(cardById("colmillo_del_verdugo")); // p16
   place(board, "player", "furia", vet);
   place(board, "player", "furia", colmillo);
 
   const res = playCard(board, [asHand(cardById("guardian_juramentado"))], 10, "player", "furia", asHand(cardById("guardian_juramentado")), null, NO_TRAP);
   const vetAfter = res.board.furia.player.find((c) => c.uid === vet.uid)!;
   const hammer = res.playedCard;
-  check("Veterano Caído recibe +3 (era el más débil: 3 < 4)", vetAfter.currentPower === 6, `esperado 6, real ${vetAfter.currentPower}`);
-  check("El martillo entra con su poder base (3; sin sinergia: es de Protección en carril Furia)", hammer.currentPower === 3, `esperado 3, real ${hammer.currentPower}`);
+  check("Veterano Caído recibe +3 (era el más débil: 6 < 16)", vetAfter.currentPower === 9, `esperado 9, real ${vetAfter.currentPower}`);
+  check("El martillo entra con su poder base (10; sin sinergia: es de Protección en carril Furia)", hammer.currentPower === 10, `esperado 10, real ${hammer.currentPower}`);
   check("powerLog del objetivo registra el buff", (vetAfter.powerLog ?? []).some((e) => e.delta === 3 && e.kind === "buff"));
 }
 
@@ -136,8 +136,8 @@ console.log("\n🔵 REMATE (on_play)");
 console.log("\n🟠 HENDER ARMADURA (on_play, clase Armas)");
 {
   const board = emptyBoard();
-  const shielded = boardCard(cardById("adarga_del_centinela")); // p1, llevará escudo
-  const big = boardCard(cardById("tajo_quebrantamuros")); // p5 — el más fuerte
+  const shielded = boardCard(cardById("adarga_del_centinela")); // p6, llevará escudo
+  const big = boardCard(cardById("tajo_quebrantamuros")); // p17 — el más fuerte
   shielded.shieldRemaining = 3;
   place(board, "enemy", "armas", shielded);
   place(board, "enemy", "armas", big);
@@ -146,7 +146,7 @@ console.log("\n🟠 HENDER ARMADURA (on_play, clase Armas)");
   const res = playCard(board, [mandoble], 10, "player", "armas", mandoble, null, NO_TRAP);
   const bigAfter = res.board.armas.enemy.find((c) => c.uid === big.uid)!;
   const shieldedAfter = res.board.armas.enemy.find((c) => c.uid === shielded.uid)!;
-  check("El más fuerte (p5) recibe −3 → p2", bigAfter.currentPower === 2, `real ${bigAfter.currentPower}`);
+  check("El más fuerte (p17) recibe −3 → p14", bigAfter.currentPower === 14, `real ${bigAfter.currentPower}`);
   check("El escudo de la Adarga NO se consume (perfora)", shieldedAfter.shieldRemaining === 3, `real ${shieldedAfter.shieldRemaining}`);
   check("El objetivo acumula debuffTaken=3 (Purificación lo podría limpiar)", bigAfter.debuffTaken === 3, `real ${bigAfter.debuffTaken}`);
 }
@@ -157,8 +157,8 @@ console.log("\n🟠 HENDER ARMADURA (on_play, clase Armas)");
 console.log("\n🟠 AMPARO (on_play, clase Protección)");
 {
   const board = emptyBoard();
-  const adarga = boardCard(cardById("adarga_del_centinela")); // p1
-  const martillo = boardCard(cardById("guardian_juramentado")); // p3
+  const adarga = boardCard(cardById("adarga_del_centinela")); // p6
+  const martillo = boardCard(cardById("guardian_juramentado")); // p10
   place(board, "player", "proteccion", adarga);
   place(board, "player", "proteccion", martillo);
 
@@ -178,15 +178,15 @@ console.log("\n🟠 ÍMPETU (on_play, clase Furia)");
 {
   const board = emptyBoard();
   const hand1 = asHand(cardById("berserker_recluta"));
-  // 1ª carta del turno (playsThisTurn=1): +1 → 2 base + 2 sinergia furia + 1 = 5
+  // 1ª carta del turno (playsThisTurn=1): +1 → 8 base + 2 sinergia furia + 1 = 11
   const res1 = playCard(board, [hand1], 10, "player", "furia", hand1, null, NO_TRAP, 1);
-  check("1ª carta del turno: poder 2+2(sinergia)+1(ímpetu)=5", res1.playedCard.currentPower === 5, `real ${res1.playedCard.currentPower}`);
+  check("1ª carta del turno: poder 8+2(sinergia)+1(ímpetu)=11", res1.playedCard.currentPower === 11, `real ${res1.playedCard.currentPower}`);
 
-  // 3ª carta del turno: +3 → 2 + 2 + 3 = 7
+  // 3ª carta del turno: +3 → 8 + 2 + 3 = 13
   const board2 = emptyBoard();
   const hand2 = asHand(cardById("berserker_recluta"));
   const res2 = playCard(board2, [hand2], 10, "player", "furia", hand2, null, NO_TRAP, 3);
-  check("3ª carta del turno: poder 2+2+3=7", res2.playedCard.currentPower === 7, `real ${res2.playedCard.currentPower}`);
+  check("3ª carta del turno: poder 8+2+3=13", res2.playedCard.currentPower === 13, `real ${res2.playedCard.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -198,7 +198,7 @@ console.log("\n🔵 CORAZA (on_play)");
   const hand = asHand(cardById("adarga_del_centinela")); // coraza 3
   const res = playCard(board, [hand], 10, "player", "proteccion", hand, null, NO_TRAP);
   check("La Adarga entra con escudo 3", res.playedCard.shieldRemaining === 3, `real ${res.playedCard.shieldRemaining}`);
-  check("Poder base + sinergia protección = 1+2 = 3", res.playedCard.currentPower === 3, `real ${res.playedCard.currentPower}`);
+  check("Poder base + sinergia protección = 6+2 = 8", res.playedCard.currentPower === 8, `real ${res.playedCard.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +216,7 @@ console.log("\n🔵 FERVOR (start_turn)");
     b = res.board;
   }
   const after = b.armas.player.find((c) => c.uid === amoladora.uid)!;
-  check("3 inicios de turno → +3 (1+1+1)", after.currentPower === 4, `esperado 4 (1 base + 3), real ${after.currentPower}`);
+  check("3 inicios de turno → +3 (1+1+1)", after.currentPower === 6, `esperado 6 (3 base + 3), real ${after.currentPower}`);
   check("powerLog registra 3 entradas de Fervor", (after.powerLog ?? []).filter((e) => e.source.includes("Fervor")).length === 3);
 }
 
@@ -231,7 +231,7 @@ console.log("\n🟠 DUELISTA (start_turn, clase Armas)");
 
   const res1 = applyStartTurnEffects(board, "player");
   const s1 = res1.board.armas.player.find((c) => c.uid === espada.uid)!;
-  check("Sola en el carril → +1", s1.currentPower === 4, `esperado 4 (3 base + 1), real ${s1.currentPower}`);
+  check("Sola en el carril → +1", s1.currentPower === 12, `esperado 12 (11 base + 1), real ${s1.currentPower}`);
 
   // Ahora el jugador añade otra carta al carril → deja de crecer
   const res2 = applyStartTurnEffects(res1.board, "player");
@@ -239,8 +239,8 @@ console.log("\n🟠 DUELISTA (start_turn, clase Armas)");
   place(res2.board, "player", "armas", boardCard(cardById("amoladora_de_campamento")));
   const res3 = applyStartTurnEffects(res2.board, "player");
   const s3 = res3.board.armas.player.find((c) => c.uid === espada.uid)!;
-  check("Sigue sola en el 2º inicio → +1 (p5)", s2.currentPower === 5, `real ${s2.currentPower}`);
-  check("Ya NO está sola → +0 (p5)", s3.currentPower === 5, `real ${s3.currentPower}`);
+  check("Sigue sola en el 2º inicio → +1 (p13)", s2.currentPower === 13, `real ${s2.currentPower}`);
+  check("Ya NO está sola → +0 (p13)", s3.currentPower === 13, `real ${s3.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -251,14 +251,14 @@ console.log("\n🟠 PURIFICACIÓN (start_turn, clase Protección)");
   const board = emptyBoard();
   const oracion = boardCard(cardById("oracion_del_bastion")); // purificación
   const martillo = boardCard(cardById("guardian_juramentado"));
-  martillo.currentPower = 1; // p3 base, sufrió −2
+  martillo.currentPower = 1; // p10 base, sufrió −9
   martillo.debuffTaken = 2;
   place(board, "player", "proteccion", oracion);
   place(board, "player", "proteccion", martillo);
 
   const res = applyStartTurnEffects(board, "player");
   const m = res.board.proteccion.player.find((c) => c.uid === martillo.uid)!;
-  check("Martillo restaurado a su poder base (3)", m.currentPower === 3, `real ${m.currentPower}`);
+  check("Martillo restaurado en lo acumulado (1 actual + 2 debuff = 3; no hasta base)", m.currentPower === 3, `real ${m.currentPower}`);
   check("debuffTaken reiniciado a 0", m.debuffTaken === 0, `real ${m.debuffTaken}`);
 }
 
@@ -279,9 +279,9 @@ console.log("\n🔵 FORTALEZA (end_turn)");
   const c = res.board.armas.player.find((x) => x.uid === cuerno.uid)!;
   const a = res.board.armas.player.find((x) => x.uid === amoladora.uid)!;
   const e = res.board.proteccion.player.find((x) => x.uid === espada.uid)!;
-  check("Cuerno +1", c.currentPower === 3, `real ${c.currentPower} (base 2 + sinergia armas 2 = 4… ver nota)`);
-  check("Amoladora +1", a.currentPower === 2, `real ${a.currentPower}`);
-  check("Espada (otro carril) sin cambio", e.currentPower === 3, `real ${e.currentPower}`);
+  check("Cuerno +1", c.currentPower === 12, `real ${c.currentPower} (base 11, place directo sin sinergia)`);
+  check("Amoladora +1", a.currentPower === 4, `real ${a.currentPower}`);
+  check("Espada (otro carril) sin cambio", e.currentPower === 11, `real ${e.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +301,7 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
   const res = applyEndTurnEffects(board, "player");
   const w = res.board.furia.enemy.find((c) => c.uid === weak.uid)!;
   const s = res.board.furia.enemy.find((c) => c.uid === strong.uid)!;
-  check("El MÁS DÉBIL enemigo recibe −1", w.currentPower === 0 && s.currentPower === 5, `weak=${w.currentPower} strong=${s.currentPower}`);
+  check("El MÁS DÉBIL enemigo recibe −1", w.currentPower === 0 && s.currentPower === 17, `weak=${w.currentPower} strong=${s.currentPower}`);
   check("debuffTaken acumulado en el objetivo", w.debuffTaken === 1);
 
   // 11b: con escudo (Coraza absorbe)
@@ -321,15 +321,15 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
 console.log("\n🔵 LEGADO (on_death)");
 {
   const board = emptyBoard();
-  const amoladora = boardCard(cardById("amoladora_de_campamento")); // p1 — el más débil
-  const colmillo = boardCard(cardById("colmillo_del_verdugo")); // p4
+  const amoladora = boardCard(cardById("amoladora_de_campamento")); // p3 — el más débil
+  const colmillo = boardCard(cardById("colmillo_del_verdugo")); // p16
   place(board, "player", "furia", amoladora);
   place(board, "player", "furia", colmillo);
 
   const deadVet = boardCard(cardById("veterano_caido")); // legado 3
   const res = applyOnDeathEffects(board, "player", "furia", deadVet);
   const a = res.board.furia.player.find((c) => c.uid === amoladora.uid)!;
-  check("El aliado más débil recibe +3", a.currentPower === 4, `real ${a.currentPower}`);
+  check("El aliado más débil recibe +3", a.currentPower === 6, `real ${a.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +377,7 @@ console.log("\n🛡️ VALIDADOR: exclusiveSubtype por spec");
 console.log("\n🏁 computeFinalResult");
 {
   const board = emptyBoard();
-  place(board, "player", "armas", boardCard(cardById("tajo_quebrantamuros"))); // p7 con sinergia? no: place directo = p5
+  place(board, "player", "armas", boardCard(cardById("tajo_quebrantamuros"))); // place directo = p17 (sin sinergia)
   place(board, "enemy", "proteccion", boardCard(cardById("adarga_del_centinela")));
   const r = computeFinalResult(board);
   check("Player gana armas, enemy gana proteccion, furia empate", r.playerWins === 1 && r.enemyWins === 1 && r.draws === 1);
