@@ -194,8 +194,8 @@ console.log("\n🔥 MAGO — FUEGO (llamarada · combustión)");
   // Llamarada: −1 a TODOS los enemigos; escudos absorben
   let b = emptyBoard();
   b[lane].enemy = [
-    makeCard(byId(MAGE_CARDS, "golpe_fundidor"), { uid: "e1", currentPower: 13 }),
-    makeCard(byId(MAGE_CARDS, "antorcha_guia"), { uid: "e2", currentPower: 6, shieldRemaining: 5 }),
+    makeCard(byId(MAGE_CARDS, "estallido_igneo"), { uid: "e1", currentPower: 13 }),
+    makeCard(byId(MAGE_CARDS, "farol_igneo"), { uid: "e2", currentPower: 6, shieldRemaining: 5 }),
   ];
   const r1 = simulatePlay(b, "player", lane, lla);
   const e1 = r1.board[lane].enemy.find((c) => c.uid === "e1")!;
@@ -208,8 +208,8 @@ console.log("\n🔥 MAGO — FUEGO (llamarada · combustión)");
   b = emptyBoard();
   b[lane].player = [makeCard(com, { uid: "dead" })];
   b[lane].enemy = [
-    makeCard(byId(MAGE_CARDS, "golpe_fundidor"), { uid: "big", currentPower: 13, shieldRemaining: 10 }),
-    makeCard(byId(MAGE_CARDS, "antorcha_guia"), { uid: "small", currentPower: 6 }),
+    makeCard(byId(MAGE_CARDS, "estallido_igneo"), { uid: "big", currentPower: 13, shieldRemaining: 10 }),
+    makeCard(byId(MAGE_CARDS, "farol_igneo"), { uid: "small", currentPower: 6 }),
   ];
   const deathRes = applyOnDeathEffects(b, "player", lane, makeCard(com, { uid: "dead" }));
   const big = deathRes.board[lane].enemy.find((c) => c.uid === "big")!;
@@ -242,8 +242,8 @@ console.log("\n❄️ MAGO — HIELO (escarcha · ventisca)");
   b = emptyBoard();
   b[lane].player = [makeCard(ven, { uid: "v1" })];
   b[lane].enemy = [
-    makeCard(byId(MAGE_CARDS, "golpe_fundidor"), { uid: "e1", currentPower: 13 }),
-    makeCard(byId(MAGE_CARDS, "antorcha_guia"), { uid: "e2", currentPower: 1 }),
+    makeCard(byId(MAGE_CARDS, "estallido_igneo"), { uid: "e1", currentPower: 13 }),
+    makeCard(byId(MAGE_CARDS, "farol_igneo"), { uid: "e2", currentPower: 1 }),
   ];
   const endRes = applyEndTurnEffects(b, "player", [], ["arcana", "fuego", "hielo"]);
   const e1 = endRes.board[lane].enemy.find((c) => c.uid === "e1")!;
@@ -262,7 +262,7 @@ console.log("\n🗡️ ASESINO — VENENO (veneno · contagio)");
   let b = emptyBoard();
   b[lane].player = [makeCard(ven, { uid: "p1" })];
   b[lane].enemy = [
-    makeCard(byId(ROGUE_CARDS, "sentencia_rapida"), { uid: "big", currentPower: 13, shieldRemaining: 9 }),
+    makeCard(byId(ROGUE_CARDS, "ajuste_de_cuentas"), { uid: "big", currentPower: 13, shieldRemaining: 9 }),
     makeCard(byId(ROGUE_CARDS, "bandido_de_la_ruta"), { uid: "small", currentPower: 8 }),
   ];
   const res = applyStartTurnEffects(b, "player", [], ["veneno", "combate", "sigilo"]);
@@ -275,7 +275,7 @@ console.log("\n🗡️ ASESINO — VENENO (veneno · contagio)");
   b = emptyBoard();
   b[lane].player = [makeCard(con, { uid: "c1" })];
   b[lane].enemy = [
-    makeCard(byId(ROGUE_CARDS, "sentencia_rapida"), { uid: "e1", currentPower: 13, debuffTaken: 3 }),
+    makeCard(byId(ROGUE_CARDS, "ajuste_de_cuentas"), { uid: "e1", currentPower: 13, debuffTaken: 3 }),
     makeCard(byId(ROGUE_CARDS, "bandido_de_la_ruta"), { uid: "e2", currentPower: 8, debuffTaken: 1 }),
   ];
   let endRes = applyEndTurnEffects(b, "player", [], ["veneno", "combate", "sigilo"]);
@@ -300,7 +300,7 @@ console.log("\n⚔️ ASESINO — COMBATE (refriega · golpe certero)");
   // Refriega: +X por cada enemigo ya en carril (3 enemigos → +6) (+2 sinergia)
   let b = emptyBoard();
   b[lane].enemy = [
-    makeCard(byId(ROGUE_CARDS, "sentencia_rapida"), { uid: "e1" }),
+    makeCard(byId(ROGUE_CARDS, "ajuste_de_cuentas"), { uid: "e1" }),
     makeCard(byId(ROGUE_CARDS, "estoque_afilado"), { uid: "e2" }),
     makeCard(byId(ROGUE_CARDS, "capitan_de_milicia"), { uid: "e3" }),
   ];
@@ -312,7 +312,7 @@ console.log("\n⚔️ ASESINO — COMBATE (refriega · golpe certero)");
   const gol = byId(ROGUE_CARDS, "estoque_afilado"); // X=3
   b = emptyBoard();
   b[lane].enemy = [
-    makeCard(byId(ROGUE_CARDS, "sentencia_rapida"), { uid: "big", currentPower: 13, shieldRemaining: 5 }),
+    makeCard(byId(ROGUE_CARDS, "ajuste_de_cuentas"), { uid: "big", currentPower: 13, shieldRemaining: 5 }),
   ];
   const r2 = simulatePlay(b, "player", lane, gol);
   const big = r2.board[lane].enemy.find((c) => c.uid === "big")!;
@@ -321,7 +321,7 @@ console.log("\n⚔️ ASESINO — COMBATE (refriega · golpe certero)");
 
   // Sin escudo: aplica completo y acumula debuffTaken
   b = emptyBoard();
-  b[lane].enemy = [makeCard(byId(ROGUE_CARDS, "sentencia_rapida"), { uid: "big", currentPower: 13 })];
+  b[lane].enemy = [makeCard(byId(ROGUE_CARDS, "ajuste_de_cuentas"), { uid: "big", currentPower: 13 })];
   const r3 = simulatePlay(b, "player", lane, gol);
   const big2 = r3.board[lane].enemy.find((c) => c.uid === "big")!;
   assert("Golpe Certero: sin escudo −3 (13→10)", big2.currentPower === 10 && big2.debuffTaken === 3, `power=${big2.currentPower} taken=${big2.debuffTaken}`);
@@ -344,7 +344,7 @@ console.log("\n🌑 ASESINO — SIGILO (emboscada · purga)");
   const pur = byId(ROGUE_CARDS, "cuchilla_del_silencio"); // X=2
   b = emptyBoard();
   b[lane].enemy = [
-    makeCard(byId(ROGUE_CARDS, "sentencia_rapida"), { uid: "strong", currentPower: 1, }), // ≤2 pero MÁS FUERTE entre candidatos... power 1
+    makeCard(byId(ROGUE_CARDS, "ajuste_de_cuentas"), { uid: "strong", currentPower: 1, }), // ≤2 pero MÁS FUERTE entre candidatos... power 1
     makeCard(byId(ROGUE_CARDS, "bandido_de_la_ruta"), { uid: "mid", currentPower: 2 }),
     makeCard(byId(ROGUE_CARDS, "acechador_nocturno"), { uid: "big", currentPower: 9 }),
   ];

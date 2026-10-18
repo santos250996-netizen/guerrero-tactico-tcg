@@ -129,32 +129,32 @@ Backbone neutral: las 6 neutrales V2 una vez cada una (2 por spec).
 ================================================================================
 
 MAGO (MAGE_DECK):
-  ARCANA:   Bastón de Estrellas   Ítem    c3 p11 Convergencia[2]
-            Núcleo Inestable      Ítem    c2 p7  Sobrecarga[2]
-            Grimorio Anotado      Ítem    c1 p3  Fervor[1]
-            Cántico Arcano        Acción  c3 p11 Fortaleza[1] (LEGENDARIA)
-  FUEGO:    Tormenta de Brasas    Acción  c3 p12 Llamarada[1]
-            Salamandra Anciana    Ataque  c2 p7  Combustión[2]
-            Antorcha Guía         Ítem    c2 p6  Insignia[3]
-            Espada Candente       Ataque  c4 p13 Remate[2]
-  HIELO:    Cristal Glacial       Ítem    c1 p3  Escarcha[2]
-            Viento Cortante       Acción  c3 p12 Ventisca[1]
-            Carapacho Glacial     Ítem    c3 p10 Coraza[3]
-            Anciano del Norte     Ataque  c5 p18 Legado[3]
+  ARCANA    Conjurador de Estrellas Ataque  c3 p11 Convergencia[2]
+           Aberración Arcana       Ataque  c2 p7  Sobrecarga[2]
+           Grimorio Anotado        Ítem    c1 p3  Fervor[1]
+           Cántico Arcano          Acción  c3 p11 Fortaleza[1] (LEGENDARIA)
+  FUEGO     Tormenta de Brasas      Acción  c3 p12 Llamarada[1]
+           Salamandra Anciana      Ataque  c2 p7  Combustión[2]
+           Farol Ígneo             Ítem    c2 p6  Insignia[3]
+           Estallido Ígneo         Ataque  c4 p13 Remate[2]
+  HIELO     Coloso de Escarcha      Ataque  c1 p3  Escarcha[2]
+           Viento Cortante         Acción  c3 p12 Ventisca[1]
+           Carapacho Glacial       Ítem    c3 p10 Coraza[3]
+           Anciano del Norte       Ataque  c5 p18 Legado[3]
 
 ASESINO (ROGUE_DECK):
-  VENENO:   Colmillos Curvos      Ataque  c3 p12 Veneno[1]
-            Frasco de Peste       Ítem    c2 p8  Contagio[1]
-            Cultivo de Hongos     Ítem    c1 p3  Fervor[1]
-            Nube Tóxica           Acción  c3 p11 Fortaleza[1] (LEGENDARIA)
-  COMBATE:  Bandido de la Ruta    Ataque  c2 p8  Refriega[2]
-            Estoque Afilado       Ataque  c3 p10 Golpe Certero[3]
-            Capitán de Milicia    Ataque  c3 p10 Insignia[3]
-            Sentencia Rápida      Acción  c4 p13 Remate[2]
-  SIGILO:   Acechador Nocturno    Ataque  c2 p7  Emboscada[2]
-            Cuchilla del Silencio Ataque  c3 p9  Purga[2]
-            Capa de Sombras       Ítem    c1 p2  Coraza[3]
-            Maestro Caído         Ataque  c5 p18 Legado[3]
+  VENENO    Colmillos Curvos        Ataque  c3 p12 Veneno[1]
+           Frasco de Peste         Ítem    c2 p8  Contagio[1]
+           Víbora Ponzoñosa        Ataque  c1 p3  Fervor[1]
+           Nube Tóxica             Acción  c3 p11 Fortaleza[1] (LEGENDARIA)
+  COMBATE   Bandido de la Ruta      Ataque  c2 p8  Refriega[2]
+           Estoque Afilado         Ítem    c3 p10 Golpe Certero[3]
+           Capitán de Milicia      Ataque  c3 p10 Insignia[3]
+           Ajuste de Cuentas       Acción  c4 p13 Remate[2]
+  SIGILO    Acechador Nocturno      Ataque  c2 p7  Emboscada[2]
+           Cuchilla del Silencio   Ítem    c3 p9  Purga[2]
+           Fundirse en Sombras     Acción  c1 p2  Coraza[3]
+           Maestro Caído           Ataque  c5 p18 Legado[3]
 
 Cobertura de triggers por mazo: start_turn (Fervor/Escarcha/Veneno),
 end_turn (Fortaleza/Ventisca/Contagio), on_death (Combustión/Legado),

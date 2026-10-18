@@ -371,3 +371,20 @@ Stage Summary:
 - Commit a36c53c push a main; CI generando APK
 - El patrón queda documentado para futuras cartas (checklist §6 del doc)
 - Arte viejo de cartas renombradas queda huérfano en public/cards (no se borra por seguridad con CustomCards del editor)
+
+---
+Task ID: 18
+Agent: Z.ai main agent
+Task: Correcciones de 2ª ronda del patrón de cartas — 11 cartas (4 renombres por sonoridad de clase + 7 artes regenerados) y reglas añadidas al design pattern
+
+Work Log:
+- Interpretadas las 11 correcciones del usuario y codificadas como reglas V3.2 en docs/design-pattern-cards.md: Ítem=único protagonista sin manos/brazos/personajes; Acción=alguien VISIBLE ejecutándola y legible de un vistazo; Ataque=golpe en plena ejecución por el portador de la spec; nombre con vocabulario de SU clase (§5 sonoridad: mago vs guerrero vs asesino); anatomía correcta; sin mezcla de clases en el arte
+- 4 renombres en src/lib/game/cards.ts (stats/keywords intactos): Antorcha Guía→Farol Ígneo (farol_igneo), Golpe Fundidor→Estallido Ígneo (estallido_igneo), Espora Viviente→Víbora Ponzoñosa (vibora_ponzonosa), Sentencia Rápida→Ajuste de Cuentas (ajuste_de_cuentas)
+- 11 artes regenerados con scripts/gen-card-art-v4.mjs (z-ai-web-dev-sdk, 864x1152): el script codifica CATEGORY_RULE (los modificadores obligatorios por categoría) — 7 sobrescritos (toque_de_guerra, hacha_de_ejecucion, tormenta_de_brasas, viento_cortante, nube_toxica, estoque_afilado, cuchilla_del_silencio) + 4 nuevos para los renombres; verificación visual de los 11 (heraldo sopla el cuerno, mago canaliza tormenta/ventisca/estallido, asesino lanza la vasija, ítems en bodegón puro, víbora con ponzoña, liquidación en callejón)
+- Refs sincronizadas: scripts/test-keywords-v3.ts (12 ids), download/keywords-con-efectos-v3.txt (bloque MAZOS ESPEJO regenerado desde el catálogo actual con scripts/update-keywords-txt.py — también llevaba nombres pre-V3.1)
+- scripts/gen-class-art.ts y gen-card-art-v3.mjs se dejan como históricos (no afectan al build)
+- Verificación: auditoría de patrón 36/36 (2/1/1 por spec, slug=nombre, arte presente); tsc src/ limpio; tests V2 34/34, V3 30/30, FX 51/51, PvP 51/51; build estático RC=0; 11 artes HTTP 200; E2E agent-browser: mazos Mago y Asesino muestran los 4 renombres con categoría correcta, 0 imágenes rotas, 0 errores de consola
+
+Stage Summary:
+- El patrón queda ampliado para creaciones futuras: §4 reglas de composición por categoría, §5 sonoridad de clase, §6 tabla V3.2 con el problema→corrección de cada carta, §7 checklist ampliado
+- Decks guardados en localStorage con ids viejos: resiliencia ya existente (resolveDeck cae al mazo espejo)

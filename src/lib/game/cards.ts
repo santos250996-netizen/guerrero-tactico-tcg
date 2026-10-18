@@ -301,8 +301,8 @@ export const MAGE_CARDS: CardDef[] = [
     trigger: "on_death",
   },
   {
-    id: "antorcha_guia",
-    name: "Antorcha Guía",
+    id: "farol_igneo",
+    name: "Farol Ígneo",
     category: "Ítem",
     subtypes: ["fuego"],
     cost: 2,
@@ -315,8 +315,8 @@ export const MAGE_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "golpe_fundidor",
-    name: "Golpe Fundidor",
+    id: "estallido_igneo",
+    name: "Estallido Ígneo",
     category: "Ataque",
     subtypes: ["fuego"],
     cost: 4,
@@ -425,8 +425,8 @@ export const ROGUE_CARDS: CardDef[] = [
     trigger: "end_turn",
   },
   {
-    id: "espora_viviente",
-    name: "Espora Viviente",
+    id: "vibora_ponzonosa",
+    name: "Víbora Ponzoñosa",
     category: "Ataque",
     subtypes: ["veneno"],
     cost: 1,
@@ -497,8 +497,8 @@ export const ROGUE_CARDS: CardDef[] = [
     trigger: "on_play",
   },
   {
-    id: "sentencia_rapida",
-    name: "Sentencia Rápida",
+    id: "ajuste_de_cuentas",
+    name: "Ajuste de Cuentas",
     category: "Acción",
     subtypes: ["combate"],
     cost: 4,
