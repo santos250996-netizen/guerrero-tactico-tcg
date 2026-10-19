@@ -367,6 +367,7 @@ section("12. AUDITORÍA IA: energía por turno respetada en 40 partidas (planBot
         const plan = planBotTurn(state);
         let energyLeft = player.energy;
         for (const action of plan.actions) {
+          if (action.type !== "play") continue; // el plan puede incluir pass
           const card = player.hand.find((c) => c.uid === action.uid);
           if (!card) { broken = true; violations++; break; }
           const bonus = laneBonusesForSide(state, side)[action.lane] ?? null;

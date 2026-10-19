@@ -15,7 +15,7 @@ import type { LaneId } from "@/lib/game/types";
 import { LANE_META } from "@/lib/game/types";
 import { usePvpStore } from "@/store/pvpStore";
 import { BoardCardMini } from "../BoardCardMini";
-import { LANE_COLOR_CLASSES } from "../LaneComponent";
+import { LANE_COLOR_CLASSES } from "../laneColors";
 import {
   getEffectiveCost,
   getLaneMaxCards,

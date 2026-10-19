@@ -117,8 +117,8 @@ const passRes = call("POST", `/api/pvp/rooms/${code}/action`, {}, { token: activ
 check("pass con turno → 200", passRes.status === 200);
 const viewAfterPass = passRes.body.view as PvpClientView;
 check("pass → lastAction.seq avanza", (viewAfterPass.lastAction?.seq ?? 0) > seqBefore);
-check("pass → el turno pasa al otro lado", viewAfterPass.you.isActive === false || true); // el que pasa cede
-check("pass → battle log crece", (viewAfterPass as any).log?.length > 0 || viewAfterPass.log === undefined);
+check("pass → el turno pasa al otro lado", viewAfterPass.yourTurn === false && viewAfterPass.activeSide !== viewAfterPass.you.side); // el que pasa cede
+check("pass → battle log crece", Array.isArray(viewAfterPass.logs) && viewAfterPass.logs.length > 0);
 
 // jugar una carta real del lado que ahora tiene el turno
 const stateC = call("GET", `/api/pvp/rooms/${code}/state`, { token: activeToken });

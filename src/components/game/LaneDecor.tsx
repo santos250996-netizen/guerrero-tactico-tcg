@@ -6,7 +6,6 @@
 //   ▸ LaneBanner : cabecera-estandarte del carril (metal + remates + Cinzel).
 //   ▸ EmptySlot  : slot vacío con runa circular + silueta del tipo de carta;
 //                  pulsa en ámbar cuando puedes soltar ahí.
-//   ▸ LaneEmblem : escudo con espadas cruzadas para el divisor central.
 //   ▸ LANE_HEX   : hex del acento por color de carril (para SVG inline).
 // ============================================================================
 
@@ -144,36 +143,3 @@ export function EmptySlot({
   );
 }
 
-// ---------------------------------------------------------------------------
-// LaneEmblem — escudo con espadas cruzadas (divisor central "VS")
-// ---------------------------------------------------------------------------
-
-export function LaneEmblem({ hex, size = 16 }: { hex?: string; size?: number }) {
-  const accent = hex ?? "#fbbf24";
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      style={{ width: size, height: size }}
-      className="shrink-0 drop-shadow"
-      aria-hidden
-    >
-      {/* escudo */}
-      <path
-        d="M12 2.5 L20 5.5 V11.5 Q20 17.5 12 21.5 Q4 17.5 4 11.5 V5.5 Z"
-        fill="rgba(255,255,255,0.07)"
-        stroke={accent}
-        strokeOpacity="0.75"
-        strokeWidth="1.3"
-      />
-      {/* espadas cruzadas */}
-      <path
-        d="M8.2 8 L15.8 15.6 M15.8 8 L8.2 15.6"
-        stroke={accent}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      {/* brillo */}
-      <path d="M12 2.5 L20 5.5 V8 L12 5 Z" fill="#ffffff" opacity="0.14" />
-    </svg>
-  );
-}

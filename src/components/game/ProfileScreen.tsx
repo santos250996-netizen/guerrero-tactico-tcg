@@ -43,7 +43,6 @@ interface ProfileData {
 }
 
 const STORAGE_KEY = PROFILE_STORAGE_KEY; // clave compartida con el botón PERFIL del menú
-const MATCHES_PER_LEVEL = 5;
 const USERNAME_MAX = 8;
 
 // All card IDs available right now (testing mode = everything unlocked)
@@ -152,16 +151,6 @@ function validateUsername(name: string): { ok: true } | { ok: false; error: stri
     }
   }
   return { ok: true };
-}
-
-export function recordMatchResult(result: "WIN" | "LOSS" | "DRAW") {
-  const profile = loadProfile();
-  profile.totalMatches++;
-  if (result === "WIN") profile.wins++;
-  else if (result === "LOSS") profile.losses++;
-  else profile.draws++;
-  profile.level = Math.floor(profile.totalMatches / MATCHES_PER_LEVEL) + 1;
-  saveProfile(profile);
 }
 
 export function ProfileScreen() {

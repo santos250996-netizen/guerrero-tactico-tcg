@@ -6,7 +6,6 @@ export type Language = "es" | "en" | "pt";
 export interface Settings {
   soundOn: boolean;
   animationsOn: boolean;
-  onboardingSeen: boolean;
   // Master volume 0-100 (only applies when soundOn is true)
   volume: number;
   // UI language preference (persisted for future i18n wiring)
@@ -17,7 +16,6 @@ interface SettingsStore extends Settings {
   setAnimations: (on: boolean) => void;
   setVolume: (v: number) => void;
   setLanguage: (lang: Language) => void;
-  markOnboardingSeen: () => void;
   toggleSound: () => void;
   toggleAnimations: () => void;
 }
@@ -39,7 +37,6 @@ const save = (s: Settings) => {
 const DEFAULTS: Settings = {
   soundOn: true,
   animationsOn: true,
-  onboardingSeen: false,
   volume: 100,
   language: "es",
 };
@@ -57,7 +54,6 @@ export const useSettings = create<SettingsStore>((set, get) => {
       set({ volume: clamped });
     },
     setLanguage: (lang) => { const s = { ...get(), language: lang }; save(s); set({ language: lang }); },
-    markOnboardingSeen: () => { const s = { ...get(), onboardingSeen: true }; save(s); set({ onboardingSeen: true }); },
     toggleSound: () => { const n = !get().soundOn; const s = { ...get(), soundOn: n }; save(s); set({ soundOn: n }); },
     toggleAnimations: () => { const n = !get().animationsOn; const s = { ...get(), animationsOn: n }; save(s); set({ animationsOn: n }); },
   };

@@ -10,7 +10,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { usePvpStore } from "@/store/pvpStore";
-import { useGameStore } from "@/store/gameStore";
 import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 
 interface Props {

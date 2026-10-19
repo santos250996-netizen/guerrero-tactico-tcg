@@ -10,48 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Match {
-  id           String   @id @default(cuid())
-  result       String
-  playerWins   Int
-  enemyWins    Int
-  draws        Int
-  turnsPlayed  Int
-  scorePlayer  Int
-  scoreEnemy   Int
-  laneArmasP   Int
-  laneArmasE   Int
-  laneProtP    Int
-  laneProtE    Int
-  laneFuriaP   Int
-  laneFuriaE   Int
-  gameClass    String?
-  createdAt    DateTime @default(now())
-}
-
-model CustomCard {
-  id        String   @id @default(cuid())
-  defId     String   @unique
-  name      String
-  category  String
-  subtypes  String
-  cost      Int
-  power     Int
-  text      String
-  effectId  String
-  rarity    String   @default("common")
-  createdAt DateTime @default(now())
-}
-
-model Deck {
-  id        String   @id @default(cuid())
-  name      String   @default("Mazo Guerrero")
-  cardIds   String
-  isCurrent Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 // ============================================================================
 // PvP LOCAL (hotspot/WiFi) — salas en vivo + historial de resultados.
 // PvpRoom guarda el estado COMPLETO de la partida como JSON (server-authoritative,

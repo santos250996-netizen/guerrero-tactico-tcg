@@ -9,11 +9,10 @@ import {
   getFinalCost,
   isCardCostAllowed,
   playCard,
-  emptyLaneTraps,
   computeFinalResult,
   type Board,
 } from "../src/lib/game/engine";
-import { LANE_BONUS_POOL, LANE_META, type BoardCard, type CardDef, type LaneBonus } from "../src/lib/game/types";
+import { LANE_BONUS_POOL, LANE_META, type BoardCard, type CardDef, type LaneBonus, type LaneId } from "../src/lib/game/types";
 import { ALL_CARDS_V3, BOSS_DECKS, cardPoolForClass, CLASS_DECKS, classCardsOf } from "../src/lib/game/cards";
 import {
   materializeCard,
@@ -230,7 +229,7 @@ section("6. MAZOS DE JEFE: 12 únicas, una sola spec, sin clonar combos");
   assert(bandido.keyword !== mercenario.keyword && bandido.power !== mercenario.power,
     "Bandido y Mercenario ya NO son gemelos (efecto y poder distintos)");
 
-  const themes: Record<string, string> = { guerrero: "proteccion", mago: "hielo", asesino: "sigilo" };
+  const themes: Record<string, LaneId> = { guerrero: "proteccion", mago: "hielo", asesino: "sigilo" };
   for (const [cls, spec] of Object.entries(themes)) {
     const deck = BOSS_DECKS[cls as keyof typeof BOSS_DECKS];
     assert(deck.length === 12, `${cls}: mazo de jefe con 12 cartas`);
@@ -341,7 +340,7 @@ section("10. Partida completa bot vs jugador scriptado sin errores");
         if (!isCardCostAllowed((card as unknown as CardDef).cost, bonus)) continue;
         if (getFinalCost((card as unknown as CardDef).cost, bonus) > energy) continue;
         if (board[lane].player.length >= 4) continue;
-        const res = playCard(board, hand, energy, "player", lane as never, card, bonus, emptyLaneTraps(), 1);
+        const res = playCard(board, hand, energy, "player", lane as never, card, bonus, null, 1);
         energy = res.remainingEnergy;
         board[lane] = res.board[lane];
       }

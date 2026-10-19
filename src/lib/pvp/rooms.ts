@@ -140,6 +140,10 @@ function resolveInputDeck(input: RoomPlayerInput): PvpPlayerInput {
 export async function createRoom(
   input: RoomPlayerInput
 ): Promise<{ code: string; token: string; side: PvpSide; view: PvpClientView }> {
+  // Purga en segundo plano: salas caducadas (TTL) no deben acumularse en
+  // memoria ni en BD. Fire-and-forget — nunca bloquea la creación.
+  void purgeExpiredRooms().catch(() => undefined);
+
   let code = genCode();
   for (let i = 0; i < 20 && !(await codeAvailable(code)); i++) code = genCode();
 
@@ -201,11 +205,29 @@ export async function saveRoom(env: RoomEnvelope): Promise<void> {
   await archiveMatchIfEnded(env);
 }
 
-export async function deleteRoom(code: string): Promise<void> {
-  cache().rooms.delete(code);
-  try {
-    await db.pvpRoom.delete({ where: { code } }).catch(() => undefined);
-  } catch {
-    // noop
+/**
+ * Elimina salas caducadas (más antiguas que ROOM_TTL_MS) de la memoria y de
+ * la BD. Llamada en fire-and-forget desde createRoom para que las salas
+ * abandonadas no se acumulen para siempre.
+ */
+export async function purgeExpiredRooms(): Promise<number> {
+  const c = cache();
+  const now = Date.now();
+  let purged = 0;
+  for (const [code, env] of c.rooms) {
+    if (now - env.state.createdAt > ROOM_TTL_MS) {
+      c.rooms.delete(code);
+      purged++;
+    }
   }
+  try {
+    const res = await db.pvpRoom.deleteMany({
+      where: { createdAt: { lt: new Date(now - ROOM_TTL_MS) } },
+    });
+    purged += res.count;
+  } catch {
+    // BD opcional (modo memoria pura)
+  }
+  if (purged > 0) console.log(`[pvp] purgeExpiredRooms: ${purged} salas eliminadas`);
+  return purged;
 }

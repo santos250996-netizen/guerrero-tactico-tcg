@@ -6,7 +6,7 @@ import type { Language } from "@/lib/settings";
 import { useGameStore } from "@/store/gameStore";
 import { motion } from "framer-motion";
 import {
-  Volume2, VolumeX, Sparkles, Sparkle, LogOut, Globe, Check, BookOpen, Trash2,
+  Volume2, VolumeX, Sparkles, Sparkle, LogOut, Globe, Check, Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,9 +17,6 @@ interface SettingsModalProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   showExitToMenu?: boolean;
-  // Open the rules modal — used in combat context where Reglas was moved out
-  // of the header into this Settings modal.
-  onOpenRules?: () => void;
 }
 
 const LANGUAGES: { value: Language; label: string; flag: string }[] = [
@@ -28,7 +25,7 @@ const LANGUAGES: { value: Language; label: string; flag: string }[] = [
   { value: "pt", label: "Português", flag: "🇧🇷" },
 ];
 
-export function SettingsModal({ open, onOpenChange, showExitToMenu = false, onOpenRules }: SettingsModalProps) {
+export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: SettingsModalProps) {
   const soundOn = useSettings((s) => s.soundOn);
   const animOn = useSettings((s) => s.animationsOn);
   const volume = useSettings((s) => s.volume);
@@ -250,29 +247,6 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false, onOp
               </p>
             </div>
           </Section>
-
-          {/* ── SECTION: AYUDA (Reglas — only when onOpenRules is provided,
-              i.e. combat context where the standalone Reglas button was removed) ── */}
-          {onOpenRules && (
-            <Section title="Ayuda">
-              <button
-                onClick={onOpenRules}
-                className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-amber-950/30"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-950/60 text-amber-300 ring-1 ring-amber-700/40">
-                  <BookOpen className="h-3.5 w-3.5" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-200">
-                    Reglas del Juego
-                  </span>
-                  <span className="text-[10px] text-amber-400/70">
-                    Cómo jugar, carriles, keywords, triggers
-                  </span>
-                </div>
-              </button>
-            </Section>
-          )}
 
           {/* ── SECTION: SESIÓN (only in combat context) ── */}
           {showExitToMenu && (
