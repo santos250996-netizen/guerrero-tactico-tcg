@@ -579,3 +579,27 @@ Stage Summary:
 - El turno del bot ahora se VE: cartel → anuncio con el arte/nombre/coste/poder de CADA carta que juega + anillo ámbar sobre la carta en el carril + separador "<rival> juega…" latiendo; el bot ya no actúa detrás del cartel
 - Vale también para PvP online (el anuncio sale con las jugadas del rival humano)
 - Pendiente heredado: calibración perf.ts en real device, playtest de equilibrado, gráficos 1+2+3 aprobados sin empezar, puntos gráficos 4/5/6
+
+---
+Task ID: 28
+Agent: Z.ai main agent
+Task: Tanda GRANDE de 6 mejoras elegidas por el usuario: misiones diarias, gráficos 1-3, rangos PvP, jefes de historia, choque de carriles, stats de perfil
+
+Work Log:
+- statsStore (nuevo): perClass (partidas/victorias por clase), racha actual (±N) y mejor racha, LIGA PvP Bronce 0/Plata 100/Oro 250/Leyenda 450 con +25/+5/−10 SOLO por online; persistencia pacto-de-guerra-stats; resetStats
+- Descubrimiento crítico: recordMatchResult (Perfil) existía pero NADIE lo llamaba — las stats del perfil nunca se actualizaban. Ahora pvpStore contabiliza TODO: checkHistoriaEnd (historia/boss) y applyView fin online (guard onlineEndNoted por sala, reset en create/join/setup/exit)
+- missionStore (nuevo): 3 misiones/día DETERMINISTAS por fecha (mulberry32 semillado con YYYY-MM-DD, Fisher-Yates del pool de 7 tipos); progreso por hooks: play-cards (applyLocalAction + sendPlay online), win-games/win-class/win-lanes/beat-boss (fin de partida, carriles desde laneOutcomes), play-online, fuse (CollectionScreen.tryFuse); recompensa +1 carta auto (addRewards(1)); toast global MissionToast (menú + partidas); BUG encontrado en E2E: loadState generaba misiones sin persistir y ensureToday early-returnaba → progreso del día se perdía al reiniciar; fix: persistir en la generación fresca
+- Panel de misiones: pill "MISIONES n/3" en el menú + modal con 3 filas (título, barra, +1 carta al completar)
+- JEFES: pvp.ts bossMode + enableBossMode (LOS 3 carriles con bono vs 2 normal) + applyPvpAction opts.free (jugada sin coste; energía prestada = coste EFECTIVO exacto para no dar propina si el bono resta; restricciones de carril SIGUEN aplicando); ClassSelect botón "Desafiar al Jefe" por clase; startHistoria(boss): mazo del bot materializado a ÉPICO (+6/carta) + nombres Korgath/Nyx/Vharos; bot juega 1ª carta gratis en sus turnos pares (runBotTurn); victoria → addBossRewards (LEGENDARIA garantizada + 1 rollo); overlay "¡JEFE DERROTADO!" + skull en franja rival
+- CHOQUE DE CARRILES: clashSeq en store al llegar pass nuevo → PvpGame suscribe (patrón subscribe-callback por react-hooks/set-state-in-effect) → filas rivales se embisten ±7px (spring) + fx-clash-board (sacudida vertical CSS) + 3 clash-spark en el separador (chispas radiales); respeta animationsOn y prefers-reduced-motion
+- Stats de Perfil: secciones nuevas — Rendimiento por Clase (3 barras winrate + racha actual/mejor), Liga PvP (LeagueCard: liga, puntos, progreso a la siguiente, tabla de puntos), Colección N/72 (distinctOwned); LeagueChip también en PvpSetup (junto a "Tu nombre", visible con o sin perfil)
+- Gráficos 1-3: G1 pips de TIER de fusión en CardShell (◆rara/◆◆épica/◆◆◆legendaria, centro-superior, activado en BoardCardMini + CardPreviewModal — lo ganado fusionando se VE); G3 badge de poder con anillo por rareza (rara cielo/épica magenta/legendaria ámbar); G2 resplandores ambientales en el menú + versión v2.4
+- test-tanda28.ts (nuevo): 35 checks — bonos jefe (3 vs 2), jugada gratis (energía intacta, carta al tablero — OJO: el engine asigna uid NUEVO en tablero), bono restrictivo respeta free, matemática de ligas/puntos/racha, misiones determinismo/progreso/recompensa/no-doble-pago, addBossRewards legendaria
+- Verificación: tsc limpio · lint OK en tocados · tanda28 35/35 · pvp-engine 62/62 · turn-flow 27/27 · colección-historia 65/65 · FX 51/51 · V2 34/34 · V3 30/30 · V4 71/71 · local-pvp 32/32 · build estático RC=0 · E2E agent-browser: pill MISIONES 0/3 + panel con las 3 del día, persistencia desde 1ª carga, botón JEFE ×3, partida jefe con skull+nombre+3 bonos, sampler 8s = 10 muestras de chispas + 10 shake + 11 toasts del jefe y 0 errores, partida completa → DERROTA con botín 1 carta (ÉPICA nueva), stats persistidas (guerrero 1/0, racha −1), Perfil completo (clase/racha/liga BRONCE/colección 37/72), chip BRONCE 0 en PvP setup
+- Commit 755bf38 push a main (CI genera APK)
+
+Stage Summary:
+- El farming ahora tiene rumbo: 3 misiones diarias que pagan +1 carta, jefes difíciles con legendaria garantizada, y una liga PvP que solo sube jugando online
+- El perfil por fin cuenta lo que haces (winrate por clase, rachas, liga, colección N/72) — recordMatchResult estaba huérfano
+- Cada cierre de turno choca las filas con chispas; las cartas fusionadas lucen pips de su tier en tablero y preview
+- Pendiente heredado: calibración perf.ts en real device, playtest de equilibrado, puntos gráficos 4/5/6, tienda de polvo (duplicados >3), +24 cartas nuevas
