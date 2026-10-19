@@ -148,6 +148,9 @@ interface CardShellProps {
   corners?: boolean;
   /** Tamaño de las filigranas. */
   cornerSize?: number;
+  /** Pips de TIER DE FUSIÓN (G1): ◆ rara · ◆◆ épica · ◆◆◆ legendaria.
+   *  Las cartas materializadas muestran así su tier ganado fusionando. */
+  tierPips?: boolean;
   className?: string;
   innerClassName?: string;
   style?: React.CSSProperties;
@@ -168,6 +171,7 @@ export function CardShell({
   foil = "auto",
   corners = true,
   cornerSize,
+  tierPips = false,
   className,
   innerClassName,
   style,
@@ -225,6 +229,20 @@ export function CardShell({
         className="pointer-events-none absolute inset-[2px] z-30 rounded-[8px]"
         style={{ border: `1px solid ${meta.accent}44`, boxShadow: `inset 0 0 0 0.5px rgba(255,255,255,0.06)` }}
       />
+
+      {/* Pips de tier de fusión (centro-superior): cuantos más ◆, más poder
+          ganado por fusiones (+2 por tier). Color = acento de rareza. */}
+      {tierPips && rarity !== "common" && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex justify-center gap-[1px]">
+          {Array.from({ length: rarity === "rare" ? 1 : rarity === "epic" ? 2 : 3 }).map((_, i) => (
+            <span
+              key={i}
+              className="block h-1 w-1 -translate-y-[1px] rotate-45"
+              style={{ background: meta.accent, boxShadow: `0 0 3px ${meta.accent}` }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Brillo especular superior del bisel */}
       <div className="pointer-events-none absolute inset-x-2 top-0 z-30 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />

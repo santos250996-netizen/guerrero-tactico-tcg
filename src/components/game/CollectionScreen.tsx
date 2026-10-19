@@ -11,6 +11,7 @@ import { ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
+import { useMissionStore } from "@/store/missionStore";
 import { ALL_CARDS_V3, classCardsOf } from "@/lib/game/cards";
 import {
   FUSION_COPIES,
@@ -55,7 +56,11 @@ export function CollectionScreen() {
 
   function tryFuse(id: string, rarity: Rarity, name: string) {
     const target = fuse(id, rarity);
-    if (target && soundOn) sfx.buff();
+    if (target) {
+      if (soundOn) sfx.buff();
+      // Misión diaria de fusión (hook: la fusión se hace SOLO aquí)
+      useMissionStore.getState().progress("fuse");
+    }
     setFusionMsg(
       target
         ? `✨ ${name} fusionada: ahora ${RARITY_LABEL[target]} (+2 poder)`

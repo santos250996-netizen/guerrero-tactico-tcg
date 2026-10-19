@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
+import { useSettings } from "@/lib/settings";
 import { CLASS_META, LANE_META, RARITY_META } from "@/lib/game/types";
 import { RARITY_LABEL } from "@/lib/game/balance";
 import { cardById } from "@/lib/game/cards";
@@ -34,6 +35,7 @@ import { CornerOrnaments } from "../CardFrame";
 import { Confetti } from "../Confetti";
 import { LegendaryBurst } from "../LegendaryBurst";
 import { SettingsModal } from "../SettingsModal";
+import { MissionToast } from "../MainMenu";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -55,6 +57,29 @@ export function PvpGame() {
   const exitToMenu = usePvpStore((s) => s.exitToMenu);
   const mode = usePvpStore((s) => s.mode);
   const pendingRewards = usePvpStore((s) => s.pendingRewards);
+  const bossActive = usePvpStore((s) => s.bossActive);
+
+  // CHOQUE DE CARRILES: al cerrar un medio-turno (pass) las dos filas se
+  // embisten hacia el separador con sacudida + chispas. 750ms y vuelve.
+  // (Suscripción al store — setState dentro del callback del sistema externo,
+  //  nunca directo en el body del effect por react-hooks/set-state-in-effect.)
+  const [clash, setClash] = useState(false);
+  const clashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    let last = 0;
+    const unsub = usePvpStore.subscribe((s) => {
+      if (s.clashSeq === 0 || s.clashSeq === last) return;
+      last = s.clashSeq;
+      if (!useSettings.getState().animationsOn) return;
+      if (clashTimer.current) clearTimeout(clashTimer.current);
+      setClash(true);
+      clashTimer.current = setTimeout(() => setClash(false), 750);
+    });
+    return () => {
+      unsub();
+      if (clashTimer.current) clearTimeout(clashTimer.current);
+    };
+  }, []);
 
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -100,13 +125,17 @@ export function PvpGame() {
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rose-500/50 bg-rose-950/50">
             <RivalIcon className="h-3.5 w-3.5 text-rose-300" strokeWidth={2.2} />
-            <span
-              className={cn(
-                "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-zinc-950",
-                (mode === "historia" || view.rival.connected) ? "bg-emerald-400" : "bg-zinc-600"
-              )}
-              title={mode === "historia" ? "Bot local" : view.rival.connected ? "Conectado" : "Sin señal…"}
-            />
+            {bossActive ? (
+              <Skull className="absolute -bottom-1 -right-1.5 h-3 w-3 text-rose-400 drop-shadow" />
+            ) : (
+              <span
+                className={cn(
+                  "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-zinc-950",
+                  (mode === "historia" || view.rival.connected) ? "bg-emerald-400" : "bg-zinc-600"
+                )}
+                title={mode === "historia" ? "Bot local" : view.rival.connected ? "Conectado" : "Sin señal…"}
+              />
+            )}
           </div>
           <div className="min-w-0 leading-none">
             <div className="truncate text-[10px] font-black uppercase tracking-wider text-rose-200">
@@ -157,20 +186,35 @@ export function PvpGame() {
       <main className="app-main mx-auto flex w-full flex-1 flex-col px-1.5 py-1">
         <div
           data-board-root
-          className="relative grid h-full min-h-0 flex-1 grid-rows-[1fr_auto_1fr] gap-1 rounded-lg"
+          className={cn(
+            "relative grid h-full min-h-0 flex-1 grid-rows-[1fr_auto_1fr] gap-1 rounded-lg",
+            clash && "fx-clash-board"
+          )}
         >
           {/* Filigranas heráldicas en las esquinas del tablero completo */}
           <CornerOrnaments size={26} className="-inset-x-1 -inset-y-1 z-20" />
-          {/* FILA RIVAL — sus 3 specs con sus fondos */}
-          <div className="grid min-h-0 grid-cols-3 gap-1">
+          {/* FILA RIVAL — embiste hacia ABAJO al chocar */}
+          <motion.div
+            animate={{ y: clash ? 7 : 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22 }}
+            className="grid min-h-0 grid-cols-3 gap-1"
+          >
             {[0, 1, 2].map((p) => (
               <PvpLane key={`rival-${p}`} position={p} side="rival" />
             ))}
-          </div>
+          </motion.div>
 
-          {/* Separador VS — cuando el rival está jugando, el indicador late:
-              el turno de la IA se VE, no es un hueco silencioso. */}
-          <div className="flex items-center justify-center gap-2 py-0.5">
+          {/* Separador VS — chispas del choque + indicador latiendo cuando
+              el rival está jugando (su turno se VE). */}
+          <div className="relative flex items-center justify-center gap-2 py-0.5">
+            {clash &&
+              [16.66, 50, 83.33].map((x) => (
+                <span
+                  key={x}
+                  className="clash-spark pointer-events-none absolute top-1/2 z-20"
+                  style={{ left: `${x}%` }}
+                />
+              ))}
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
             <span
               className={cn(
@@ -184,12 +228,16 @@ export function PvpGame() {
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
           </div>
 
-          {/* FILA PROPIA — mis 3 specs con mis fondos */}
-          <div className="grid min-h-0 grid-cols-3 gap-1">
+          {/* FILA PROPIA — embiste hacia ARRIBA al chocar */}
+          <motion.div
+            animate={{ y: clash ? -7 : 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22 }}
+            className="grid min-h-0 grid-cols-3 gap-1"
+          >
             {[0, 1, 2].map((p) => (
               <PvpLane key={`me-${p}`} position={p} side="me" />
             ))}
-          </div>
+          </motion.div>
         </div>
       </main>
 
@@ -202,6 +250,7 @@ export function PvpGame() {
       {/* ══ Overlays ══ */}
       <PvpTurnBanner banner={turnBanner} />
       <RivalPlayAnnouncer announce={rivalPlay} rivalName={view.rival.name} />
+      <MissionToast />
       <PvpFloatingNumbersLayer floats={floatingNumbers} />
       <FxLayer />
       <CardJuiceLayer />
@@ -297,6 +346,7 @@ function HistoriaEndOverlay({
   onExit: () => void;
 }) {
   const result = usePvpStore.getState().view?.finalResult?.result;
+  const bossActive = usePvpStore.getState().bossActive;
   const won = result === "WIN";
   const loot = rewards ?? [];
   return (
@@ -317,7 +367,11 @@ function HistoriaEndOverlay({
               won ? "border-amber-500/60 from-amber-950" : "border-rose-800/60 from-rose-950"
             )}
           >
-            <Trophy className={cn("mx-auto h-9 w-9", won ? "text-amber-400" : "text-rose-500/60")} />
+            {won && bossActive ? (
+              <Skull className="mx-auto h-9 w-9 text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
+            ) : (
+              <Trophy className={cn("mx-auto h-9 w-9", won ? "text-amber-400" : "text-rose-500/60")} />
+            )}
             <div
               className={cn(
                 "mt-1 text-xl font-black uppercase tracking-[0.3em]",
@@ -325,13 +379,15 @@ function HistoriaEndOverlay({
               )}
               style={{ fontFamily: "var(--font-cinzel), serif" }}
             >
-              {won ? "¡Victoria!" : "Derrota"}
+              {won ? (bossActive ? "¡Jefe derrotado!" : "¡Victoria!") : "Derrota"}
             </div>
 
             {loot.length > 0 && (
               <>
                 <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-200/80">
-                  Botín · {loot.length} {loot.length === 1 ? "carta" : "cartas"} para tu colección
+                  {bossActive && won
+                    ? "Botín del JEFE · legendaria garantizada"
+                    : `Botín · ${loot.length} ${loot.length === 1 ? "carta" : "cartas"} para tu colección`}
                 </p>
                 <div className="mt-3 flex justify-center gap-3">
                   {loot.map((r, i) => {

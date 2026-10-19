@@ -157,6 +157,16 @@ export function ClassSelect() {
     startHistoria({ playerClass: cls, playerName: profileName || undefined });
   };
 
+  // DESAFIAR AL JEFE → historia con reglas de jefe: mazo épico del bot,
+  // 1ª carta gratis en sus turnos pares, los 3 carriles con bono y botín
+  // con LEGENDARIA garantizada al vencerlo.
+  const bossPlay = async (cls: GameClass) => {
+    selectClass(cls);
+    if (!deckLoading) await loadDeckAndPool();
+    const profileName = loadStoredProfileBrief()?.username ?? "";
+    startHistoria({ playerClass: cls, playerName: profileName || undefined, boss: true });
+  };
+
   // Open deck editor — remember we came from class-select
   const openDeckEditor = async (cls: GameClass) => {
     selectClass(cls);
@@ -319,28 +329,42 @@ export function ClassSelect() {
 
                 {/* Action buttons — only when unlocked */}
                 {cls.unlocked && (
-                  <div className="grid grid-cols-5 gap-1.5 border-t border-zinc-800/60 bg-black/30 p-2.5">
-                    {/* Personalizar Mazo — secondary, 2/5 width */}
-                    <button
-                      onClick={() => openDeckEditor(cls.id)}
-                      className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/70 py-2.5 text-[9px] font-black uppercase tracking-wider text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
-                      title="Personalizar mazo"
-                    >
-                      <Library className="h-3.5 w-3.5" />
-                      <span>Mazo</span>
-                    </button>
-                    {/* Jugar Partida — primary pill, 3/5 width → MODO HISTORIA (bot aleatorio) */}
+                  <div className="border-t border-zinc-800/60 bg-black/30 p-2.5">
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {/* Personalizar Mazo — secondary, 2/5 width */}
+                      <button
+                        onClick={() => openDeckEditor(cls.id)}
+                        className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/70 py-2.5 text-[9px] font-black uppercase tracking-wider text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
+                        title="Personalizar mazo"
+                      >
+                        <Library className="h-3.5 w-3.5" />
+                        <span>Mazo</span>
+                      </button>
+                      {/* Jugar Partida — primary pill, 3/5 width → MODO HISTORIA (bot aleatorio) */}
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => quickPlay(cls.id)}
+                        className={`col-span-3 flex items-center justify-center gap-2 rounded-lg border bg-gradient-to-r ${c.btnPrimary} py-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md transition-all`}
+                        style={{
+                          fontFamily: 'var(--font-cinzel), serif',
+                        }}
+                      >
+                        <span>Jugar Partida</span>
+                        <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </motion.button>
+                    </div>
+                    {/* Desafiar al JEFE — slim rose strip, duelo difícil con
+                        botín de legendaria garantizada */}
                     <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => quickPlay(cls.id)}
-                      className={`col-span-3 flex items-center justify-center gap-2 rounded-lg border bg-gradient-to-r ${c.btnPrimary} py-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md transition-all`}
-                      style={{
-                        fontFamily: 'var(--font-cinzel), serif',
-                      }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => bossPlay(cls.id)}
+                      className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-500/50 bg-gradient-to-r from-rose-950/80 via-rose-900/70 to-rose-950/80 py-1.5 text-[8px] font-black uppercase tracking-[0.3em] text-rose-200 transition-colors hover:border-rose-400/70 hover:text-rose-100"
+                      style={{ fontFamily: "var(--font-cinzel), serif" }}
+                      title="Duelo difícil: bot épico con jugada gratis, 3 carriles con bono y legendaria garantizada al vencer"
                     >
-                      <span>Jugar Partida</span>
-                      <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      <Skull className="h-3 w-3" />
+                      <span>Desafiar al Jefe</span>
                     </motion.button>
                   </div>
                 )}

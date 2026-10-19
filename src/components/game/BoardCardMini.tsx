@@ -67,8 +67,9 @@ function BoardCardMiniImpl({ card, side, onPreview, justPlayed }: BoardCardMiniP
           style={{ boxShadow: "0 0 14px rgba(252,211,77,0.9), inset 0 0 8px rgba(252,211,77,0.45)" }}
         />
       )}
-      {/* Marco TCG por rareza (simplificado: sin name plate en mini) */}
-      <CardShell rarity={card.rarity} corners cornerSize={9} className="h-full w-full">
+      {/* Marco TCG por rareza (simplificado: sin name plate en mini) —
+          con pips de TIER DE FUSIÓN: lo ganado fusionando se VE en tablero */}
+      <CardShell rarity={card.rarity} corners cornerSize={9} tierPips className="h-full w-full">
         {/* Full square art */}
         <img
           src={`/cards/${card.defId}.png`}
@@ -87,14 +88,21 @@ function BoardCardMiniImpl({ card, side, onPreview, justPlayed }: BoardCardMiniP
           {card.cost}
         </div>
 
-        {/* Power badge (top-right) */}
+        {/* Power badge (top-right) — con anillo del TIER: rara cielo, épica
+            magenta, legendaria ámbar (G3: la rareza se lee de un vistazo) */}
         <div className={cn(
-          "absolute right-0.5 top-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border border-white/90 text-[8px] font-black text-white shadow-md",
-          isBuffed
-            ? "bg-gradient-to-b from-emerald-400 to-emerald-700 ring-1 ring-emerald-300/50"
-            : isDebuffed
-              ? "bg-gradient-to-b from-rose-500 to-rose-800 ring-1 ring-rose-300/50"
-              : "bg-gradient-to-b from-rose-600 to-rose-900"
+          "absolute right-0.5 top-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border text-[8px] font-black text-white shadow-md",
+          card.rarity === "rare"
+            ? "border-sky-300 bg-gradient-to-b from-sky-500 to-sky-800 ring-1 ring-sky-300/60"
+            : card.rarity === "epic"
+              ? "border-fuchsia-300 bg-gradient-to-b from-fuchsia-600 to-fuchsia-900 ring-1 ring-fuchsia-300/60"
+              : card.rarity === "legendary"
+                ? "border-amber-300 bg-gradient-to-b from-amber-500 to-amber-800 ring-1 ring-amber-300/70"
+                : isBuffed
+                  ? "bg-gradient-to-b from-emerald-400 to-emerald-700 ring-1 ring-emerald-300/50"
+                  : isDebuffed
+                    ? "bg-gradient-to-b from-rose-500 to-rose-800 ring-1 ring-rose-300/50"
+                    : "border-white/90 bg-gradient-to-b from-rose-600 to-rose-900"
         )}>
           {card.currentPower}
         </div>

@@ -157,6 +157,9 @@ export interface PvpState {
   activeSide: PvpSide;
   firstSide: PvpSide;
   actedThisTurn: { a: boolean; b: boolean };
+  /** MODO JEFE (solo historia local): 3 carriles con bono + el bot juega su
+   *  1ª carta GRATIS en sus turnos pares (2, 4, 6) + botín garantizado. */
+  bossMode: boolean;
   logs: PvpLogEntry[];
   lastAction: PvpLastAction | null;
   /** Resultado final desde la perspectiva del lado A. */
@@ -351,13 +354,23 @@ function pushLog(
 // Bonos por posición (mismas probabilidades que rollLaneBonuses)
 // ---------------------------------------------------------------------------
 
-function rollPositionBonuses(): (LaneBonus | null)[] {
+function rollPositionBonuses(fillAll = false): (LaneBonus | null)[] {
   const pos = shuffle([0, 1, 2]);
   const kinds = shuffle([...LANE_BONUS_POOL]);
   const out: (LaneBonus | null)[] = [null, null, null];
   out[pos[0]] = kinds[0];
   out[pos[1]] = kinds[1];
+  // MODO JEFE: TODOS los carriles con bono (normalmente solo 2 de 3)
+  if (fillAll && kinds[2]) out[pos[2]] = kinds[2];
   return out;
+}
+
+/** Activa el MODO JEFE en una partida local: bandera + los 3 carriles con bono.
+ *  Llamar DESPUÉS de joinBotPvpState (que ya sorteó los bonos normales). */
+export function enableBossMode(state: PvpState): void {
+  state.bossMode = true;
+  state.positionBonuses = rollPositionBonuses(true);
+  state.version++;
 }
 
 // ---------------------------------------------------------------------------
@@ -500,6 +513,7 @@ export function createPvpState(code: string, input: PvpPlayerInput, now = Date.n
     activeSide: "a",
     firstSide: "a",
     actedThisTurn: { a: false, b: false },
+    bossMode: false,
     logs: [],
     lastAction: null,
     finalResultA: null,
@@ -551,7 +565,7 @@ export function startPvpMatch(state: PvpState, now = Date.now()): void {
     { a: [], b: [] },
     { a: [], b: [] },
   ];
-  state.positionBonuses = rollPositionBonuses();
+  state.positionBonuses = rollPositionBonuses(state.bossMode);
   state.actedThisTurn = { a: false, b: false };
   state.finalResultA = null;
   state.lastAction = null;
@@ -581,17 +595,25 @@ export function startPvpMatch(state: PvpState, now = Date.now()): void {
   state.version++;
 }
 
-export function applyPvpAction(state: PvpState, side: PvpSide, action: PvpAction, now = Date.now()): void {
+export function applyPvpAction(
+  state: PvpState,
+  side: PvpSide,
+  action: PvpAction,
+  now = Date.now(),
+  /** opts.free: la carta NO cuesta energía (MODO JEFE, 1ª carta de sus
+   *  turnos pares). Las restricciones de carril y límite SIGUEN aplicando. */
+  opts?: { free?: boolean }
+): void {
   if (state.phase !== "playing") throw new Error("La partida no está en curso.");
   if (state.activeSide !== side) throw new Error("No es tu turno.");
   if (!state.players[side].name) throw new Error("No estás en esta sala.");
   state.lastSeen[side] = now;
   if (action.type === "pass") handlePass(state, side);
-  else handlePlay(state, side, action);
+  else handlePlay(state, side, action, opts);
   state.version++;
 }
 
-function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane: LaneId }): void {
+function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane: LaneId }, opts?: { free?: boolean }): void {
   const player = state.players[side];
   const lanePos = player.lanes.indexOf(action.lane);
   if (lanePos < 0) throw new Error("Ese carril no existe para tu clase.");
@@ -603,7 +625,8 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
     throw new Error(`"${card.name}" no se puede jugar en ${LANE_META[action.lane].title}: el bono exige coste exacto.`);
   }
   const effCost = getFinalCost(card.cost, bonus);
-  if (effCost > player.energy) {
+  const freePlay = opts?.free === true;
+  if (!freePlay && effCost > player.energy) {
     throw new Error(`Sin energía suficiente para "${card.name}" (necesita ${effCost}, tienes ${player.energy}).`);
   }
   if (state.positions[lanePos][side].length >= getLaneMaxCards(bonus)) {
@@ -616,7 +639,10 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
     res = playCard(
       preBoard,
       player.hand,
-      player.energy,
+      // Jugada GRATIS (jefe): energía prestada = coste efectivo EXACTO para
+      // que el engine la descuenta sin tocar la real (ni +1 de propina si el
+      // bono reduce el coste — por eso effCost y no card.cost).
+      player.energy + (freePlay ? effCost : 0),
       "player",
       action.lane,
       card,
@@ -779,7 +805,7 @@ function advanceTurn(state: PvpState): void {
 
   // Re-roll de bonos en el turno 4 (misma regla que solitario)
   if (newTurn === 4) {
-    state.positionBonuses = rollPositionBonuses();
+    state.positionBonuses = rollPositionBonuses(state.bossMode);
     pushLog(state, newTurn, "system", "🎲 ¡Bonos de carril re-rollados!", "buff");
   }
 

@@ -89,6 +89,8 @@ interface CollectionState {
   grantStarterDeck: (cls: GameClass) => boolean;
   /** Recompensa por victoria: n cartas aleatorias de cualquier clase. */
   addRewards: (n?: number) => CardReward[];
+  /** Botín del JEFE (solo victoria): 1 LEGENDARIA garantizada + 1 de rollo. */
+  addBossRewards: () => CardReward[];
   canFuse: (id: string, rarity: Rarity) => boolean;
   /** Fusiona 3 copias del mismo tier → 1 del siguiente. Devuelve el tier nuevo o null. */
   fuse: (id: string, rarity: Rarity) => Rarity | null;
@@ -146,6 +148,29 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
       next[card.id] = { ...cur, [rarity]: (cur[rarity] ?? 0) + 1 };
       rewards.push({ id: card.id, rarity, isNew });
     }
+    set({ copies: next });
+    persist(next, get().grantedClasses, get().wins);
+    return rewards;
+  },
+
+  addBossRewards: () => {
+    const { copies } = get();
+    const pool = ALL_CARDS_V3;
+    const next = { ...copies };
+    const rewards: CardReward[] = [];
+    // 1 LEGENDARIA garantizada — el trofeo del jefe
+    const legCard = pool[Math.floor(Math.random() * pool.length)];
+    const curL = next[legCard.id] ?? {};
+    const isNewL = !curL.common && !curL.rare && !curL.epic && !curL.legendary;
+    next[legCard.id] = { ...curL, legendary: (curL.legendary ?? 0) + 1 };
+    rewards.push({ id: legCard.id, rarity: "legendary", isNew: isNewL });
+    // +1 carta con el rollo normal
+    const card = pool[Math.floor(Math.random() * pool.length)];
+    const rarity = rollRarity();
+    const cur = next[card.id] ?? {};
+    const isNew = !cur.common && !cur.rare && !cur.epic && !cur.legendary;
+    next[card.id] = { ...cur, [rarity]: (cur[rarity] ?? 0) + 1 };
+    rewards.push({ id: card.id, rarity, isNew });
     set({ copies: next });
     persist(next, get().grantedClasses, get().wins);
     return rewards;

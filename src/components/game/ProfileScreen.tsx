@@ -3,7 +3,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
+import { useStatsStore, leagueOf, nextLeagueOf } from "@/store/statsStore";
+import { useCollectionStore } from "@/store/collectionStore";
+import { ALL_CARDS_V3 } from "@/lib/game/cards";
+import type { GameClass } from "@/lib/game/types";
 import { ArrowLeft, Check, X, Image as ImageIcon, Lock, Crown, Trophy, Swords, Scale, Gamepad2, Skull, Pencil } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ALL_CARDS } from "@/lib/game/cards";
 import type { CardDef } from "@/lib/game/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -169,6 +174,17 @@ export function ProfileScreen() {
   useEffect(() => {
     setProfile(loadProfile());
   }, []);
+
+  // Stats amplias (por clase, rachas, liga) + progreso de colección
+  const stats = useStatsStore();
+  const copies = useCollectionStore((s) => s.copies);
+  const distinctOwned = useMemo(
+    () =>
+      Object.values(copies).filter(
+        (c) => (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) > 0
+      ).length,
+    [copies]
+  );
 
   const winrate = profile.totalMatches > 0
     ? Math.round((profile.wins / profile.totalMatches) * 100)
@@ -426,6 +442,80 @@ export function ProfileScreen() {
               <StatCard label="Victorias" value={profile.wins} accent="emerald" icon={<Trophy className="h-5 w-5" />} />
               <StatCard label="Derrotas" value={profile.losses} accent="rose" icon={<Skull className="h-5 w-5" />} />
               <StatCard label="Winrate" value={`${winrate}%`} accent="amber" icon={<Scale className="h-5 w-5" />} />
+            </div>
+          </section>
+
+          {/* ────────────── WINRATE POR CLASE + RACHAS (statsStore) ────────────── */}
+          <section className="flex flex-col gap-2.5">
+            <SectionHeader title="Rendimiento por Clase" />
+            <div className="flex flex-col gap-2 rounded-xl border border-zinc-700/60 bg-zinc-950/40 p-3">
+              {CLASSES.map((cls) => {
+                const st = stats.perClass[cls] ?? { matches: 0, wins: 0 };
+                const wr = st.matches > 0 ? Math.round((st.wins / st.matches) * 100) : 0;
+                return (
+                  <div key={cls}>
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-black uppercase tracking-widest text-zinc-300">
+                        {CLASS_LABELS[cls]}
+                      </span>
+                      <span className="tabular-nums text-zinc-500">
+                        {st.wins}V / {st.matches} partidas · <b className={wr >= 50 ? "text-emerald-400" : "text-zinc-400"}>{wr}%</b>
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-black/60">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-amber-600 to-emerald-500 transition-all duration-700"
+                        style={{ width: `${wr}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="mt-1 grid grid-cols-2 gap-2 border-t border-zinc-800 pt-2">
+                <div className="rounded-lg border border-zinc-800 bg-black/40 px-2 py-1.5 text-center">
+                  <div className="text-[7px] font-bold uppercase tracking-[0.25em] text-zinc-500">Racha actual</div>
+                  <div
+                    className={cn(
+                      "text-lg font-black tabular-nums",
+                      stats.streak > 0 ? "text-emerald-400" : stats.streak < 0 ? "text-rose-400" : "text-zinc-400"
+                    )}
+                  >
+                    {stats.streak > 0 ? `+${stats.streak}` : stats.streak}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-zinc-800 bg-black/40 px-2 py-1.5 text-center">
+                  <div className="text-[7px] font-bold uppercase tracking-[0.25em] text-zinc-500">Mejor racha</div>
+                  <div className="text-lg font-black tabular-nums text-amber-400">{stats.bestWinStreak}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ────────────── LIGA PvP (solo online da puntos) ────────────── */}
+          <section className="flex flex-col gap-2.5">
+            <SectionHeader title="Liga PvP" />
+            <LeagueCard points={stats.rankPoints} onlineGames={stats.onlineGames} />
+          </section>
+
+          {/* ────────────── PROGRESO DE COLECCIÓN ────────────── */}
+          <section className="flex flex-col gap-2.5">
+            <SectionHeader title="Colección" />
+            <div className="rounded-xl border border-zinc-700/60 bg-zinc-950/40 p-3">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-black uppercase tracking-widest text-zinc-300">Cartas descubiertas</span>
+                <span className="font-black tabular-nums text-amber-300">
+                  {distinctOwned}/{ALL_CARDS_V3.length}
+                </span>
+              </div>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full border border-amber-700/30 bg-black/60">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-sky-600 via-fuchsia-600 to-amber-400 transition-all duration-700"
+                  style={{ width: `${Math.round((distinctOwned / ALL_CARDS_V3.length) * 100)}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-[8px] uppercase tracking-[0.2em] text-zinc-500">
+                Gana partidas para desbloquear las que faltan · 3 iguales → fusión
+              </p>
             </div>
           </section>
 
@@ -809,6 +899,66 @@ function MiniStatChip({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Liga PvP — tarjeta con liga actual, puntos y progreso a la siguiente
+// ──────────────────────────────────────────────────────────────
+const CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
+const CLASS_LABELS: Record<GameClass, string> = {
+  guerrero: "Guerrero",
+  mago: "Mago",
+  asesino: "Asesino",
+};
+
+const LEAGUE_STYLE: Record<string, { ring: string; text: string; glow: string }> = {
+  bronce: { ring: "border-amber-700/60", text: "text-amber-600", glow: "shadow-[0_0_12px_rgba(180,83,9,0.35)]" },
+  plata: { ring: "border-zinc-300/60", text: "text-zinc-200", glow: "shadow-[0_0_12px_rgba(228,228,231,0.3)]" },
+  oro: { ring: "border-amber-400/70", text: "text-amber-300", glow: "shadow-[0_0_14px_rgba(251,191,36,0.45)]" },
+  leyenda: { ring: "border-fuchsia-400/70", text: "text-fuchsia-300", glow: "shadow-[0_0_16px_rgba(232,121,249,0.5)]" },
+};
+
+function LeagueCard({ points, onlineGames }: { points: number; onlineGames: number }) {
+  const league = leagueOf(points);
+  const next = nextLeagueOf(points);
+  const style = LEAGUE_STYLE[league.id];
+  const floor = league.min;
+  const pct = next
+    ? Math.min(100, Math.round(((points - floor) / (next.min - floor)) * 100))
+    : 100;
+  return (
+    <div className={cn("rounded-xl border-2 bg-zinc-950/40 p-3", style.ring, style.glow)}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Crown className={cn("h-5 w-5", style.text)} />
+          <div>
+            <div className={cn("text-base font-black uppercase tracking-[0.2em]", style.text)} style={{ fontFamily: "var(--font-cinzel), serif" }}>
+              {league.name}
+            </div>
+            <div className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              {onlineGames} {onlineGames === 1 ? "partida online" : "partidas online"}
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xl font-black tabular-nums text-zinc-100">{points}</div>
+          <div className="text-[7px] font-bold uppercase tracking-[0.25em] text-zinc-500">puntos</div>
+        </div>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/60">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-amber-600 via-amber-400 to-amber-200 transition-all duration-700"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-1 text-right text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+        {next ? `${next.min - points} para ${next.name}` : "Liga máxima alcanzada"}
+      </div>
+      <p className="mt-1 text-[8px] uppercase tracking-[0.15em] text-zinc-600">
+        Ganar +25 · Empatar +5 · Perder −10 (solo PvP online)
+      </p>
     </div>
   );
 }

@@ -241,6 +241,40 @@
   animation: fx-shake-board 0.36s ease-in-out;
 }
 
+/* ── FX: CHOQUE DE CARRILES (al cerrar medio-turno las filas se embisten) ──
+   Sacudida vertical corta del tablero + chispas en el separador. */
+@keyframes fx-clash-board {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(2px) scale(0.997); }
+  60% { transform: translateY(-1px); }
+}
+.fx-clash-board {
+  animation: fx-clash-board 0.42s ease-in-out;
+}
+
+/* Chispa del choque: destello radial que crece y muere en el separador. */
+.clash-spark {
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(254, 243, 199, 0.95) 0%,
+    rgba(251, 191, 36, 0.75) 35%,
+    rgba(244, 63, 94, 0.35) 65%,
+    transparent 100%
+  );
+  filter: blur(0.4px);
+  animation: clash-spark-burst 0.7s ease-out forwards;
+}
+@keyframes clash-spark-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+  60% { opacity: 0.75; transform: translate(-50%, -50%) scale(1.7); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+}
+
 /* ============================================================
    MARCOS DE CARTA TCG — foil holográfico + grano de pergamino
    ============================================================ */
@@ -301,4 +335,6 @@
   .foil-holo-full { animation: none; }
   .slot-pulse { animation: none; }
   .fx-shake-board { animation: none; }
+  .fx-clash-board { animation: none; }
+  .clash-spark { animation: none; opacity: 0; }
 }

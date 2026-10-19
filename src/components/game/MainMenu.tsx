@@ -1,21 +1,60 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { sfx } from "@/lib/sound";
 import { useState, useEffect } from "react";
-import { User, Settings as SettingsIcon, Wifi } from "lucide-react";
+import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 import { CollectionMenuButton } from "./CollectionScreen";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
+import { useMissionStore, type Mission } from "@/store/missionStore";
+
+/** Toast global de misión completada (reutilizado también dentro de partidas). */
+export function MissionToast() {
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    const unsub = useMissionStore.subscribe((s) => {
+      if (s.lastCompleted) {
+        setText(s.lastCompleted.title);
+        window.setTimeout(() => setText(null), 4200);
+      }
+    });
+    return unsub;
+  }, []);
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-14 z-[60] flex justify-center">
+      <AnimatePresence>
+        {text && (
+          <motion.div
+            key={text}
+            initial={{ opacity: 0, y: -14, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ type: "spring", stiffness: 300, damping: 24 }}
+            className="absolute flex items-center gap-2 rounded-full border border-amber-400/70 bg-gradient-to-b from-amber-950/95 to-black/95 px-4 py-1.5 shadow-2xl shadow-black/60"
+          >
+            <Gift className="h-3.5 w-3.5 text-amber-400" />
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-200">
+              ¡Misión completada! +1 carta · {text}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export function MainMenu() {
   const setView = useGameStore((s) => s.setView);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [misionesOpen, setMisionesOpen] = useState(false);
   // Avatar elegido en Perfil → visible en el propio botón (si no, icono User).
   const [avatarCardId, setAvatarCardId] = useState<string | null>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
+  const missions = useMissionStore((s) => s.missions);
+  const ensureToday = useMissionStore((s) => s.ensureToday);
 
   useEffect(() => {
     // El menú se remonta en cada cambio de vista → se relee el perfil fresco.
@@ -27,9 +66,10 @@ export function MainMenu() {
       const brief = loadStoredProfileBrief();
       setAvatarCardId(brief?.avatarCardId ?? null);
       setAvatarBroken(false);
+      ensureToday();
     });
     return () => { alive = false; };
-  }, []);
+  }, [ensureToday]);
 
   const click = () => {
     // Unified sound system (src/lib/sound.ts) — replaces the old
@@ -59,6 +99,10 @@ export function MainMenu() {
         className="absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
       />
+      {/* Resplandores ambientales (G2): brillos suaves que dan profundidad
+          sin tapar el arte — pulso lento, muy tenues. */}
+      <div className="pointer-events-none absolute -left-16 -top-16 z-0 h-56 w-56 animate-pulse rounded-full bg-amber-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -right-16 z-0 h-64 w-64 animate-pulse rounded-full bg-rose-600/10 blur-3xl [animation-duration:3.4s]" />
       {/* Bottom darkening overlay for button legibility */}
       <div className="absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-b from-transparent via-black/55 to-black/95" />
 
@@ -152,6 +196,14 @@ export function MainMenu() {
         className="pointer-events-none absolute inset-x-0 bottom-3.5 z-20 flex justify-center gap-2 px-6"
       >
         <button
+          onClick={() => { click(); setMisionesOpen(true); }}
+          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-gradient-to-b from-amber-900/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-amber-200 transition-colors hover:border-amber-300/70"
+          style={{ fontFamily: "var(--font-cinzel), serif" }}
+        >
+          <ScrollText className="h-3 w-3" />
+          Misiones {missions.filter((m) => m.done).length}/{missions.length}
+        </button>
+        <button
           onClick={goToClassSelect}
           className="pointer-events-auto rounded-full border border-zinc-600/60 bg-zinc-950/80 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 transition-colors hover:border-zinc-400/70 hover:text-zinc-200"
           style={{ fontFamily: "var(--font-cinzel), serif" }}
@@ -175,12 +227,112 @@ export function MainMenu() {
         className="absolute inset-x-0 top-4 z-20 flex justify-center"
       >
         <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-amber-700/70">
-          v2.3 · 72 cartas · colección en todos los modos
+          v2.4 · misiones diarias · jefes · liga PvP
         </p>
       </motion.div>
 
+      {/* Toast de misión completada */}
+      <MissionToast />
+
+      {/* Panel de MISIONES DIARIAS */}
+      <AnimatePresence>
+        {misionesOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+            onClick={() => setMisionesOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 240, damping: 22 }}
+              className="w-full max-w-sm rounded-2xl border-2 border-amber-500/50 bg-gradient-to-b from-zinc-950 to-black p-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ScrollText className="h-4 w-4 text-amber-400" />
+                  <h2
+                    className="text-sm font-black uppercase tracking-[0.25em] text-amber-300"
+                    style={{ fontFamily: "var(--font-cinzel), serif" }}
+                  >
+                    Misiones de hoy
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setMisionesOpen(false)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 text-zinc-400 hover:text-zinc-100"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="mt-1 text-[8px] uppercase tracking-[0.2em] text-zinc-500">
+                Se renuevan cada día · cada una paga +1 carta
+              </p>
+              <div className="mt-3 space-y-2">
+                {missions.map((m) => (
+                  <MissionRow key={m.id} m={m} />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Settings modal overlay */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Fila de una misión diaria: título, barra de progreso y estado.
+// ──────────────────────────────────────────────────────────────
+function MissionRow({ m }: { m: Mission }) {
+  const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
+  return (
+    <div
+      className={
+        "rounded-lg border px-2.5 py-2 " +
+        (m.done
+          ? "border-emerald-500/50 bg-emerald-950/30"
+          : "border-zinc-800 bg-zinc-900/50")
+      }
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={
+            "text-[10px] font-bold leading-tight " +
+            (m.done ? "text-emerald-300" : "text-zinc-200")
+          }
+        >
+          {m.title}
+        </span>
+        {m.done ? (
+          <span className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-900/60 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-widest text-emerald-300">
+            <Gift className="h-2.5 w-2.5" /> +1 carta
+          </span>
+        ) : (
+          <span className="shrink-0 text-[9px] font-black tabular-nums text-amber-300">
+            {m.progress}/{m.target}
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-black/60">
+        <div
+          className={
+            "h-full rounded-full transition-all duration-500 " +
+            (m.done
+              ? "bg-gradient-to-r from-emerald-600 to-emerald-400"
+              : "bg-gradient-to-r from-amber-700 to-amber-400")
+          }
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }

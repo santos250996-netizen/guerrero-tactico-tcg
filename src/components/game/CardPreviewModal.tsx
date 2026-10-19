@@ -105,8 +105,8 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             modifiers.length > 0 ? "h-[34rem]" : "h-[28rem]"
           )}
         >
-          {/* Marco TCG completo: bisel + filigranas + foil + name plate */}
-          <CardShell rarity={card.rarity} name={card.name} nameSize="lg" className="h-full w-full">
+          {/* Marco TCG completo: bisel + filigranas + foil + name plate + pips de tier */}
+          <CardShell rarity={card.rarity} name={card.name} nameSize="lg" tierPips className="h-full w-full">
             {/* Full-bleed art */}
             <img
               src={`/cards/${card.id}.png`}

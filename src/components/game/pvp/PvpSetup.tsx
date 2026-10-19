@@ -11,6 +11,7 @@ import { ArrowLeft, Swords, Wand2, EyeOff, Radio, LogIn, Loader2, User, Wifi } f
 import type { LucideIcon } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { usePvpStore } from "@/store/pvpStore";
+import { useStatsStore, leagueOf, nextLeagueOf } from "@/store/statsStore";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
 import { LOCAL_PVP_PORT } from "@/lib/pvp/local-server";
@@ -87,7 +88,10 @@ export function PvpSetup() {
 
         {/* Nombre — viene del Perfil (fuente única de verdad) */}
         <div className="mt-3">
-          <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">Tu nombre</label>
+          <label className="mb-1 flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+            <span>Tu nombre</span>
+            <LeagueChip className="shrink-0" />
+          </label>
           {profileName ? (
             <div className="flex items-center gap-2 rounded-lg border border-amber-700/40 bg-zinc-950/80 px-3 py-2">
               <User className="h-3.5 w-3.5 shrink-0 text-amber-300" />
@@ -198,5 +202,34 @@ export function PvpSetup() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// LeagueChip — tu liga PvP actual junto al nombre (solo online da puntos)
+// ──────────────────────────────────────────────────────────────
+function LeagueChip({ className }: { className?: string }) {
+  const points = useStatsStore((s) => s.rankPoints);
+  const league = leagueOf(points);
+  const next = nextLeagueOf(points);
+  const color =
+    league.id === "leyenda"
+      ? "border-fuchsia-400/60 text-fuchsia-300"
+      : league.id === "oro"
+        ? "border-amber-400/60 text-amber-300"
+        : league.id === "plata"
+          ? "border-zinc-300/60 text-zinc-200"
+          : "border-amber-700/60 text-amber-500";
+  return (
+    <span
+      title={next ? `${points} pts · ${next.min - points} para ${next.name}` : `${points} pts · liga máxima`}
+      className={cn(
+        "rounded-full border bg-black/50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest",
+        color,
+        className
+      )}
+    >
+      {league.name} {points}
+    </span>
   );
 }

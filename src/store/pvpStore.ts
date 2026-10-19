@@ -14,16 +14,20 @@ import {
   applyPvpAction,
   buildClientView,
   createPvpState,
+  enableBossMode,
   joinBotPvpState,
   startPvpMatch,
 } from "@/lib/game/pvp";
 import { LANE_META, type CardDef, type GameClass } from "@/lib/game/types";
 import { classDecksOf } from "@/lib/game/cards";
+import { materializeCard } from "@/lib/game/balance";
 import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
 import { useCollectionStore, type CardReward } from "@/store/collectionStore";
+import { useStatsStore, type MatchResult } from "@/store/statsStore";
+import { useMissionStore } from "@/store/missionStore";
 import {
   LOCAL_PVP_PORT,
   handleLocalPvpApi,
@@ -39,6 +43,13 @@ export const HISTORIA_BOTS: Record<GameClass, string> = {
   guerrero: "Thralgrim, Señor de la Guerra",
   mago: "Selene, Tejedora de Escarcha",
   asesino: "Umbris, Cuchilla en las Sombras",
+};
+
+/** JEFES del modo historia: mazo materializado a ÉPICO + jugada gratis. */
+export const HISTORIA_BOSSES: Record<GameClass, string> = {
+  guerrero: "Korgath, Coloso de Hierro",
+  mago: "Nyx, Reina de Escarcha",
+  asesino: "Vharos, Sombra Primigenia",
 };
 
 export interface PvpFloatingNumber {
@@ -73,6 +84,10 @@ interface PvpStoreState {
   localState: PvpState | null;
   botClass: GameClass | null;
   pendingRewards: CardReward[] | null;
+  /** MODO JEFE activo en esta partida de historia. */
+  bossActive: boolean;
+  /** seq de la última acción "pass" — dispara el choque de carriles en UI. */
+  clashSeq: number;
 
   // Formulario de setup
   playerName: string;
@@ -122,8 +137,9 @@ interface PvpStoreState {
   openSetup: () => void;
   exitToMenu: () => void;
 
-  /** Modo historia: partida local contra un bot ALEATORIO (cualquier clase, cualquiera de sus 2 mazos). */
-  startHistoria: (opts: { playerClass: GameClass; playerName?: string }) => void;
+  /** Modo historia: partida local contra un bot ALEATORIO (cualquier clase,
+   *  cualquiera de sus 2 mazos) — o contra un JEFE (boss: true). */
+  startHistoria: (opts: { playerClass: GameClass; playerName?: string; boss?: boolean }) => void;
 
   createRoom: () => Promise<void>;
   joinRoom: () => Promise<void>;
@@ -147,6 +163,8 @@ let rivalPlayId = 0;
 let actionInFlight = false;
 let botTimer: ReturnType<typeof setTimeout> | null = null;
 let botRunToken = 0;
+/** Fin de partida ONLINE ya contabilizado (stats/rango/misiones, 1 vez por sala). */
+let onlineEndNoted = false;
 
 function cancelBotTimer(): void {
   botRunToken++;
@@ -189,9 +207,12 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     let legendaryBurst = st.legendaryBurst;
     let rivalPlay: RivalPlayAnnounce | null = null;
     let highlightUid: string | null = null;
+    let clashSeq = st.clashSeq;
     try {
       const la = view.lastAction;
       if (la && la.seq > prevSeq) {
+        // Cierre de medio-turno → CHOQUE DE CARRILES (la UI embiste las filas)
+        if (la.type === "pass" && view.phase === "playing") clashSeq = la.seq;
         for (const m of la.mutations) {
           if (m.powerDelta === 0) continue;
           newFloats.push({ id: `pf-${++floatId}`, uid: m.uid, value: m.powerDelta });
@@ -275,8 +296,32 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       legendaryBurst,
       rivalPlay,
       highlightUid,
+      clashSeq,
       connectionLost: false,
     });
+
+    // ══ Fin de partida ONLINE: contabiliza stats + liga + misiones UNA vez
+    //    por sala (guard onlineEndNoted; los polls repetirían este bloque).
+    if (view.phase === "ended" && st.mode === "online" && !onlineEndNoted) {
+      const f = view.finalResult;
+      if (f) {
+        onlineEndNoted = true;
+        try {
+          const cls = get().gameClass;
+          const result: MatchResult =
+            f.result === "WIN" || f.result === "LOSS" ? f.result : "DRAW";
+          useStatsStore.getState().registerMatch(result, { cls, online: true });
+          const ms = useMissionStore.getState();
+          if (result === "WIN") ms.progress("win-games");
+          if (result === "WIN") ms.progress("win-class", 1, cls);
+          ms.progress("play-online");
+          const laneWins = f.laneOutcomes.filter((o) => o.winner === "player").length;
+          if (laneWins > 0) ms.progress("win-lanes", laneWins);
+        } catch (err) {
+          console.error("[pvp] fin online: stats/misiones descartadas:", err);
+        }
+      }
+    }
 
     // Auto-limpieza del anuncio del rival y del anillo de la carta jugada
     if (rivalPlay) {
@@ -414,6 +459,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         applyPvpAction(local, "a", { type: "play", uid: action.uid, lane: action.lane as never });
       }
       set({ invalidPlayMsg: null, selectedCardUid: null });
+      if (action.type === "play") useMissionStore.getState().progress("play-cards");
       applyView(buildClientView(local, "a"));
       checkHistoriaEnd();
       scheduleBotIfNeeded();
@@ -447,10 +493,12 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     if (local.phase !== "playing" || local.activeSide !== "b") return;
 
     const plan = planBotTurn(local);
-    for (const action of plan.actions) {
+    // MODO JEFE: en sus turnos PARES (2, 4, 6) el jefe juega su 1ª carta GRATIS
+    const bossFreeCard = local.bossMode && local.turn % 2 === 0;
+    for (const [i, action] of plan.actions.entries()) {
       if (token !== botRunToken) return;
       try {
-        applyPvpAction(local, "b", action);
+        applyPvpAction(local, "b", action, Date.now(), { free: bossFreeCard && i === 0 });
       } catch {
         break; // plan desincronizado — el pase de abajo cierra el turno igual
       }
@@ -473,7 +521,9 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
   /** Al terminar la partida: victoria → 2 cartas, derrota/empate → 1 carta.
    *  (Regla del jugador: perder un combate paga 1 carta, ganar 2 — así el
-   *  farming sigue vivo aunque el bot te gane.) */
+   *  farming sigue vivo aunque el bot te gane.)
+   *  MODO JEFE: la victoria paga 1 LEGENDARIA garantizada + 1 carta.
+   *  Además contabiliza stats por clase + rachas y misiones diarias. */
   function checkHistoriaEnd(): void {
     const st = get();
     const local = st.localState;
@@ -481,14 +531,34 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     if (st.pendingRewards) return;
     const final = local.finalResultA;
     const won = final ? final.playerWins > final.enemyWins : false;
+    const lost = final ? final.playerWins < final.enemyWins : false;
+    const result: MatchResult = won ? "WIN" : lost ? "LOSS" : "DRAW";
     const col = useCollectionStore.getState();
     if (won) {
       col.registerWin();
-      const rewards = col.addRewards(2);
+      const rewards = st.bossActive ? col.addBossRewards() : col.addRewards(2);
       set({ pendingRewards: rewards });
     } else {
       const rewards = col.addRewards(1);
       set({ pendingRewards: rewards });
+    }
+    // Stats + misiones (nunca tumban el fin de partida)
+    try {
+      useStatsStore.getState().registerMatch(result, {
+        cls: st.gameClass,
+        online: false,
+        boss: st.bossActive,
+      });
+      const ms = useMissionStore.getState();
+      if (won) ms.progress("win-games");
+      if (won) ms.progress("win-class", 1, st.gameClass);
+      if (won && st.bossActive) ms.progress("beat-boss");
+      if (final) {
+        const laneWins = final.laneOutcomes.filter((o) => o.winner === "player").length;
+        if (laneWins > 0) ms.progress("win-lanes", laneWins);
+      }
+    } catch {
+      // noop
     }
   }
 
@@ -504,6 +574,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     localState: null,
     botClass: null,
     pendingRewards: null,
+    bossActive: false,
+    clashSeq: 0,
     playerName: "",
     gameClass: "guerrero",
     joinCode: "",
@@ -547,6 +619,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     openSetup: () => {
       get().stopPolling();
       cancelBotTimer();
+      onlineEndNoted = false;
       if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
@@ -574,6 +647,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     exitToMenu: () => {
       get().stopPolling();
       cancelBotTimer();
+      onlineEndNoted = false;
       if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
@@ -597,6 +671,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         remoteBase: null,
         rivalPlay: null,
         highlightUid: null,
+        bossActive: false,
       });
       // vuelve al menú principal (gameStore)
       import("@/store/gameStore").then(({ useGameStore }) => {
@@ -604,10 +679,11 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       });
     },
 
-    startHistoria: ({ playerClass, playerName }) => {
+    startHistoria: ({ playerClass, playerName, boss = false }) => {
       cancelBotTimer();
       get().stopPolling();
       if (get().hostingLocal) void stopLocalPvpServer();
+      onlineEndNoted = false;
 
       // Colección: entrega el mazo inicial (neutrales, 1 vez) y arma el mazo
       // de BATALLA con lo editado por el jugador (12 propias, materializadas
@@ -621,16 +697,22 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         gameClass: playerClass,
         deck,
       });
-      // Bot ALEATORIO: cualquier clase con cualquiera de sus 2 mazos
-      // (sorteo uniforme: 3 clases × 2 mazos = 6 rivales posibles).
+      // Bot/jefe ALEATORIO: cualquier clase. Normal: cualquiera de sus 2 mazos
+      // (6 rivales posibles). JEFE: mazo propio materializado a ÉPICO (+6 poder
+      // por carta) — y enableBossMode activa jugada gratis + 3 bonos.
       const BOT_CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
       const botClass = BOT_CLASSES[Math.floor(Math.random() * BOT_CLASSES.length)];
       const botDecks = classDecksOf(botClass);
+      const botName = boss ? HISTORIA_BOSSES[botClass] : HISTORIA_BOTS[botClass];
+      const botDeck = boss
+        ? botDecks[Math.floor(Math.random() * botDecks.length)].map((c) => materializeCard(c, "epic"))
+        : botDecks[Math.floor(Math.random() * botDecks.length)];
       joinBotPvpState(state, {
-        name: HISTORIA_BOTS[botClass],
+        name: botName,
         gameClass: botClass,
-        deck: botDecks[Math.floor(Math.random() * botDecks.length)],
+        deck: botDeck,
       });
+      if (boss) enableBossMode(state);
 
       set({
         mode: "historia",
@@ -646,6 +728,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         invalidPlayMsg: null,
         connectionLost: false,
         error: null,
+        gameClass: playerClass,
+        bossActive: boss,
         rivalPlay: null,
         highlightUid: null,
       });
@@ -673,6 +757,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
       // ── APK nativa: servidor PvP DENTRO de la app (PvP offline por hotspot) ──
       if (Capacitor.isNativePlatform()) {
+        onlineEndNoted = false;
         let info;
         try {
           info = await startLocalPvpServer();
@@ -713,6 +798,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       }
 
       // ── Web/preview: backend Next en el mismo origen ──
+      onlineEndNoted = false;
       const { ok, data } = await apiJson<{ code: string; token: string; view: PvpClientView }>(
         "POST",
         "/api/pvp/rooms",
@@ -753,6 +839,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         return;
       }
       set({ busy: true, error: null });
+      onlineEndNoted = false;
       const battleDeck = useCollectionStore.getState().battleDeckFor(gameClass);
       const payload = {
         name: playerName || "Reto",
@@ -841,6 +928,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       );
       if (ok && data?.view) {
         set({ invalidPlayMsg: null, selectedCardUid: null });
+        useMissionStore.getState().progress("play-cards");
         applyView(data.view);
       } else {
         const msg = (data as { error?: string } | null)?.error ?? "No se pudo jugar la carta.";
