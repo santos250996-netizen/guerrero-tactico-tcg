@@ -681,3 +681,23 @@ Stage Summary:
 - 0 PNG en la app: catálogo 84 WebP vivos + menú WebP; arte huérfano imposible de vuelta (el conversor limpia en cada regeneración)
 - Hidratación limpia verificada en navegador: fin del warning "server rendered text didn't match" del pill de misiones
 - Descubrimiento clave del usuario: el conteo "211 PNGs" destapó 127 artes muertas — la auditoría de catálogo de la tanda 29 no borró sus imágenes
+
+---
+Task ID: 32
+Agent: Z.ai main agent
+Task: "organiza la ui del menu esta todo montado uno arriba de lo otro, al igual q en la ui de combate... las card en los carriles... queda montado"
+
+Work Log:
+- REPRODUCCIÓN PRIMERO: screenshots reales a 390×844 y 360×640 antes de tocar nada
+- MENÚ (causa): los 3 bloques inferiores usaban offsets absolutos mágicos bottom-24/70/9 anclados POR SEPARADO → con labels que envolvían (PVP LOCAL partía en 2 líneas a 360px) los bloques se pisaban. FIX: un solo stack flex-col items-center gap-1.5 bottom-7 + whitespace-nowrap en los 3 pills + Historia reducido a 21px/tracking 0.32em/px-8 (entra en 360px) + PVP/Misiones a 9px tracking menor
+- TABLERO (causa): BoardCardMini era aspect-[3/4] w-full DENTRO del grid 2×2 del carril — los slots vacíos llenan su celda y no delatan el problema, pero la CARTA deriva su altura del ancho: a 360×640 medido cardH=64 vs rowH=59 (+5px de desborde; en móviles del usuario con insets edge-to-edge forzados el desborde es mayor) → fila 1 montada sobre fila 2. FIX: max-h-full + self-start — la carta se clampa a la altura real de su fila (38≤39 verificado), solapamiento imposible en cualquier viewport. Los slots vacíos ya eran cell-fill → todo consistente
+- BUG DE E2E CAZADO (no del juego): los PointerEvent sintéticos NO disparan los handlers de la mano (onPointerDown/Up con setPointerCapture) → scripts/e2e-drag.sh nuevo con mouse NATIVO de Playwright (drag mano→carril reutilizable). Además: el banner "TE TOCA" es uppercase por CSS (textContent = "Te toca") y los bonos restrictivos de carril ("Solo coste exacto N") rechazan jugadas con toast — la cadena drag→sendPlay→validación del motor funciona de verdad (se vio el toast "Sin energía suficiente" y "el bono exige coste exacto")
+- Descartadas por evidencia: 100dvh sin fallback y aspect-[3/4] vienen del commit inicial (git log -S) — no eran regresiones recientes
+- Verificación: tsc 0 · lint 0 · 11 suites verdes · build estático RC=0 (out/ 6.7MB) · E2E: menú 360×640 limpio (fila única, gaps uniformes), partida real vs bot con drags nativos, carta 38px en fila 39px, tablero con slots alineados y cero solapes
+- Commit 706ae0a push a main (CI genera APK)
+
+Stage Summary:
+- Menú: bloques inferiores en stack con gap real — nada se pisa en ninguna resolución ni con labels largos
+- Tablero: cartas clamped a su fila del grid 2×2 — el "montado" de carriles es geométricamente imposible ahora
+- scripts/e2e-drag.sh queda para futuras tandas (drag nativo de mano a carril)
+- Lección: reproducir con screenshots ANTES de tocar código ahorró un fix a ciegas equivocado
