@@ -17,7 +17,7 @@ import {
   joinBotPvpState,
   startPvpMatch,
 } from "@/lib/game/pvp";
-import type { CardDef, GameClass } from "@/lib/game/types";
+import { LANE_META, type CardDef, type GameClass } from "@/lib/game/types";
 import { classDecksOf } from "@/lib/game/cards";
 import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
@@ -45,6 +45,18 @@ export interface PvpFloatingNumber {
   id: string;
   uid: string;
   value: number;
+}
+
+/** Anuncio visual de la jugada del rival — para que su turno se VEA,
+ *  no solo el cartel "TURNO DEL RIVAL". */
+export interface RivalPlayAnnounce {
+  id: number;
+  name: string;
+  defId: string;
+  rarity: string;
+  cost: number;
+  power: number;
+  laneTitle: string;
 }
 
 const POLL_MS = 1200;
@@ -93,6 +105,9 @@ interface PvpStoreState {
   legendaryBurst: boolean;
   invalidPlayMsg: string | null;
   previewCard: CardDef | null;
+  rivalPlay: RivalPlayAnnounce | null;
+  /** uid de la carta recién jugada por el rival (anillo ámbar en el tablero). */
+  highlightUid: string | null;
 
   // Acciones
   selectCard: (uid: string | null) => void;
@@ -127,6 +142,7 @@ interface PvpStoreState {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let floatId = 0;
+let rivalPlayId = 0;
 /** Guard anti doble-disparo: el drop del drag dispara onPlayCard + click del carril. */
 let actionInFlight = false;
 let botTimer: ReturnType<typeof setTimeout> | null = null;
@@ -171,6 +187,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const newFloats: PvpFloatingNumber[] = [];
     let turnBanner = st.turnBanner;
     let legendaryBurst = st.legendaryBurst;
+    let rivalPlay: RivalPlayAnnounce | null = null;
+    let highlightUid: string | null = null;
     try {
       const la = view.lastAction;
       if (la && la.seq > prevSeq) {
@@ -191,6 +209,30 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         } else if (la.bannerFor && view.phase === "playing") {
           turnBanner = { text: "TURNO DEL RIVAL", mine: false };
           if (useSettings.getState().soundOn) sfx.enemyTurn();
+        }
+
+        // Jugada del RIVAL → anuncio con la carta (nombre/arte/coste/poder)
+        // + anillo ámbar sobre la carta recién entrada al carril. Sin esto el
+        // turno de la IA era invisible: solo el cartel y el tablero cambiaba.
+        if (la.type === "play" && la.side !== mine) {
+          let played: { defId: string; name: string; cost: number; currentPower: number; rarity: string } | undefined;
+          for (const laneId of view.you.lanes) {
+            const found = view.board[laneId]?.enemy.find((c) => c.uid === la.playedUid);
+            if (found) {
+              played = found;
+              break;
+            }
+          }
+          rivalPlay = {
+            id: ++rivalPlayId,
+            name: played?.name ?? la.cardName ?? "una carta",
+            defId: played?.defId ?? "",
+            rarity: played?.rarity ?? la.playedRarity ?? "common",
+            cost: played?.cost ?? 0,
+            power: played?.currentPower ?? 0,
+            laneTitle: la.lane ? (LANE_META[la.lane]?.title ?? "") : "",
+          };
+          highlightUid = la.playedUid ?? null;
         }
       }
 
@@ -231,8 +273,32 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       screen,
       turnBanner,
       legendaryBurst,
+      rivalPlay,
+      highlightUid,
       connectionLost: false,
     });
+
+    // Auto-limpieza del anuncio del rival y del anillo de la carta jugada
+    if (rivalPlay) {
+      const rid = rivalPlay.id;
+      setTimeout(() => {
+        try {
+          const cur = get().rivalPlay;
+          if (cur && cur.id === rid) set({ rivalPlay: null });
+        } catch {
+          // noop
+        }
+      }, 1900);
+    }
+    if (highlightUid) {
+      setTimeout(() => {
+        try {
+          if (get().highlightUid === highlightUid) set({ highlightUid: null });
+        } catch {
+          // noop
+        }
+      }, 1500);
+    }
 
     // ====== VFX: eventos FX de la acción (DESPUÉS del set: los carriles ya
     // están en el DOM). Mapeo: lado absoluto a/b → player/enemy propio y
@@ -359,7 +425,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     }
   }
 
-  /** Si le toca al bot, programa su actuación con pausas narrativas. */
+  /** Si le toca al bot, programa su actuación con pausas narrativas.
+   *  1900ms: el cartel "TURNO DEL RIVAL" vive ~1600ms — el bot NO debe jugar
+   *  detrás del cartel (antes empezaba a los 1000ms y su primera jugada se
+   *  perdía detrás del overlay, el turno parecía invisible). */
   function scheduleBotIfNeeded(): void {
     const st = get();
     const local = st.localState;
@@ -368,7 +437,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const token = ++botRunToken;
     botTimer = setTimeout(() => {
       void runBotTurn(token);
-    }, 1000);
+    }, 1900);
   }
 
   async function runBotTurn(token: number): Promise<void> {
@@ -388,7 +457,9 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       applyView(buildClientView(local, "a"));
       checkHistoriaEnd();
       if (local.phase !== "playing") return;
-      await new Promise((r) => setTimeout(r, 850));
+      // Cadencia legible: cada jugada del bot deja ver su anuncio
+      // (tarjeta "RIVAL JUGÓ") + el anillo ámbar antes de la siguiente.
+      await new Promise((r) => setTimeout(r, 1100));
     }
     if (token !== botRunToken || local.phase !== "playing") return;
     try {
@@ -456,6 +527,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     invalidPlayMsg: null,
     passing: false,
     previewCard: null,
+    rivalPlay: null,
+    highlightUid: null,
 
     selectCard: (uid) => {
       const cur = get().selectedCardUid;
@@ -522,6 +595,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         localPort: null,
         localIps: [],
         remoteBase: null,
+        rivalPlay: null,
+        highlightUid: null,
       });
       // vuelve al menú principal (gameStore)
       import("@/store/gameStore").then(({ useGameStore }) => {
@@ -571,6 +646,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         invalidPlayMsg: null,
         connectionLost: false,
         error: null,
+        rivalPlay: null,
+        highlightUid: null,
       });
       // La ruta es propiedad del gameStore: entra a la vista PvP (PvpGame)
       import("@/store/gameStore").then(({ useGameStore }) => {

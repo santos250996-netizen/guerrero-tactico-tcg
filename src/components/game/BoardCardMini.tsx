@@ -12,9 +12,11 @@ interface BoardCardMiniProps {
   card: BoardCard;
   side: "player" | "enemy";
   onPreview?: (card: BoardCard) => void;
+  /** Recién jugada por el RIVAL: anillo ámbar pulsante — su turno se ve. */
+  justPlayed?: boolean;
 }
 
-function BoardCardMiniImpl({ card, side, onPreview }: BoardCardMiniProps) {
+function BoardCardMiniImpl({ card, side, onPreview, justPlayed }: BoardCardMiniProps) {
   const isBuffed = card.currentPower > card.basePower;
   const isDebuffed = card.currentPower < card.basePower;
 
@@ -54,6 +56,17 @@ function BoardCardMiniImpl({ card, side, onPreview }: BoardCardMiniProps) {
         }
       }}
     >
+      {/* Anillo "recién jugada por el rival" — fuera del CardShell para que
+          el borde negativo no lo recorte ningún overflow-hidden interno. */}
+      {justPlayed && (
+        <motion.div
+          initial={{ opacity: 0, scale: 1.3 }}
+          animate={{ opacity: [0, 1, 0.55, 1, 0.55, 1], scale: 1 }}
+          transition={{ duration: 1.4, ease: "easeOut" }}
+          className="pointer-events-none absolute -inset-[3px] z-30 rounded-md border-2 border-amber-300"
+          style={{ boxShadow: "0 0 14px rgba(252,211,77,0.9), inset 0 0 8px rgba(252,211,77,0.45)" }}
+        />
+      )}
       {/* Marco TCG por rareza (simplificado: sin name plate en mini) */}
       <CardShell rarity={card.rarity} corners cornerSize={9} className="h-full w-full">
         {/* Full square art */}

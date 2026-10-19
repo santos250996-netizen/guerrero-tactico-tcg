@@ -40,6 +40,7 @@ export function PvpLane({ position, side }: PvpLaneProps) {
   const view = usePvpStore((s) => s.view);
   const selectedCardUid = usePvpStore((s) => s.selectedCardUid);
   const sendPlay = usePvpStore((s) => s.sendPlay);
+  const highlightUid = usePvpStore((s) => s.highlightUid);
 
   if (!view) return null;
 
@@ -177,6 +178,7 @@ export function PvpLane({ position, side }: PvpLaneProps) {
                 key={card.uid}
                 card={card}
                 side={side === "me" ? "player" : "enemy"}
+                justPlayed={card.uid === highlightUid}
                 onPreview={(bc) =>
                   usePvpStore.getState().setPreviewCard({
                     id: bc.defId,

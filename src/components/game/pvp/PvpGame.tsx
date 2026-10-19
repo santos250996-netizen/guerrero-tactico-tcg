@@ -47,6 +47,7 @@ export function PvpGame() {
   const floatingNumbers = usePvpStore((s) => s.floatingNumbers);
   const turnBanner = usePvpStore((s) => s.turnBanner);
   const legendaryBurst = usePvpStore((s) => s.legendaryBurst);
+  const rivalPlay = usePvpStore((s) => s.rivalPlay);
   const connectionLost = usePvpStore((s) => s.connectionLost);
   const previewCard = usePvpStore((s) => s.previewCard);
   const setPreviewCard = usePvpStore((s) => s.setPreviewCard);
@@ -167,11 +168,18 @@ export function PvpGame() {
             ))}
           </div>
 
-          {/* Separador VS */}
+          {/* Separador VS — cuando el rival está jugando, el indicador late:
+              el turno de la IA se VE, no es un hueco silencioso. */}
           <div className="flex items-center justify-center gap-2 py-0.5">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
-            <span className="text-[7px] font-black uppercase tracking-[0.4em] text-zinc-600" style={{ fontFamily: "var(--font-cinzel), serif" }}>
-              Turno {view.turn} · {view.yourTurn ? "Te toca" : "Rival"}
+            <span
+              className={cn(
+                "text-[7px] font-black uppercase tracking-[0.4em]",
+                view.yourTurn ? "text-zinc-600" : "animate-pulse text-rose-300",
+              )}
+              style={{ fontFamily: "var(--font-cinzel), serif" }}
+            >
+              Turno {view.turn} · {view.yourTurn ? "Te toca" : view.rival.name + " juega…"}
             </span>
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
           </div>
@@ -193,6 +201,7 @@ export function PvpGame() {
 
       {/* ══ Overlays ══ */}
       <PvpTurnBanner banner={turnBanner} />
+      <RivalPlayAnnouncer announce={rivalPlay} rivalName={view.rival.name} />
       <PvpFloatingNumbersLayer floats={floatingNumbers} />
       <FxLayer />
       <CardJuiceLayer />
@@ -435,6 +444,69 @@ function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | n
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Anuncio de la jugada del rival: tarjeta compacta con el ARTE de la carta
+// jugada + nombre + coste/poder + carril. Hace el turno de la IA legible —
+// antes solo aparecía el cartel "TURNO DEL RIVAL" y las cartas aparecían
+// en el tablero sin que se supiera qué había jugado.
+// ──────────────────────────────────────────────────────────────
+function RivalPlayAnnouncer({
+  announce,
+  rivalName,
+}: {
+  announce: { id: number; name: string; defId: string; cost: number; power: number; laneTitle: string; rarity: string } | null;
+  rivalName: string;
+}) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-11 z-40 flex justify-center">
+      <AnimatePresence>
+        {announce && (
+          <motion.div
+            key={announce.id}
+            initial={{ opacity: 0, y: -16, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 320, damping: 24 }}
+            style={{ x: "-50%" }}
+            className="absolute flex items-center gap-2 rounded-xl border-2 border-rose-600/70 bg-gradient-to-b from-rose-950/95 to-black/95 py-1.5 pl-1.5 pr-3 shadow-2xl shadow-black/60"
+            data-testid="rival-play-announce"
+          >
+            {announce.defId ? (
+              <img
+                src={`/cards/${announce.defId}.png`}
+                alt=""
+                className="h-11 w-8 shrink-0 rounded-md border border-rose-400/50 object-cover"
+                draggable={false}
+              />
+            ) : (
+              <ScrollText className="h-6 w-6 shrink-0 text-rose-400" />
+            )}
+            <div className="leading-tight">
+              <div className="flex items-center gap-1 text-[7px] font-black uppercase tracking-[0.22em] text-rose-400">
+                <ScrollText className="h-2 w-2" />
+                {rivalName} jugó{announce.laneTitle ? ` · ${announce.laneTitle}` : ""}
+              </div>
+              <div className="max-w-[180px] truncate text-[12px] font-black text-rose-50">
+                {announce.name}
+              </div>
+              <div className="flex items-center gap-2 text-[8px] font-bold tabular-nums text-zinc-300">
+                <span className="flex items-center gap-0.5">
+                  <Zap className="h-2.5 w-2.5 text-sky-400" />
+                  {announce.cost}
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <Swords className="h-2.5 w-2.5 text-rose-400" />
+                  {announce.power}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
