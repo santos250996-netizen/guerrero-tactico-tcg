@@ -24,6 +24,7 @@ import { materializeCard } from "@/lib/game/balance";
 import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
+import { haptic } from "@/lib/haptics";
 import { useSettings } from "@/lib/settings";
 import { useCollectionStore, type CardReward } from "./collectionStore";
 import { useStatsStore, type MatchResult } from "./statsStore";
@@ -220,8 +221,17 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     try {
       const la = view.lastAction;
       if (la && la.seq > prevSeq) {
-        // Cierre de medio-turno → CHOQUE DE CARRILES (la UI embiste las filas)
-        if (la.type === "pass" && view.phase === "playing") clashSeq = la.seq;
+        // Cierre de medio-turno → CHOQUE DE CARRILES (la UI embiste las filas).
+        // Boom grave + vibración fuerte: el impacto ya no es mudo.
+        if (la.type === "pass" && view.phase === "playing") {
+          clashSeq = la.seq;
+          try {
+            if (useSettings.getState().soundOn) sfx.clash();
+            haptic("heavy");
+          } catch {
+            // noop
+          }
+        }
         for (const m of la.mutations) {
           if (m.powerDelta === 0) continue;
           newFloats.push({ id: `pf-${++floatId}`, uid: m.uid, value: m.powerDelta });
@@ -266,13 +276,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         }
       }
 
-      // Sonidos de mutaciones al llegar jugadas del rival
-      if (la && la.seq > prevSeq && la.side !== mine && view.phase === "playing") {
+      // Sonidos de jugadas (RIVAL con anuncio, PROPIAS antes mudas) + háptica
+      if (la && la.seq > prevSeq && la.type === "play" && view.phase === "playing") {
         if (useSettings.getState().soundOn) {
           sfx.cardPlay();
           if (la.mutations.some((m) => m.powerDelta > 0)) sfx.buff();
           if (la.mutations.some((m) => m.powerDelta < 0)) sfx.debuff();
         }
+        if (la.side === mine) haptic("light");
       }
     } catch (err) {
       // El audio/FX NUNCA tumba la sincronización del estado.
@@ -357,6 +368,19 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     // ====== VFX: eventos FX de la acción (DESPUÉS del set: los carriles ya
     // están en el DOM). Mapeo: lado absoluto a/b → player/enemy propio y
     // lanePos → carril propio de esa posición (el board viaja con MIS claves).
+    // Sonidos de keywords (trampas/destrucciones) INDEPENDIENTES de animationsOn.
+    try {
+      const la = view.lastAction;
+      if (la && la.seq > prevSeq && la.fx && la.fx.length > 0 && useSettings.getState().soundOn) {
+        if (la.fx.some((f) => f.kind === "trap")) {
+          sfx.trapTrigger();
+          haptic("medium");
+        }
+        if (la.fx.some((f) => f.kind === "destroy")) sfx.remove();
+      }
+    } catch (err) {
+      console.error("[pvp] applyView: sonidos de FX descartados:", err);
+    }
     try {
       const la = view.lastAction;
       if (la && la.seq > prevSeq && la.fx && la.fx.length > 0 && useSettings.getState().animationsOn) {

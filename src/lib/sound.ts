@@ -1,7 +1,9 @@
 "use client";
 import { useSettings } from "@/lib/settings";
 let ctx: AudioContext | null = null;
-function getCtx(): AudioContext | null {
+/** AudioContext compartido (sfx + música procedural comparten UNA instancia —
+ *  los móviles limitan el número de contexts vivos). */
+export function getAudioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
     try {
@@ -29,7 +31,7 @@ function tone(f: number, d: number, t: OscillatorType = "sine", g = 0.15, delay 
   const effectiveGain = g * vol;
   if (effectiveGain <= 0.001) return;
 
-  const a = getCtx();
+  const a = getAudioCtx();
   if (!a) return;
   if (a.state === "suspended") a.resume().catch(() => {});
 
@@ -54,6 +56,43 @@ function tone(f: number, d: number, t: OscillatorType = "sine", g = 0.15, delay 
     // AudioContext en estado inválido — silencio esta vez
   }
 }
+
+let noiseBuf: AudioBuffer | null = null;
+/** Ráfaga de ruido blanco filtrado (estallidos, golpes metálicos, shakers).
+ *  El buffer se sintetiza UNA vez — 0 KB de assets. */
+export function noise(d: number, g: number, freq = 3000, type: BiquadFilterType = "bandpass", delay = 0) {
+  const settings = useSettings.getState();
+  if (!settings.soundOn) return;
+  const vol = Math.max(0, Math.min(1, settings.volume / 100));
+  if (vol === 0) return;
+  const a = getAudioCtx();
+  if (!a) return;
+  if (a.state === "suspended") a.resume().catch(() => {});
+  try {
+    let buf = noiseBuf;
+    if (!buf) {
+      buf = a.createBuffer(1, Math.floor(a.sampleRate * 0.4), a.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      noiseBuf = buf;
+    }
+    const s = a.currentTime + delay;
+    const src = a.createBufferSource();
+    src.buffer = buf;
+    const f = a.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = freq;
+    f.Q.value = 0.9;
+    const gn = a.createGain();
+    gn.gain.setValueAtTime(g * vol, s);
+    gn.gain.exponentialRampToValueAtTime(0.001, s + d);
+    src.connect(f).connect(gn).connect(a.destination);
+    src.start(s);
+    src.stop(s + d + 0.05);
+  } catch {
+    // AudioContext en estado inválido — silencio esta vez
+  }
+}
 export const sfx = {
   click: () => tone(600, 0.04, "square", 0.05),
   select: () => tone(880, 0.06, "sine", 0.07),
@@ -64,6 +103,14 @@ export const sfx = {
   turnPass: () => { tone(440, 0.10, "triangle", 0.08); tone(330, 0.15, "triangle", 0.08, 0.10); },
   enemyTurn: () => tone(220, 0.30, "sawtooth", 0.06, 0, 165),
   trapTrigger: () => { tone(880, 0.06, "square", 0.10); tone(440, 0.18, "sawtooth", 0.10, 0.05); },
+  /** CHOQUE DE CARRILES: golpe grave con caída + estallido metálico.
+   *  Acompaña las chispas + shake del clash — antes era un impacto mudo. */
+  clash: () => {
+    tone(150, 0.28, "sine", 0.22, 0, 38);
+    tone(98, 0.20, "triangle", 0.14, 0.02);
+    noise(0.16, 0.12, 1100);
+    noise(0.08, 0.07, 4200, "highpass", 0.03);
+  },
   victory: () => { tone(523, 0.15, "triangle", 0.15); tone(659, 0.15, "triangle", 0.15, 0.13); tone(784, 0.15, "triangle", 0.15, 0.26); tone(1047, 0.45, "triangle", 0.18, 0.39); },
   defeat: () => { tone(392, 0.25, "triangle", 0.12); tone(311, 0.25, "triangle", 0.12, 0.20); tone(262, 0.50, "triangle", 0.15, 0.40); },
   draw: () => tone(1320, 0.06, "sine", 0.06),

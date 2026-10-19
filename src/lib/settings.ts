@@ -5,6 +5,10 @@ export type Language = "es" | "en" | "pt";
 
 export interface Settings {
   soundOn: boolean;
+  // Música ambiental procedural (requiere soundOn como maestro)
+  musicOn: boolean;
+  // Vibración háptica nativa (@capacitor/haptics con fallback web)
+  hapticsOn: boolean;
   animationsOn: boolean;
   // Master volume 0-100 (only applies when soundOn is true)
   volume: number;
@@ -13,6 +17,8 @@ export interface Settings {
 }
 interface SettingsStore extends Settings {
   setSound: (on: boolean) => void;
+  setMusic: (on: boolean) => void;
+  setHaptics: (on: boolean) => void;
   setAnimations: (on: boolean) => void;
   setVolume: (v: number) => void;
   setLanguage: (lang: Language) => void;
@@ -36,6 +42,8 @@ const save = (s: Settings) => {
 };
 const DEFAULTS: Settings = {
   soundOn: true,
+  musicOn: true,
+  hapticsOn: true,
   animationsOn: true,
   volume: 100,
   language: "es",
@@ -46,6 +54,8 @@ export const useSettings = create<SettingsStore>((set, get) => {
   return {
     ...initial,
     setSound: (on) => { const s = { ...get(), soundOn: on }; save(s); set({ soundOn: on }); },
+    setMusic: (on) => { const s = { ...get(), musicOn: on }; save(s); set({ musicOn: on }); },
+    setHaptics: (on) => { const s = { ...get(), hapticsOn: on }; save(s); set({ hapticsOn: on }); },
     setAnimations: (on) => { const s = { ...get(), animationsOn: on }; save(s); set({ animationsOn: on }); },
     setVolume: (v) => {
       const clamped = Math.max(0, Math.min(100, Math.round(v)));

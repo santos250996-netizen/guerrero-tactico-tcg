@@ -39,4 +39,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Háptica: vibración en jugadas, choques de carriles y fin de partida -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

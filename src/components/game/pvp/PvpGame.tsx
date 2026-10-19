@@ -24,6 +24,8 @@ import type { LucideIcon } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
 import { useStatsStore, xpForNext } from "@/store/statsStore";
 import { useSettings } from "@/lib/settings";
+import { music } from "@/lib/music";
+import { haptic } from "@/lib/haptics";
 import { CLASS_META, LANE_META, RARITY_META } from "@/lib/game/types";
 import { RARITY_LABEL } from "@/lib/game/balance";
 import { cardById } from "@/lib/game/cards";
@@ -85,6 +87,20 @@ export function PvpGame() {
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // MÚSICA: entra en modo batalla al montar; al salir, vuelve al latido del menú.
+  useEffect(() => {
+    music.setMode("battle");
+    return () => music.setMode("menu");
+  }, []);
+
+  // Reparto de la mano inicial (5 cartas): el único draw real de la partida.
+  const dealSoundRef = useRef(false);
+  useEffect(() => {
+    if (view?.phase !== "playing" || dealSoundRef.current) return;
+    dealSoundRef.current = true;
+    if (useSettings.getState().soundOn) sfx.draw();
+  }, [view?.phase]);
+
   // Rescate anti-congelamiento: al volver del fondo (el anfitrión suele salir
   // a activar el hotspot), re-sincroniza YA en vez de esperar el siguiente poll.
   useEffect(() => {
@@ -103,8 +119,13 @@ export function PvpGame() {
     if (view?.phase !== "ended" || endSoundRef.current) return;
     endSoundRef.current = true;
     const result = usePvpStore.getState().view?.finalResult?.result;
-    if (result === "WIN") sfx.victory();
-    else if (result === "LOSS") sfx.defeat();
+    if (result === "WIN") {
+      sfx.victory();
+      haptic("success");
+    } else if (result === "LOSS") {
+      sfx.defeat();
+      haptic("heavy");
+    }
   }, [view?.phase]);
 
   if (!view) {

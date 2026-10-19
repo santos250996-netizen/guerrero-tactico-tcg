@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { sfx } from "@/lib/sound";
+import { music } from "@/lib/music";
 import { useState, useEffect } from "react";
 import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
@@ -74,6 +75,10 @@ export function MainMenu() {
       setAvatarBroken(false);
       ensureToday();
     });
+    // Música de campamento (latido lento): idempotente — si ya suena (vuelta de
+    // partida) solo asegura el modo menú; si el autoplay bloquea, difiere al
+    // primer toque (gestor dentro de music.start).
+    music.start("menu");
     return () => { alive = false; };
   }, [ensureToday]);
 

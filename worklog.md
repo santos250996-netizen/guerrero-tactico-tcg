@@ -701,3 +701,28 @@ Stage Summary:
 - Tablero: cartas clamped a su fila del grid 2×2 — el "montado" de carriles es geométricamente imposible ahora
 - scripts/e2e-drag.sh queda para futuras tandas (drag nativo de mano a carril)
 - Lección: reproducir con screenshots ANTES de tocar código ahorró un fix a ciegas equivocado
+
+---
+Task ID: 33
+Agent: Z.ai main agent
+Task: "que podemos mejorar de la apk visualmente, audio jugabilidad?" → tanda elegida: AUDIO FULL (música procedural + boom en choques + SFX huérfanos cableados + vibración háptica)
+
+Work Log:
+- AUDITORÍA PREVIA: sound.ts era 100% beeps de oscilador, sin música; trapTrigger/draw/remove definidos pero SIN llamadas (trampas mudas); choque de carriles con chispas+shake pero sonido cero; sin háptica en toda la APK
+- src/lib/music.ts NUEVO — motor de música PROCEDURAL (0 KB de assets, coherente con la Optimización tanda 31): dos intensidades (menu 72 BPM latido de campamento / battle 96 BPM marcha de guerra con tomadas + cuerno frigio cada 8 compases), bombo/tom sintetizados con caídas de frecuencia, shaker con buffer de ruido, drone A1 con sierras desafinadas + lowpass con LFO; scheduler con lookahead (120ms) → loops sin costuras; autoplay bloqueado → difiere al primer pointerdown; visibilitychange suspende/reanuda (lección APK en segundo plano); suscripción a settings para apagar/encender al vuelo
+- src/lib/sound.ts: getAudioCtx() exportado (UNA sola instancia compartida sfx+música), helper noise() con buffer sintetizado una vez, sfx.clash() NUEVO (boom grave 150→38 Hz + estallido bandpass 1100 + highpass 4200)
+- CABLES en pvpStore.applyView: pass→clashSeq dispara sfx.clash + haptic("heavy"); bloque de sonidos de jugada extendido a jugadas PROPIAS (antes mudas, solo rival sonaba) con haptic("light"); fx kind "trap" → sfx.trapTrigger + haptic("medium") y kind "destroy" → sfx.remove() (independiente de animationsOn)
+- src/lib/haptics.ts NUEVO: puente @capacitor/haptics (Capacitor.isNativePlatform → import dinámico) con fallback navigator.vibrate (patrones light 12ms / medium 30ms / heavy [45,50,90] / success [25,60,25,60,75]); todo fire-and-forget blindado — la vibración jamás rompe el flujo
+- PvpGame: music.setMode("battle") al montar / ("menu") al desmontar; sfx.draw en el reparto inicial (único draw real del juego, antes sin sonido); victoria → haptic("success"), derrota → haptic("heavy")
+- MainMenu: music.start("menu") en el effect existente (idempotente, difiere si autoplay bloquea)
+- settings.ts: musicOn + hapticsOn (default true, persistidos); SettingsModal: toggles MÚSICA (nota "Tambores de guerra") y VIBRACIÓN (prueba táctil al encender) en sección Audio
+- android: AndroidManifest con <uses-permission VIBRATE />; @capacitor/haptics@8.0.2 instalado — el CI hace `cap sync` → módulo nativo auto-registrado en la APK
+- Verificación: tsc 0 · lint 0 · 11 suites verdes (pvp-engine 62 · turn-flow · kw-v2/v3/v4 · colección 69 · fx 51 · tanda28 35 · tanda29 76 · local-pvp 32 · stress 300/300) · build estático RC=0 (out/ 6.7MB) · E2E 390×844: menú → ajustes (3 toggles persisten en localStorage) → HISTORIA → guerrero → drag nativo carta al carril (sonido+haptic sin crash) → PASAR → choque de carriles con boom → 0 errores de página/consola; screenshot: modal con Música/Vibración + tablero intacto (fixes tanda 32 vigentes)
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- El juego DEJA DE ESTAR MUDO: latido de campamento en el menú, marcha de guerra en partidas — todo sintetizado en vivo, 0 KB añadidos a la APK
+- El choque de carriles ahora golpea (boom + vibración fuerte); jugar cartas suena en ambos lados; trampas y destrucciones ya no son silenciosas
+- Háptica nativa en jugada/choque/trampa/victoria/derrota con fallback web — se puede desactivar en Ajustes
+- Música y vibración como toggles separados (persisten); "Sonido" sigue siendo el maestro
+- Pendiente visual/jugabilidad sugerido para próximas tandas: splash nativa + transiciones, carriles FX ambientales, misiones diarias rotativas, stats locales, bot Veterano, tutorial

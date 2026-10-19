@@ -7,11 +7,14 @@ import { useGameStore } from "@/store/gameStore";
 import { motion } from "framer-motion";
 import {
   Volume2, VolumeX, Sparkles, Sparkle, LogOut, Globe, Check, Trash2,
+  Music, Vibrate,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef } from "react";
 import { useCollectionStore } from "@/store/collectionStore";
+import { music } from "@/lib/music";
+import { haptic } from "@/lib/haptics";
 
 interface SettingsModalProps {
   open: boolean;
@@ -27,10 +30,14 @@ const LANGUAGES: { value: Language; label: string; flag: string }[] = [
 
 export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: SettingsModalProps) {
   const soundOn = useSettings((s) => s.soundOn);
+  const musicOn = useSettings((s) => s.musicOn);
+  const hapticsOn = useSettings((s) => s.hapticsOn);
   const animOn = useSettings((s) => s.animationsOn);
   const volume = useSettings((s) => s.volume);
   const language = useSettings((s) => s.language);
   const setSound = useSettings((s) => s.setSound);
+  const setMusic = useSettings((s) => s.setMusic);
+  const setHaptics = useSettings((s) => s.setHaptics);
   const setAnimations = useSettings((s) => s.setAnimations);
   const setVolume = useSettings((s) => s.setVolume);
   const setLanguage = useSettings((s) => s.setLanguage);
@@ -104,6 +111,35 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
               hint={soundOn ? "Activado" : "Desactivado"}
               on={soundOn}
               onToggle={() => setSound(!soundOn)}
+              accentOn="emerald"
+            />
+            {/* Música ambiental procedural (tambores de guerra, 0 KB) — el
+                motor la arranca/para al cambiar el toggle (suscripción en
+                music.ts); sin autoplay aquí: este click ES el gesto. */}
+            <ToggleRow
+              icon={Music}
+              iconAccent={musicOn && soundOn ? "emerald" : "zinc"}
+              label="Música"
+              hint={musicOn ? (soundOn ? "Tambores de guerra" : "Requiere sonido") : "Desactivada"}
+              on={musicOn}
+              onToggle={() => {
+                setMusic(!musicOn);
+                if (!musicOn && soundOn) music.start(); // pasa a encenderse
+                // (al apagar, la suscripción de music.ts la detiene)
+              }}
+              accentOn="emerald"
+            />
+            {/* Vibración háptica nativa — feedback físico en jugadas/choques */}
+            <ToggleRow
+              icon={Vibrate}
+              iconAccent={hapticsOn ? "emerald" : "zinc"}
+              label="Vibración"
+              hint={hapticsOn ? "En jugadas y choques" : "Desactivada"}
+              on={hapticsOn}
+              onToggle={() => {
+                setHaptics(!hapticsOn);
+                if (!hapticsOn) haptic("medium"); // prueba táctil inmediata
+              }}
               accentOn="emerald"
             />
             {/* Volume slider — revealed/expanded when sound is on */}
