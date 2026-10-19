@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { useStatsStore, leagueOf, nextLeagueOf } from "@/store/statsStore";
+import { useStatsStore, leagueOf, nextLeagueOf, xpForNext } from "@/store/statsStore";
 import { useCollectionStore } from "@/store/collectionStore";
 import { ALL_CARDS_V3 } from "@/lib/game/cards";
 import type { GameClass } from "@/lib/game/types";
@@ -21,6 +21,7 @@ const RARITY_DOT_COLOR: Record<CardDef["rarity"], string> = {
   rare: "#38bdf8", // sky-400
   epic: "#c084fc", // violet-400
   legendary: "#fbbf24", // amber-400
+  mythic: "#fb7185", // rose-400
 };
 
 interface ProfileData {
@@ -172,7 +173,15 @@ export function ProfileScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
-    setProfile(loadProfile());
+    // Diferido en microtask (mismo patrón que MainMenu/page.tsx): evita el
+    // setState síncrono dentro del effect y el mismatch de hidratación.
+    let alive = true;
+    Promise.resolve().then(() => {
+      if (alive) setProfile(loadProfile());
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Stats amplias (por clase, rachas, liga) + progreso de colección
@@ -181,7 +190,8 @@ export function ProfileScreen() {
   const distinctOwned = useMemo(
     () =>
       Object.values(copies).filter(
-        (c) => (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) > 0
+        (c) =>
+          (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) + (c.mythic ?? 0) > 0
       ).length,
     [copies]
   );
@@ -190,11 +200,19 @@ export function ProfileScreen() {
     ? Math.round((profile.wins / profile.totalMatches) * 100)
     : 0;
 
-  const matchesIntoLevel = profile.totalMatches % MATCHES_PER_LEVEL;
-  const xpPct = (matchesIntoLevel / MATCHES_PER_LEVEL) * 100;
+  // NIVEL REAL del jugador (XP por partidas/misiones — statsStore). Es el
+  // nivel que gobierna las mesas de drop de cartas; el nivel antiguo del
+  // perfil (partidas/5) queda obsoleto y ya no se muestra.
+  const need = xpForNext(stats.level);
+  const xpPct = Math.min(100, (stats.xp / need) * 100);
+  const nextUnlock =
+    stats.level >= 10 ? "legendarias 7%" :
+    stats.level >= 7 ? "legendarias 3%" :
+    stats.level >= 5 ? "épicas 7% y +1 carta por victoria" :
+    stats.level >= 3 ? "raras 20%" : "raras en N3";
 
   // Rank title (auto from level — gives a sense of progression)
-  const rank = getRankTitle(profile.level);
+  const rank = getRankTitle(stats.level);
 
   // ── Username edit handlers ──
   const startEditing = () => {
@@ -407,17 +425,17 @@ export function ProfileScreen() {
             {/* Decorative crossed-swords divider between identity block and progress block */}
             <DecorativeDivider />
 
-            {/* Level + XP progress bar */}
+            {/* Level + XP progress bar (nivel REAL: gobierna los drops) */}
             <div className="w-full">
               <div className="mb-1 flex items-center justify-between">
                 <span
                   className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300"
                   style={{ fontFamily: 'var(--font-cinzel), serif' }}
                 >
-                  Nivel {profile.level}
+                  Nivel {stats.level}
                 </span>
                 <span className="text-[9px] font-bold tabular-nums text-zinc-500">
-                  {matchesIntoLevel}/{MATCHES_PER_LEVEL} para nivel {profile.level + 1}
+                  {stats.xp}/{need} XP para nivel {stats.level + 1}
                 </span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full border border-amber-700/30 bg-zinc-950">
@@ -428,6 +446,9 @@ export function ProfileScreen() {
                   className="h-full rounded-full bg-gradient-to-r from-amber-600 via-amber-500 to-rose-600 shadow-[0_0_8px_rgba(251,191,36,0.6)]"
                 />
               </div>
+              <p className="mt-1 text-[8px] uppercase tracking-[0.18em] text-zinc-600">
+                Drops: {nextUnlock} · subir de nivel mejora el botín
+              </p>
             </div>
 
             {/* Inline mini-stats row — quick glance of W / L / WR */}

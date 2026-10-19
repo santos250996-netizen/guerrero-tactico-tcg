@@ -32,6 +32,7 @@ const TIER_DOT: Record<Rarity, string> = {
   rare: "bg-sky-400",
   epic: "bg-fuchsia-400",
   legendary: "bg-amber-400",
+  mythic: "bg-rose-400",
 };
 
 export function CollectionScreen() {
@@ -63,7 +64,11 @@ export function CollectionScreen() {
     }
     setFusionMsg(
       target
-        ? `✨ ${name} fusionada: ahora ${RARITY_LABEL[target]} (+2 poder)`
+        ? `✨ ${name} fusionada: ahora ${RARITY_LABEL[target]}${
+            target === "mythic" ? " (+6 poder, +3 keyword)" :
+            target === "legendary" ? " (+5 poder, +1 keyword)" :
+            " (+poder)"
+          }`
         : null
     );
     setTimeout(() => setFusionMsg(null), 2600);
@@ -132,12 +137,12 @@ export function CollectionScreen() {
           </p>
           <p className="mb-0.5">
             <span className="font-black text-amber-300">1.</span> Gana partidas de Historia: cada victoria te da{" "}
-            <span className="font-bold text-zinc-200">2 cartas aleatorias</span> de cualquier clase.
+            <span className="font-bold text-zinc-200">2 cartas aleatorias</span> (+1 extra desde el nivel 5) de cualquier clase.
           </p>
           <p className="mb-0.5">
             <span className="font-black text-amber-300">2.</span> Fusiona{" "}
             <span className="font-bold text-zinc-200">{FUSION_COPIES} copias idénticas</span> del mismo tier → 1 del tier
-            siguiente, con <span className="font-bold text-zinc-200">+2 de poder</span> por fusión.
+            siguiente, con <span className="font-bold text-zinc-200">+poder y más keyword</span> por fusión (legendaria +1, mítica +3).
           </p>
           <p>
             <span className="font-black text-amber-300">3.</span> En batalla juegas con tus{" "}

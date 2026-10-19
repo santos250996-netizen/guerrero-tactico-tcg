@@ -15,7 +15,8 @@
 
 import { create } from "zustand";
 import type { GameClass } from "@/lib/game/types";
-import { useCollectionStore } from "@/store/collectionStore";
+import { useStatsStore, XP_MISSION } from "./statsStore";
+import { useCollectionStore } from "./collectionStore";
 
 export type MissionType =
   | "win-games"
@@ -160,9 +161,10 @@ export const useMissionStore = create<MissionState>((set, get) => {
   const initial = loadState();
 
   const complete = (m: Mission): Mission => {
-    // Recompensa: +1 carta (auto-reclamada)
+    // Recompensa: +1 carta (auto-reclamada) + XP para el nivel del jugador
     try {
       useCollectionStore.getState().addRewards(1);
+      useStatsStore.getState().addXp(XP_MISSION);
     } catch {
       // sin colección disponible — la misión se marca igual
     }

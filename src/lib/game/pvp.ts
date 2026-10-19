@@ -264,7 +264,7 @@ export function resolvePvpDeck(cls: GameClass, deckIds?: string[]): CardDef[] {
   return CLASS_DECKS[cls];
 }
 
-const LEGAL_RARITIES: Rarity[] = ["common", "rare", "epic", "legendary"];
+const LEGAL_RARITIES: Rarity[] = ["common", "rare", "epic", "legendary", "mythic"];
 
 /**
  * Mazo enviado por el CLIENTE (colección materializada: copias raras/épicas

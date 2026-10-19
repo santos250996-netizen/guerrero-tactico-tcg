@@ -330,7 +330,7 @@ console.log("\n📋 COMPOSICIÓN de los 3 mazos segundos");
 
   // Catálogo global: ids únicos entre los 72.
   const ids = new Set(ALL_CARDS_V3.map((c) => c.id));
-  assert("catálogo: 72 ids únicos", ALL_CARDS_V3.length === 72 && ids.size === 72, `${ALL_CARDS_V3.length} cartas, ${ids.size} ids`);
+  assert("catálogo: 84 ids únicos", ALL_CARDS_V3.length === 84 && ids.size === 84, `${ALL_CARDS_V3.length} cartas, ${ids.size} ids`);
 }
 
 console.log("\n⚖️ PTP — catálogo completo en rango (±0.5)");

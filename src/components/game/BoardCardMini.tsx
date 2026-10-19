@@ -98,7 +98,9 @@ function BoardCardMiniImpl({ card, side, onPreview, justPlayed }: BoardCardMiniP
               ? "border-fuchsia-300 bg-gradient-to-b from-fuchsia-600 to-fuchsia-900 ring-1 ring-fuchsia-300/60"
               : card.rarity === "legendary"
                 ? "border-amber-300 bg-gradient-to-b from-amber-500 to-amber-800 ring-1 ring-amber-300/70"
-                : isBuffed
+                : card.rarity === "mythic"
+                  ? "border-rose-300 bg-gradient-to-b from-rose-500 to-rose-900 ring-2 ring-rose-300/80"
+                  : isBuffed
                   ? "bg-gradient-to-b from-emerald-400 to-emerald-700 ring-1 ring-emerald-300/50"
                   : isDebuffed
                     ? "bg-gradient-to-b from-rose-500 to-rose-800 ring-1 ring-rose-300/50"

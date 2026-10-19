@@ -104,7 +104,7 @@ export function rollLaneBonuses(lanes: LaneId[] = LANE_IDS): LaneBonuses {
 
 export function getEffectiveCost(baseCost: number, bonus: LaneBonus | null): number {
   if (!bonus) return baseCost;
-  if (bonus.kind === "cost_neg") return Math.max(1, baseCost - 1);
+  if (bonus.kind === "cost_neg") return Math.max(0, baseCost - 1);
   if (bonus.kind === "cost_pos") return baseCost + 1;
   return baseCost;
 }
@@ -354,6 +354,15 @@ function applyEffectLogic(
   const x = card.keywordValue ?? 0;
 
   switch (keyword) {
+    // ---- FERVOR [X] on_play: variante que crece AL ENTRAR (una vez) ----
+    // (el Fervor clásico es start_turn; esta variante lo aplica al jugar)
+    case "fervor": {
+      if (x > 0 && (ctx.card.trigger ?? "start_turn") === "on_play") {
+        accum.bonusPower += x;
+      }
+      break;
+    }
+
     // ---- INSIGNIA [X]: +X permanente al aliado más débil del carril ----
     case "insignia": {
       if (x > 0) {
@@ -365,18 +374,29 @@ function applyEffectLogic(
       break;
     }
 
-    // ---- REMATE [X]: destruye la carta enemiga más fuerte con poder ≤ X ----
+    // ---- REMATE [X]: resta X al enemigo MÁS DÉBIL de este carril; si tiene
+    // X o menos de poder, lo destruye directamente. La destrucción ignora
+    // escudos (es destrucción); la reducción pasa por viaDebuff (absorben).
     case "remate": {
       if (x > 0) {
-        const candidates = enemyLane.filter((c) => c.currentPower <= x);
-        const target = highestPowerCard(candidates);
+        const target = lowestPowerCard(enemyLane);
         if (target) {
-          accum.removedCards.push({
-            side: enemySide,
-            lane,
-            uid: target.uid,
-            reason: "remate",
-          });
+          if (target.currentPower <= x) {
+            accum.removedCards.push({
+              side: enemySide,
+              lane,
+              uid: target.uid,
+              reason: "remate",
+            });
+          } else {
+            accum.mutations.push({
+              side: enemySide,
+              lane,
+              uid: target.uid,
+              powerDelta: -x,
+              viaDebuff: true,
+            });
+          }
         }
       }
       break;

@@ -12,7 +12,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
-import { usePvpStore } from "@/store/pvpStore";
+import { usePvpStore, HISTORIA_BOSSES, BOSS_THEME } from "@/store/pvpStore";
 import { ArrowLeft, ChevronRight, Dices, EyeOff, Library, Lock, Skull, Sparkles, Swords, Wand2 } from "lucide-react";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
@@ -145,7 +145,7 @@ export function ClassSelect() {
   function ownedDistinct(cls: GameClass): number {
     return classCardsOf(cls).filter((c) => {
       const t = copies[c.id];
-      return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) > 0;
+      return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) + (t.mythic ?? 0) > 0;
     }).length;
   }
 
@@ -364,7 +364,9 @@ export function ClassSelect() {
                       title="Duelo difícil: bot épico con jugada gratis, 3 carriles con bono y legendaria garantizada al vencer"
                     >
                       <Skull className="h-3 w-3" />
-                      <span>Desafiar al Jefe</span>
+                      <span>
+                        Desafiar al {HISTORIA_BOSSES[cls.id].split(",")[0]} · mazo {BOSS_THEME[cls.id]}
+                      </span>
                     </motion.button>
                   </div>
                 )}

@@ -12,6 +12,7 @@ import type { CardDef, GameClass, Rarity } from "@/lib/game/types";
 import { ALL_CARDS_V3, starterDeckFor, cardPoolForClass, battleDeckFromOwned } from "@/lib/game/cards";
 import { FUSION_COPIES, MAX_FUSION_RARITY, nextRarity, materializeCard } from "@/lib/game/balance";
 import { readEditedDeckIds } from "@/lib/game/deck-storage";
+import { useStatsStore, bonusDropCards, dropTableFor } from "./statsStore";
 
 export interface CardReward {
   id: string;
@@ -25,22 +26,26 @@ interface Copies {
   rare?: number;
   epic?: number;
   legendary?: number;
+  mythic?: number;
 }
 
 const STORAGE_KEY = "guerrero-tactico-coleccion";
 
-// Probabilidad del rollo de rareza de las recompensas. La LEGENDARIA no se
-// reparte: solo se alcanza fusionando (decisión de diseño).
-const REWARD_RARITY_WEIGHTS: [Rarity, number][] = [
-  ["common", 0.7],
-  ["rare", 0.25],
-  ["epic", 0.05],
-];
+// Mesa de rareza de los DROPS según el NIVEL del jugador (statsStore):
+// N1-2 solo comunes → N3 llegan raras → N5 épicas → N7 legendarias →
+// N10 mesas generosas. Así el progreso del personaje SE SIENTE en el botín.
+
+function copiesOf(c: Copies | undefined): number {
+  if (!c) return 0;
+  return (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) + (c.mythic ?? 0);
+}
 
 function rollRarity(): Rarity {
+  const level = useStatsStore.getState().level;
+  const table = dropTableFor(level);
   const roll = Math.random();
   let acc = 0;
-  for (const [rarity, w] of REWARD_RARITY_WEIGHTS) {
+  for (const [rarity, w] of table) {
     acc += w;
     if (roll < acc) return rarity;
   }
@@ -87,8 +92,12 @@ interface CollectionState {
 
   /** Regala el mazo inicial (12 cartas: las neutrales de la clase + relleno), una sola vez. */
   grantStarterDeck: (cls: GameClass) => boolean;
-  /** Recompensa por victoria: n cartas aleatorias de cualquier clase. */
-  addRewards: (n?: number) => CardReward[];
+  /**
+   * Recompensa de cartas aleatorias de cualquier clase. La rareza sale de la
+   * MESA DE DROPS del nivel del jugador; con bonusForLevel la victoria añade
+   * las cartas extra de nivel (+1 en N5, +1 más en N10).
+   */
+  addRewards: (n?: number, opts?: { bonusForLevel?: boolean }) => CardReward[];
   /** Botín del JEFE (solo victoria): 1 LEGENDARIA garantizada + 1 de rollo. */
   addBossRewards: () => CardReward[];
   canFuse: (id: string, rarity: Rarity) => boolean;
@@ -135,16 +144,17 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     return true;
   },
 
-  addRewards: (n = 2) => {
+  addRewards: (n = 2, opts) => {
     const { copies } = get();
     const pool = ALL_CARDS_V3;
     const rewards: CardReward[] = [];
     const next = { ...copies };
-    for (let i = 0; i < n; i++) {
+    const total = n + (opts?.bonusForLevel ? bonusDropCards(useStatsStore.getState().level) : 0);
+    for (let i = 0; i < total; i++) {
       const card = pool[Math.floor(Math.random() * pool.length)];
       const rarity = rollRarity();
       const cur = next[card.id] ?? {};
-      const isNew = !cur.common && !cur.rare && !cur.epic && !cur.legendary;
+      const isNew = copiesOf(cur) === 0;
       next[card.id] = { ...cur, [rarity]: (cur[rarity] ?? 0) + 1 };
       rewards.push({ id: card.id, rarity, isNew });
     }
@@ -161,14 +171,14 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     // 1 LEGENDARIA garantizada — el trofeo del jefe
     const legCard = pool[Math.floor(Math.random() * pool.length)];
     const curL = next[legCard.id] ?? {};
-    const isNewL = !curL.common && !curL.rare && !curL.epic && !curL.legendary;
+    const isNewL = copiesOf(curL) === 0;
     next[legCard.id] = { ...curL, legendary: (curL.legendary ?? 0) + 1 };
     rewards.push({ id: legCard.id, rarity: "legendary", isNew: isNewL });
     // +1 carta con el rollo normal
     const card = pool[Math.floor(Math.random() * pool.length)];
     const rarity = rollRarity();
     const cur = next[card.id] ?? {};
-    const isNew = !cur.common && !cur.rare && !cur.epic && !cur.legendary;
+    const isNew = copiesOf(cur) === 0;
     next[card.id] = { ...cur, [rarity]: (cur[rarity] ?? 0) + 1 };
     rewards.push({ id: card.id, rarity, isNew });
     set({ copies: next });
@@ -202,6 +212,7 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   bestTier: (id) => {
     const c = get().copies[id];
     if (!c) return "common";
+    if ((c.mythic ?? 0) > 0) return "mythic";
     if ((c.legendary ?? 0) > 0) return "legendary";
     if ((c.epic ?? 0) > 0) return "epic";
     if ((c.rare ?? 0) > 0) return "rare";
@@ -211,6 +222,7 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   tierRankOf: (id) => {
     const c = get().copies[id];
     if (!c) return -1;
+    if ((c.mythic ?? 0) > 0) return 4;
     if ((c.legendary ?? 0) > 0) return 3;
     if ((c.epic ?? 0) > 0) return 2;
     if ((c.rare ?? 0) > 0) return 1;
@@ -224,17 +236,12 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
 
   totalCopies: () => {
     const { copies } = get();
-    return Object.values(copies).reduce(
-      (acc, c) => acc + (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0),
-      0
-    );
+    return Object.values(copies).reduce((acc, c) => acc + copiesOf(c), 0);
   },
 
   distinctCards: () => {
     const { copies } = get();
-    return Object.values(copies).filter(
-      (c) => (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) > 0
-    ).length;
+    return Object.values(copies).filter((c) => copiesOf(c) > 0).length;
   },
 
   registerWin: () => {
@@ -255,11 +262,7 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
       const { copies } = get();
       const allOwned = ids.every((id) => {
         const c = copies[id];
-        return (
-          !!c &&
-          (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) > 0 &&
-          pool.some((p) => p.id === id)
-        );
+        return !!c && copiesOf(c) > 0 && pool.some((p) => p.id === id);
       });
       if (allOwned) {
         return ids.map((id) => {

@@ -19,8 +19,9 @@ import path from "node:path";
 const OUT_DIR = path.join(process.cwd(), "public/cards");
 
 const STYLE =
-  "dark fantasy trading card game art, painted digital illustration, dramatic cinematic lighting, " +
-  "rich saturated colors, epic composition, highly detailed, no text, no letters, no borders, no frame, no watermark";
+  "Stylized realism, visible brushstrokes, NOT photorealistic, NOT 3D render, Hearthstone card art style, painted digital illustration, " +
+  "vibrant saturated colors, dramatic cinematic lighting with strong rim light, epic composition, flat color zones in shadows, " +
+  "exaggerated heroic proportions, Blizzard Entertainment concept art, no text, no letters, no borders, no frame, no watermark";
 
 const CATEGORY_RULE = {
   Ítem:

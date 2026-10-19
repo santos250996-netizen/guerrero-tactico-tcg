@@ -152,7 +152,7 @@ export type Keyword =
   | "fervor" // Inicio de Turno: +X permanente a sí misma (acumulativo)
   | "coraza" // Al Jugar: escudo propio que absorbe X reducciones (pool finito)
   | "insignia" // Al Jugar: +X permanente al aliado más débil del carril
-  | "remate" // Al Jugar: destruye la carta enemiga más fuerte con poder ≤ X
+  | "remate" // Al Jugar: resta X al enemigo más débil del carril; si tiene X o menos, lo destruye
   | "legado" // Último Aliento: +X permanente al aliado más débil del carril
   | "fortaleza" // Fin de Turno: +X a todas tus cartas de este carril
   // --- 6 de Guerrero ---
@@ -237,7 +237,7 @@ export const KEYWORD_META: Record<
   },
   remate: {
     label: "Remate", short: "REMATE", icon: Axe, color: "text-zinc-300",
-    description: "Al Jugar: destruye la carta enemiga de este carril con poder ≤ X (la más fuerte que cumpla).",
+    description: "Al Jugar: resta X de poder al enemigo más débil de este carril; si tiene X o menos, lo destruye.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
   },
   legado: {
@@ -430,7 +430,7 @@ export const KEYWORD_META: Record<
   },
 };
 
-export type Rarity = "common" | "rare" | "epic" | "legendary";
+export type Rarity = "common" | "rare" | "epic" | "legendary" | "mythic";
 
 export interface CardDef {
   id: string;
@@ -584,7 +584,7 @@ export const LANE_BONUS_POOL: LaneBonus[] = [
     kind: "cost_neg",
     label: "Coste -1",
     description:
-      "Las cartas jugadas en este carril cuestan 1 menos de energía (mínimo 1).",
+      "Las cartas jugadas en este carril cuestan 1 menos de energía (las de coste 1 cuestan 0).",
     flavor: "positive",
   },
   {
@@ -700,4 +700,5 @@ export const RARITY_META: Record<Rarity, {
   rare: { label: "Rara", borderClass: "border-sky-500/70", textClass: "text-sky-300", gemClass: "bg-sky-400", glowClass: "shadow-[0_0_10px_rgba(56,189,248,0.25)]", order: 1 },
   epic: { label: "Épica", borderClass: "border-violet-500/70", textClass: "text-violet-300", gemClass: "bg-violet-400", glowClass: "shadow-[0_0_12px_rgba(168,85,247,0.35)]", order: 2 },
   legendary: { label: "Legendaria", borderClass: "border-amber-400/80", textClass: "text-amber-300", gemClass: "bg-amber-400", glowClass: "shadow-[0_0_18px_rgba(251,191,36,0.45)]", order: 3 },
+  mythic: { label: "Mítica", borderClass: "border-rose-500/80", textClass: "text-rose-200", gemClass: "bg-rose-400", glowClass: "shadow-[0_0_20px_rgba(244,63,94,0.55)]", order: 4 },
 };

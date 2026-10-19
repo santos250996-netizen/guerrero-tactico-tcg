@@ -20,23 +20,35 @@ export const ENERGY_MULTIPLIER = 4.0;
 export const BASE_ENTRY_POINTS = 1.5;
 export const TOLERANCE = 0.5;
 
-// ----- Rareza por FUSIÓN (decisión de diseño 2026-10) -----
+// ----- Rareza por FUSIÓN (rework 2026-10: escalado de KEYWORD desde legendaria) -----
 // Todas las cartas nacen COMUNES; la rareza se GANA fusionando 3 copias
-// idénticas del mismo tier. Cada tier añade +2 al PTP objetivo, que se
-// materializa como +2 de PODER (las keywords no escalan). Así la rareza
-// queda DENTRO de la fórmula: la copia rara de una carta siempre es más
-// fuerte que su forma común y sigue siendo legal según el PTP.
-export const RARITY_ORDER: readonly Rarity[] = ["common", "rare", "epic", "legendary"] as const;
-export const RARITY_TIER: Record<Rarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };
+// idénticas del mismo tier. Bonos por tier (decisión del jugador):
+//   Rara       → +2 poder
+//   Épica      → +4 poder (acumulado)
+//   Legendaria → +5 poder y +1 al valor de la keyword
+//   Mítica     → +6 poder y +3 al valor de la keyword (acumulado)
+// Así las copias máximas no solo golpean más: su EFECTO escala. El tier común
+// devuelve la definición intacta.
+export const RARITY_ORDER: readonly Rarity[] = ["common", "rare", "epic", "legendary", "mythic"] as const;
+export const RARITY_TIER: Record<Rarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 };
 export const RARITY_LABEL: Record<Rarity, string> = {
   common: "Común",
   rare: "Rara",
   epic: "Épica",
   legendary: "Legendaria",
+  mythic: "Mítica",
+};
+/** Bonos ACUMULADOS por tier: [poder extra, keyword extra]. */
+export const RARITY_BONUS: Record<Rarity, { power: number; keyword: number }> = {
+  common: { power: 0, keyword: 0 },
+  rare: { power: 2, keyword: 0 },
+  epic: { power: 4, keyword: 0 },
+  legendary: { power: 5, keyword: 1 },
+  mythic: { power: 6, keyword: 3 },
 };
 export const RARITY_PTP_BONUS_PER_TIER = 2;
 export const FUSION_COPIES = 3;
-export const MAX_FUSION_RARITY: Rarity = "legendary";
+export const MAX_FUSION_RARITY: Rarity = "mythic";
 
 export function nextRarity(rarity: Rarity): Rarity | null {
   const tier = RARITY_TIER[rarity];
@@ -136,14 +148,22 @@ export function calculateEffectPoints(card: CardDef): number {
 
 /**
  * Materializa una copia jugable de la carta al tier de rareza indicado:
- * +2 de poder por tier (las keywords no cambian). El tier común devuelve
- * la definición intacta. Es la función que convierte la COLECCIÓN del
- * jugador en la carta que realmente entra al mazo/partida.
+ *   rara/épica → +2/+4 PODER · legendaria → +5 poder y +1 KEYWORD ·
+ *   mítica → +6 poder y +3 KEYWORD.
+ * El bono de keyword solo aplica a keywords CON valor numérico (hasValue) —
+ * Purificación (fija) y cartas sin keyword solo ganan poder. Determinista:
+ * el servidor puede reconstruir la copia desde id+tier (PvP online).
  */
 export function materializeCard(card: CardDef, rarity: Rarity): CardDef {
   const tier = RARITY_TIER[rarity] ?? 0;
   if (tier === 0) return card;
-  return { ...card, power: card.power + tier * RARITY_PTP_BONUS_PER_TIER, rarity };
+  const bonus = RARITY_BONUS[rarity] ?? { power: tier * 2, keyword: 0 };
+  const out: CardDef = { ...card, power: card.power + bonus.power, rarity };
+  const kw = card.keyword;
+  if (bonus.keyword > 0 && kw && kw !== "none" && KEYWORD_META[kw]?.hasValue && card.keywordValue !== undefined) {
+    out.keywordValue = card.keywordValue + bonus.keyword;
+  }
+  return out;
 }
 
 /** PTP actual de una carta (base + efectos). */

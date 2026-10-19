@@ -32,7 +32,7 @@ export function MissionToast() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ type: "spring", stiffness: 300, damping: 24 }}
-            className="absolute flex items-center gap-2 rounded-full border border-amber-400/70 bg-gradient-to-b from-amber-950/95 to-black/95 px-4 py-1.5 shadow-2xl shadow-black/60"
+            className="relative flex items-center gap-2 rounded-full border border-amber-400/70 bg-gradient-to-b from-amber-950/95 to-black/95 px-4 py-1.5 shadow-2xl shadow-black/60"
           >
             <Gift className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-200">
@@ -99,10 +99,10 @@ export function MainMenu() {
         className="absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
       />
-      {/* Resplandores ambientales (G2): brillos suaves que dan profundidad
-          sin tapar el arte — pulso lento, muy tenues. */}
-      <div className="pointer-events-none absolute -left-16 -top-16 z-0 h-56 w-56 animate-pulse rounded-full bg-amber-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-20 -right-16 z-0 h-64 w-64 animate-pulse rounded-full bg-rose-600/10 blur-3xl [animation-duration:3.4s]" />
+      {/* Resplandores ambientales (G2) — ESTÁTICOS (el animate-pulse + blur
+          en móvil costaba GPU y se notaba). Dan profundidad sin moverse. */}
+      <div className="pointer-events-none absolute -left-16 -top-16 z-0 h-56 w-56 rounded-full bg-amber-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -right-16 z-0 h-64 w-64 rounded-full bg-rose-600/10 blur-3xl" />
       {/* Bottom darkening overlay for button legibility */}
       <div className="absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-b from-transparent via-black/55 to-black/95" />
 
@@ -146,14 +146,15 @@ export function MainMenu() {
         <SettingsIcon className="h-4 w-4" strokeWidth={2.2} />
       </motion.button>
 
-      {/* ── CENTER: HISTORIA button (modo principal — JUGAR) ──
-          Sin pantalla intermedia: va directo a la selección de clase donde
-          puedes editar tu mazo y al tocar JUGAR arranca la partida vs bot. */}
+      {/* ── ZONA DE JUEGO (jerarquía limpia, de arriba a abajo):
+             1) HISTORIA — botón principal grande
+             2) COLECCIÓN + PVP LOCAL — acciones de igual peso
+             3) MISIONES — pill fino del día */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
-        className="pointer-events-none absolute inset-x-0 bottom-20 z-20 flex justify-center px-6"
+        className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center px-6"
       >
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -177,39 +178,16 @@ export function MainMenu() {
         </motion.button>
       </motion.div>
 
-      {/* ── BELOW: COLECCIÓN + PRÁCTICA + PVP LOCAL (secondary pills) ── */}
+      {/* 2) COLECCIÓN + PVP LOCAL — misma fila, mismo estilo de pill */}
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut", delay: 0.35 }}
-        className="pointer-events-none absolute inset-x-0 bottom-11 z-20 flex justify-center gap-2 px-6"
+        className="pointer-events-none absolute inset-x-0 bottom-[70px] z-20 flex items-center justify-center gap-2 px-6"
       >
         <div className="pointer-events-auto">
           <CollectionMenuButton />
         </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut", delay: 0.42 }}
-        className="pointer-events-none absolute inset-x-0 bottom-3.5 z-20 flex justify-center gap-2 px-6"
-      >
-        <button
-          onClick={() => { click(); setMisionesOpen(true); }}
-          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-gradient-to-b from-amber-900/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-amber-200 transition-colors hover:border-amber-300/70"
-          style={{ fontFamily: "var(--font-cinzel), serif" }}
-        >
-          <ScrollText className="h-3 w-3" />
-          Misiones {missions.filter((m) => m.done).length}/{missions.length}
-        </button>
-        <button
-          onClick={goToClassSelect}
-          className="pointer-events-auto rounded-full border border-zinc-600/60 bg-zinc-950/80 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 transition-colors hover:border-zinc-400/70 hover:text-zinc-200"
-          style={{ fontFamily: "var(--font-cinzel), serif" }}
-        >
-          Práctica
-        </button>
         <button
           onClick={goToPvp}
           className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-teal-400/50 bg-gradient-to-b from-teal-800/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-teal-200 transition-colors hover:border-teal-300/70"
@@ -219,15 +197,32 @@ export function MainMenu() {
         </button>
       </motion.div>
 
-      {/* ── TOP-CENTER (version) ── */}
+      {/* 3) MISIONES del día — pill fino centrado al pie */}
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut", delay: 0.42 }}
+        className="pointer-events-none absolute inset-x-0 bottom-9 z-20 flex justify-center px-6"
+      >
+        <button
+          onClick={() => { click(); setMisionesOpen(true); }}
+          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-gradient-to-b from-amber-900/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-amber-200 transition-colors hover:border-amber-300/70"
+          style={{ fontFamily: "var(--font-cinzel), serif" }}
+        >
+          <ScrollText className="h-3 w-3" />
+          Misiones {missions.filter((m) => m.done).length}/{missions.length}
+        </button>
+      </motion.div>
+
+      {/* ── BOTTOM-CENTER (version, bajo Misiones — no pisa el título) ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.7 }}
-        className="absolute inset-x-0 top-4 z-20 flex justify-center"
+        className="absolute inset-x-0 bottom-2.5 z-20 flex justify-center px-8"
       >
-        <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-amber-700/70">
-          v2.4 · misiones diarias · jefes · liga PvP
+        <p className="text-center text-[7px] font-bold uppercase tracking-[0.35em] text-amber-700/60">
+          v2.5 · niveles · mítica · jefes temáticos
         </p>
       </motion.div>
 

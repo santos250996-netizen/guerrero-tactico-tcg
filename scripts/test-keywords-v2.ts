@@ -110,14 +110,14 @@ console.log("\n🔵 INSIGNIA (on_play)");
 }
 
 // ---------------------------------------------------------------------------
-// 2. REMATE [X] — on_play: destruye la carta enemiga más fuerte con poder ≤ X
+// 2. REMATE [X] — on_play: resta X al MÁS DÉBIL; si tiene ≤ X lo destruye
 // ---------------------------------------------------------------------------
 console.log("\n🔵 REMATE (on_play)");
 {
   const board = emptyBoard();
-  const weak1 = boardCard(cardById("veterano_caido"), { currentPower: 1, basePower: 1 }); // p1
-  const weak2 = boardCard(cardById("hacha_de_ejecucion"), { currentPower: 2, basePower: 2 }); // p2
-  const strong = boardCard(cardById("colmillo_del_verdugo")); // p4 (fuera de alcance)
+  const weak1 = boardCard(cardById("veterano_caido"), { currentPower: 4, basePower: 4 }); // p4: débil pero SOBREVIVE
+  const weak2 = boardCard(cardById("hacha_de_ejecucion"), { currentPower: 2, basePower: 2 }); // p2 ≤ 2: MUERE
+  const strong = boardCard(cardById("colmillo_del_verdugo")); // p4
   place(board, "enemy", "furia", weak1);
   place(board, "enemy", "furia", weak2);
   place(board, "enemy", "furia", strong);
@@ -125,9 +125,11 @@ console.log("\n🔵 REMATE (on_play)");
   const hand = asHand(cardById("hacha_de_ejecucion"));
   const res = playCard(board, [hand], 10, "player", "furia", hand, null, NO_TRAP);
   check("Se destruye exactamente 1 carta", res.removedCards.length === 1);
-  check("Es la MÁS FUERTE de las que cumplen (p2, no p1)", res.removedCards[0]?.uid === weak2.uid);
+  check("Apunta al MÁS DÉBIL del carril (p2 muere por ≤ X)", res.removedCards[0]?.uid === weak2.uid);
+  const survivor = res.board.furia.enemy.find((c) => c.uid === weak1.uid);
+  check("El débil con p4 > X sobrevive intacto", !!survivor && survivor.currentPower === 4, `real ${survivor?.currentPower}`);
   const enemyLeft = res.board.furia.enemy.length;
-  check("El carril enemigo queda con 2 cartas (p1 + p4)", enemyLeft === 2, `real ${enemyLeft}`);
+  check("El carril enemigo queda con 2 cartas (p4 + p4)", enemyLeft === 2, `real ${enemyLeft}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -338,19 +340,19 @@ console.log("\n🔵 LEGADO (on_death)");
 console.log("\n🔗 CADENA Remate → on_death (Legado)");
 {
   const board = emptyBoard();
-  const enemyVet = boardCard(cardById("veterano_caido"), { currentPower: 2, basePower: 2 });
-  const enemyWeak = boardCard(cardById("amoladora_de_campamento"), { currentPower: 1, basePower: 1 });
+  const enemyVet = boardCard(cardById("veterano_caido"), { currentPower: 1, basePower: 1 }); // p1: el MÁS DÉBIL
+  const enemyWeak = boardCard(cardById("amoladora_de_campamento"), { currentPower: 3, basePower: 3 }); // p3: sobrevive
   place(board, "enemy", "furia", enemyVet);
   place(board, "enemy", "furia", enemyWeak);
 
   const hand = asHand(cardById("hacha_de_ejecucion")); // remate 2
   const res = playCard(board, [hand], 10, "player", "furia", hand, null, NO_TRAP);
-  check("Hacha destruye al Veterano rival (p2 ≤ 2)", res.removedCards.length === 1 && res.removedCards[0].uid === enemyVet.uid);
+  check("Hacha destruye al Veterano rival (p1 ≤ 2, el más débil)", res.removedCards.length === 1 && res.removedCards[0].uid === enemyVet.uid);
 
   // gameStore hace esto tras cada destrucción:
   const deathRes = applyOnDeathEffects(res.board, "enemy", "furia", enemyVet);
   const weakAfter = deathRes.board.furia.enemy.find((c) => c.uid === enemyWeak.uid)!;
-  check("Legado del Veterano: +3 al aliado débil rival (1→4)", weakAfter.currentPower === 4, `real ${weakAfter.currentPower}`);
+  check("Legado del Veterano: +3 al aliado débil rival (3→6)", weakAfter.currentPower === 6, `real ${weakAfter.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------

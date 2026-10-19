@@ -39,7 +39,7 @@ export function DeckEditor() {
   /** ¿Tiene el jugador al menos 1 copia de esta carta? */
   const isOwned = (id: string): boolean => {
     const t = copies[id];
-    return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) > 0;
+    return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) + (t.mythic ?? 0) > 0;
   };
   /** Cartas del mazo actual sin copias (aviso: no se jugarán). */
   const unownedInDeck = deckCardIds.filter((id) => id && !isOwned(id));
@@ -121,7 +121,7 @@ export function DeckEditor() {
   const deckSlots = useMemo<(CardDef | undefined)[]>(() => {
     const owned = (id: string): boolean => {
       const t = copies[id];
-      return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) > 0;
+      return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) + (t.mythic ?? 0) > 0;
     };
     return Array.from({ length: 12 }).map((_, idx) => {
       const id = deckCardIds[idx];
@@ -469,7 +469,7 @@ export function DeckEditor() {
             <div className="mb-2 flex flex-col gap-2.5 rounded-md border border-zinc-700/60 bg-zinc-950/60 p-2 backdrop-blur-[1px]">
               {/* Rareza */}
               <FilterGroup label="Rareza">
-                {(["all","common","rare","epic","legendary"] as const).map((r) => (
+                {(["all","common","rare","epic","legendary","mythic"] as const).map((r) => (
                   <FilterChip key={r} active={rarityFilter === r} onClick={() => setRarityFilter(r)}>
                     {r === "all" ? "Todas" : RARITY_META[r as Rarity]?.label || r}
                   </FilterChip>

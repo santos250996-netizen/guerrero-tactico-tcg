@@ -18,10 +18,11 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Hand, Zap, Layers, Swords, Wand2, EyeOff, Activity, Skull, Loader2,
-  WifiOff, Trophy, ScrollText,
+  WifiOff, Trophy, ScrollText, Star,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
+import { useStatsStore, xpForNext } from "@/store/statsStore";
 import { useSettings } from "@/lib/settings";
 import { CLASS_META, LANE_META, RARITY_META } from "@/lib/game/types";
 import { RARITY_LABEL } from "@/lib/game/balance";
@@ -349,6 +350,9 @@ function HistoriaEndOverlay({
   const bossActive = usePvpStore.getState().bossActive;
   const won = result === "WIN";
   const loot = rewards ?? [];
+  // NIVEL: celebra la subida (flash del statsStore) y muestra el XP ganado
+  const stats = useStatsStore.getState();
+  const need = xpForNext(stats.level);
   return (
     <AnimatePresence>
       {open && (
@@ -382,6 +386,21 @@ function HistoriaEndOverlay({
               {won ? (bossActive ? "¡Jefe derrotado!" : "¡Victoria!") : "Derrota"}
             </div>
 
+            {stats.levelUpFlash && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.35, type: "spring", stiffness: 260, damping: 18 }}
+                className="mx-auto mt-2 flex items-center gap-1.5 rounded-full border border-amber-300/70 bg-gradient-to-b from-amber-500/25 to-amber-900/40 px-3 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-amber-200 shadow-[0_0_16px_rgba(251,191,36,0.45)]"
+              >
+                <Star className="h-3 w-3 text-amber-300" />
+                ¡Nivel {stats.levelUpFlash.to}! Mejoran tus drops
+              </motion.div>
+            )}
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Nivel {stats.level} · {stats.xp}/{need} XP
+            </p>
+
             {loot.length > 0 && (
               <>
                 <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-200/80">
@@ -400,7 +419,14 @@ function HistoriaEndOverlay({
                         animate={{ rotateY: 0, opacity: 1 }}
                         transition={{ delay: 0.5 + i * 0.5, duration: 0.45 }}
                         className="w-24 overflow-hidden rounded-lg border-2 bg-zinc-950"
-                        style={{ borderColor: rar === "epic" ? "rgb(217 70 239 / 0.7)" : rar === "rare" ? "rgb(56 189 248 / 0.7)" : "rgb(113 113 122 / 0.7)" }}
+                        style={{
+                          borderColor:
+                            rar === "mythic" ? "rgb(251 113 133 / 0.85)" :
+                            rar === "legendary" ? "rgb(251 191 36 / 0.85)" :
+                            rar === "epic" ? "rgb(217 70 239 / 0.7)" :
+                            rar === "rare" ? "rgb(56 189 248 / 0.7)" :
+                            "rgb(113 113 122 / 0.7)",
+                        }}
                       >
                         <div
                           className="aspect-[3/4] w-full bg-cover bg-center"
@@ -418,7 +444,7 @@ function HistoriaEndOverlay({
                   })}
                 </div>
                 <p className="mt-2 text-[8px] uppercase tracking-widest text-zinc-500">
-                  3 iguales del mismo tier → fusión (+2 poder)
+                  3 iguales del mismo tier → fusión (+poder · desde legendaria, +keyword)
                 </p>
               </>
             )}
@@ -526,8 +552,7 @@ function RivalPlayAnnouncer({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 320, damping: 24 }}
-            style={{ x: "-50%" }}
-            className="absolute flex items-center gap-2 rounded-xl border-2 border-rose-600/70 bg-gradient-to-b from-rose-950/95 to-black/95 py-1.5 pl-1.5 pr-3 shadow-2xl shadow-black/60"
+            className="relative flex items-center gap-2 rounded-xl border-2 border-rose-600/70 bg-gradient-to-b from-rose-950/95 to-black/95 py-1.5 pl-1.5 pr-3 shadow-2xl shadow-black/60"
             data-testid="rival-play-announce"
           >
             {announce.defId ? (

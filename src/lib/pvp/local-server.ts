@@ -117,10 +117,22 @@ export function handleLocalPvpApi(
   method: string,
   rawPath: string,
   query: Record<string, string> = {},
-  body: unknown = undefined
+  body: unknown = undefined,
+  headers: Record<string, string> = {}
 ): LocalApiResult {
   const path = (rawPath || "/").replace(/\/+$/, "") || "/";
   const M = method.toUpperCase();
+  // Token del jugador: query ?token=, header x-pvp-token o body.token.
+  // FIX PvP online: el invitado (fetch) manda el token en el HEADER — si solo
+  // mirábamos query.token, CADA poll del invitado moría con 403 y su UI se
+  // quedaba clavada en "TURNO DEL RIVAL" para siempre.
+  const headerToken = headers["x-pvp-token"] ?? headers["X-Pvp-Token"] ?? null;
+  const bodyToken =
+    typeof body === "object" && body !== null && typeof (body as { token?: unknown }).token === "string"
+      ? ((body as { token: string }).token as string)
+      : null;
+  const anyToken = (fallback: string | null): string | null =>
+    fallback ?? query.token ?? headerToken ?? bodyToken ?? null;
 
   try {
     // POST /api/pvp/rooms — crea sala (creador = lado A / anfitrión)
@@ -174,7 +186,7 @@ export function handleLocalPvpApi(
       // GET /state — polling + heartbeat
       if (M === "GET" && verb === "state") {
         const env = getRoom(code);
-        const token = query.token ?? null;
+        const token = anyToken(null);
         const side = env ? sideForToken(env, token) : null;
         if (!env || !side) {
           return env
@@ -188,14 +200,14 @@ export function handleLocalPvpApi(
       // POST /action — jugar carta o pasar (servidor autoritativo)
       if (M === "POST" && verb === "action") {
         const env = getRoom(code);
-        const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
-        const token = (query.token ?? (typeof b.token === "string" ? b.token : null)) || null;
+        const token = anyToken(null);
         const side = env ? sideForToken(env, token) : null;
         if (!env || !side) {
           return env
             ? { status: 403, body: { error: "No perteneces a esta sala." } }
             : { status: 404, body: { error: "Sala no encontrada. Revisa el código." } };
         }
+        const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
         const action = b.action as PvpAction | undefined;
         if (!action || (action.type !== "play" && action.type !== "pass")) {
           return { status: 400, body: { error: "Acción inválida." } };
@@ -214,8 +226,7 @@ export function handleLocalPvpApi(
       // POST /rematch — revancha cuando ambos piden
       if (M === "POST" && verb === "rematch") {
         const env = getRoom(code);
-        const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
-        const token = (query.token ?? (typeof b.token === "string" ? b.token : null)) || null;
+        const token = anyToken(null);
         const side = env ? sideForToken(env, token) : null;
         if (!env || !side) {
           return env
@@ -284,7 +295,13 @@ export async function startLocalPvpServer(): Promise<LocalServerInfo> {
           body = null;
         }
       }
-      const res = handleLocalPvpApi(req.method, req.path, req.query ?? {}, body);
+      const headerBag: Record<string, string> = {};
+      const rawHeaders = (req.headers ?? {}) as Record<string, unknown>;
+      for (const [k, v] of Object.entries(rawHeaders)) {
+        if (typeof v === "string") headerBag[k.toLowerCase()] = v;
+        else if (Array.isArray(v) && typeof v[0] === "string") headerBag[k.toLowerCase()] = v[0] as string;
+      }
+      const res = handleLocalPvpApi(req.method, req.path, req.query ?? {}, body, headerBag);
       await HttpServer.respond({
         requestId: req.requestId,
         status: res.status,

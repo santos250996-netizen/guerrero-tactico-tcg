@@ -18,7 +18,7 @@ export const pvpInputSchema = z.object({
         z.string(),
         z.object({
           id: z.string().min(1),
-          rarity: z.enum(["common", "rare", "epic", "legendary"]).optional(),
+          rarity: z.enum(["common", "rare", "epic", "legendary", "mythic"]).optional(),
         }),
       ])
     )

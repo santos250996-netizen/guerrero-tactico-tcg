@@ -69,6 +69,14 @@ export const FRAME_META: Record<Rarity, FrameMeta> = {
     glow: "0 0 18px rgba(251,191,36,0.5), 0 6px 16px rgba(0,0,0,0.75)",
     foil: "full",
   },
+  mythic: {
+    metal: "linear-gradient(160deg, #7a1f33 0%, #4a1220 30%, #360c17 60%, #5c1628 100%)",
+    plate: "linear-gradient(180deg, rgba(36,8,15,0.97) 0%, rgba(54,12,23,0.97) 100%)",
+    accent: "#fb7185",
+    nameText: "#fecdd3",
+    glow: "0 0 20px rgba(244,63,94,0.6), 0 6px 18px rgba(0,0,0,0.8)",
+    foil: "full",
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -230,11 +238,14 @@ export function CardShell({
         style={{ border: `1px solid ${meta.accent}44`, boxShadow: `inset 0 0 0 0.5px rgba(255,255,255,0.06)` }}
       />
 
-      {/* Pips de tier de fusión (centro-superior): cuantos más ◆, más poder
-          ganado por fusiones (+2 por tier). Color = acento de rareza. */}
+      {/* Pips de tier de fusión (centro-superior): cuantos más ◆, más tier
+          ganado por fusiones (rara 1 · épica 2 · legendaria 3 · MÍTICA 4).
+          Color = acento de rareza. */}
       {tierPips && rarity !== "common" && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex justify-center gap-[1px]">
-          {Array.from({ length: rarity === "rare" ? 1 : rarity === "epic" ? 2 : 3 }).map((_, i) => (
+          {Array.from({
+            length: rarity === "rare" ? 1 : rarity === "epic" ? 2 : rarity === "legendary" ? 3 : 4,
+          }).map((_, i) => (
             <span
               key={i}
               className="block h-1 w-1 -translate-y-[1px] rotate-45"

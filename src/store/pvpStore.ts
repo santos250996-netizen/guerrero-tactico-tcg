@@ -19,15 +19,15 @@ import {
   startPvpMatch,
 } from "@/lib/game/pvp";
 import { LANE_META, type CardDef, type GameClass } from "@/lib/game/types";
-import { classDecksOf } from "@/lib/game/cards";
+import { BOSS_DECKS, classDecksOf } from "@/lib/game/cards";
 import { materializeCard } from "@/lib/game/balance";
 import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
-import { useCollectionStore, type CardReward } from "@/store/collectionStore";
-import { useStatsStore, type MatchResult } from "@/store/statsStore";
-import { useMissionStore } from "@/store/missionStore";
+import { useCollectionStore, type CardReward } from "./collectionStore";
+import { useStatsStore, type MatchResult } from "./statsStore";
+import { useMissionStore } from "./missionStore";
 import {
   LOCAL_PVP_PORT,
   handleLocalPvpApi,
@@ -38,18 +38,27 @@ import {
 export type PvpScreen = "setup" | "lobby" | "game";
 export type PvpMode = "online" | "historia";
 
-/** Bots predeterminados del modo historia (mazos espejo oficiales). */
+/** Bots predeterminados del modo historia — APRENDICES: rivales novatos que
+ *  juegan los mazos comunes oficiales (el nombre ya no promete de más). */
 export const HISTORIA_BOTS: Record<GameClass, string> = {
-  guerrero: "Thralgrim, Señor de la Guerra",
-  mago: "Selene, Tejedora de Escarcha",
-  asesino: "Umbris, Cuchilla en las Sombras",
+  guerrero: "Bram, Aprendiz de Guerrero",
+  mago: "Iria, Aprendiz de Mago",
+  asesino: "Kess, Aprendiz de Asesino",
 };
 
-/** JEFES del modo historia: mazo materializado a ÉPICO + jugada gratis. */
+/** JEFES del modo historia: mazo TEMÁTICO propio (Korgath→Protección,
+ *  Nyx→Hielo, Vharos→Sigilo) materializado a ÉPICO + jugada gratis. */
 export const HISTORIA_BOSSES: Record<GameClass, string> = {
   guerrero: "Korgath, Coloso de Hierro",
   mago: "Nyx, Reina de Escarcha",
   asesino: "Vharos, Sombra Primigenia",
+};
+
+/** Spec temática del jefe de cada clase (coincide con su mazo BOSS_DECKS). */
+export const BOSS_THEME: Record<GameClass, string> = {
+  guerrero: "Protección",
+  mago: "Hielo",
+  asesino: "Sigilo",
 };
 
 export interface PvpFloatingNumber {
@@ -400,7 +409,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     }
     const base = opts.base !== undefined ? opts.base : get().remoteBase;
     try {
-      const res = await fetch(`${base ?? ""}${path}`, {
+      // Belt & suspenders: el token VIAJA TAMBIÉN en la query de los GET.
+      // (El servidor local del anfitrión ya acepta header x-pvp-token, pero
+      // así el polling funciona aunque un backend ignore headers.)
+      let url = `${base ?? ""}${path}`;
+      if (method === "GET" && opts.token) {
+        url += (url.includes("?") ? "&" : "?") + `token=${encodeURIComponent(opts.token)}`;
+      }
+      const res = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -435,6 +451,11 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       return;
     }
     set({ connectionLost: false });
+    // PERF: si el version del servidor NO cambió, no hay nada nuevo — saltar
+    // applyView evita re-renderizar TODO el tablero cada 1.2 s (era el mayor
+    // coste invisible del juego en móvil: poll → set → render completo).
+    const cur = get().view;
+    if (cur && data.view.version === cur.version) return;
     try {
       applyView(data.view);
     } catch (err) {
@@ -536,7 +557,9 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const col = useCollectionStore.getState();
     if (won) {
       col.registerWin();
-      const rewards = st.bossActive ? col.addBossRewards() : col.addRewards(2);
+      const rewards = st.bossActive
+        ? col.addBossRewards()
+        : col.addRewards(2, { bonusForLevel: true }); // +1 carta extra en N5/N10
       set({ pendingRewards: rewards });
     } else {
       const rewards = col.addRewards(1);
@@ -620,6 +643,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       get().stopPolling();
       cancelBotTimer();
       onlineEndNoted = false;
+      useStatsStore.getState().clearLevelUpFlash();
       if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
@@ -648,6 +672,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       get().stopPolling();
       cancelBotTimer();
       onlineEndNoted = false;
+      useStatsStore.getState().clearLevelUpFlash();
       if (get().hostingLocal) void stopLocalPvpServer();
       set({
         screen: "setup",
@@ -684,6 +709,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       get().stopPolling();
       if (get().hostingLocal) void stopLocalPvpServer();
       onlineEndNoted = false;
+      useStatsStore.getState().clearLevelUpFlash();
 
       // Colección: entrega el mazo inicial (neutrales, 1 vez) y arma el mazo
       // de BATALLA con lo editado por el jugador (12 propias, materializadas
@@ -698,14 +724,15 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         deck,
       });
       // Bot/jefe ALEATORIO: cualquier clase. Normal: cualquiera de sus 2 mazos
-      // (6 rivales posibles). JEFE: mazo propio materializado a ÉPICO (+6 poder
-      // por carta) — y enableBossMode activa jugada gratis + 3 bonos.
+      // (6 rivales posibles). JEFE: su MAZO TEMÁTICO propio (una sola spec,
+      // 12 cartas únicas) materializado a ÉPICO — y enableBossMode activa
+      // jugada gratis + 3 bonos.
       const BOT_CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
       const botClass = BOT_CLASSES[Math.floor(Math.random() * BOT_CLASSES.length)];
       const botDecks = classDecksOf(botClass);
       const botName = boss ? HISTORIA_BOSSES[botClass] : HISTORIA_BOTS[botClass];
       const botDeck = boss
-        ? botDecks[Math.floor(Math.random() * botDecks.length)].map((c) => materializeCard(c, "epic"))
+        ? BOSS_DECKS[botClass].map((c) => materializeCard(c, "epic"))
         : botDecks[Math.floor(Math.random() * botDecks.length)];
       joinBotPvpState(state, {
         name: botName,

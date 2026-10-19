@@ -59,8 +59,22 @@ El arte de la carta **se deriva del nombre + categoría + spec**:
 5. **Anatomía correcta**: manos correctas, número correcto de brazos/dedos;
    si el modelo de imagen falla la anatomía, se regenera (caso estoque con
    3 brazos).
-6. Estilo: pintura digital dark-fantasy, 864×1152 (3:4), dramática, sin texto,
-   sin bordes ni marcos (el marco lo pone la UI).
+6. Estilo (CORREGIDO 2026-10 tras deriva realista): **Stylized realism,
+   Hearthstone-like** — pintura digital con brochetas visibles, colores
+   saturados, zonas de color plano en sombras, proporciones heroicas
+   exageradas. NUNCA fotorrealista, NUNCA render 3D. 864×1152 (3:4),
+   sin texto, sin bordes ni marcos (el marco lo pone la UI).
+7. **Catálogo de razas (§4.7)**: todo personaje humanoide del arte pertenece
+   a UNA de las razas del catálogo — nada de "humanos genéricos realistas":
+
+   | Clase | Razas del catálogo para sus personajes |
+   |-------|----------------------------------------|
+   | Guerrero | orco · tauren · enano · humano · worgen |
+   | Mago | humano · elfo de sangre · elfo nocturno · draenei · gnomo |
+   | Asesino | humano · goblin · no-muerto · elfo nocturno · worgen |
+
+   Bestias/criaturas (salamandra, víbora, fénix, coloso de hielo…) no requieren
+   raza. El prompt SIEMPRE nombra la raza con sus rasgos (piel, orejas, colmillos…).
 
 Plantilla de prompt usada en `scripts/gen-card-art-v4.mjs` (codifica las reglas
 por categoría en `CATEGORY_RULE`):
@@ -70,8 +84,10 @@ Subject: {NOMBRE en escena}. Scene: {imaginería de la spec}.
 Mood: {Ítem: centered hero still-life, no characters/hands/arms |
        Acción: action actively performed by a clearly visible character, readable |
        Ataque: violent dynamic action caught mid-strike, wielder visible}.
-dark fantasy TCG card art, painted digital illustration, dramatic cinematic
-lighting, no text, no borders, no watermark.
+Stylized realism, visible brushstrokes, NOT photorealistic, Hearthstone card
+art style, vibrant saturated colors, dramatic cinematic lighting, flat color
+zones in shadows, exaggerated heroic proportions, no text, no borders, no
+watermark.
 ```
 
 ## 5. Sonoridad de clase (vocabulario del nombre)

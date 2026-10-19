@@ -182,7 +182,7 @@ export const ALL_CARDS: CardDef[] = [
     subtypes: ["furia"],
     cost: 1,
     power: 1,
-    text: "Al Jugar: destruye una carta enemiga de este carril con poder 2 o menos.",
+    text: "Al Jugar: resta 2 de poder al enemigo más débil de este carril; si tiene 2 o menos, lo destruye.",
     effectId: "remate",
     keyword: "remate",
     keywordValue: 2,
@@ -248,11 +248,11 @@ export const MAGE_CARDS: CardDef[] = [
     category: "Ítem",
     subtypes: ["arcana"],
     cost: 1,
-    power: 3,
-    text: "Inicio de Turno: gana +1 de poder permanente.",
+    power: 1,
+    text: "Inicio de Turno: gana +2 de poder permanente (cada página leída crece).",
     effectId: "fervor",
     keyword: "fervor",
-    keywordValue: 1,
+    keywordValue: 2,
     rarity: "common",
     trigger: "start_turn",
   },
@@ -262,11 +262,11 @@ export const MAGE_CARDS: CardDef[] = [
     category: "Acción",
     subtypes: ["arcana"],
     cost: 3,
-    power: 11,
-    text: "Fin de Turno: todas tus cartas de este carril ganan +1.",
+    power: 9,
+    text: "Fin de Turno: todas tus cartas de este carril ganan +2.",
     effectId: "fortaleza",
     keyword: "fortaleza",
-    keywordValue: 1,
+    keywordValue: 2,
     rarity: "common",
     trigger: "end_turn",
   },
@@ -321,7 +321,7 @@ export const MAGE_CARDS: CardDef[] = [
     subtypes: ["fuego"],
     cost: 4,
     power: 13,
-    text: "Al Jugar: destruye una carta enemiga de este carril con poder 2 o menos.",
+    text: "Al Jugar: resta 2 de poder al enemigo más débil de este carril; si tiene 2 o menos, lo destruye.",
     effectId: "remate",
     keyword: "remate",
     keywordValue: 2,
@@ -430,13 +430,13 @@ export const ROGUE_CARDS: CardDef[] = [
     category: "Ataque",
     subtypes: ["veneno"],
     cost: 1,
-    power: 3,
-    text: "Inicio de Turno: gana +1 de poder permanente.",
+    power: 2,
+    text: "Al Jugar: gana +1 de poder permanente (crece al devorar).",
     effectId: "fervor",
     keyword: "fervor",
     keywordValue: 1,
     rarity: "common",
-    trigger: "start_turn",
+    trigger: "on_play",
   },
   {
     id: "nube_toxica",
@@ -444,11 +444,11 @@ export const ROGUE_CARDS: CardDef[] = [
     category: "Acción",
     subtypes: ["veneno"],
     cost: 3,
-    power: 11,
-    text: "Fin de Turno: todas tus cartas de este carril ganan +1.",
+    power: 6,
+    text: "Fin de Turno: todas tus cartas de este carril ganan +3.",
     effectId: "fortaleza",
     keyword: "fortaleza",
-    keywordValue: 1,
+    keywordValue: 3,
     rarity: "common",
     trigger: "end_turn",
   },
@@ -488,11 +488,11 @@ export const ROGUE_CARDS: CardDef[] = [
     category: "Ataque",
     subtypes: ["combate"],
     cost: 3,
-    power: 10,
-    text: "Al Jugar: otorga +3 de poder permanente al aliado más débil de este carril.",
+    power: 11,
+    text: "Al Jugar: otorga +2 de poder permanente al aliado más débil de este carril.",
     effectId: "insignia",
     keyword: "insignia",
-    keywordValue: 3,
+    keywordValue: 2,
     rarity: "common",
     trigger: "on_play",
   },
@@ -502,11 +502,11 @@ export const ROGUE_CARDS: CardDef[] = [
     category: "Acción",
     subtypes: ["combate"],
     cost: 4,
-    power: 13,
-    text: "Al Jugar: destruye una carta enemiga de este carril con poder 2 o menos.",
+    power: 10,
+    text: "Al Jugar: resta 3 de poder al enemigo más débil de este carril; si tiene 3 o menos, lo destruye.",
     effectId: "remate",
     keyword: "remate",
-    keywordValue: 2,
+    keywordValue: 3,
     rarity: "common",
     trigger: "on_play",
   },
@@ -560,11 +560,11 @@ export const ROGUE_CARDS: CardDef[] = [
     category: "Ataque",
     subtypes: ["sigilo"],
     cost: 5,
-    power: 18,
-    text: "Último Aliento: el aliado más débil de este carril gana +3 de poder permanente.",
+    power: 17,
+    text: "Último Aliento: el aliado más débil de este carril gana +4 de poder permanente.",
     effectId: "legado",
     keyword: "legado",
-    keywordValue: 3,
+    keywordValue: 4,
     rarity: "common",
     trigger: "on_death",
   },
@@ -636,7 +636,7 @@ export const WARRIOR2_CARDS: CardDef[] = [
     subtypes: ["armas"],
     cost: 4,
     power: 8,
-    text: "Al Jugar: destruye una carta enemiga de este carril con poder 4 o menos.",
+    text: "Al Jugar: resta 4 de poder al enemigo más débil de este carril; si tiene 4 o menos, lo destruye.",
     effectId: "remate",
     keyword: "remate",
     keywordValue: 4,
@@ -856,12 +856,12 @@ export const MAGE2_CARDS: CardDef[] = [
     subtypes: ["fuego"],
     cost: 1,
     power: 3,
-    text: "Inicio de Turno: gana +1 de poder permanente.",
-    effectId: "fervor",
-    keyword: "fervor",
+    text: "Fin de Turno: todas tus cartas de este carril ganan +1 (las ascuas se extienden).",
+    effectId: "fortaleza",
+    keyword: "fortaleza",
     keywordValue: 1,
     rarity: "common",
-    trigger: "start_turn",
+    trigger: "end_turn",
   },
   {
     id: "bomba_de_fuego_inestable",
@@ -914,7 +914,7 @@ export const MAGE2_CARDS: CardDef[] = [
     subtypes: ["hielo"],
     cost: 2,
     power: 5,
-    text: "Al Jugar: destruye una carta enemiga de este carril con poder 2 o menos.",
+    text: "Al Jugar: resta 2 de poder al enemigo más débil de este carril; si tiene 2 o menos, lo destruye.",
     effectId: "remate",
     keyword: "remate",
     keywordValue: 2,
@@ -973,11 +973,11 @@ export const ROGUE2_CARDS: CardDef[] = [
     category: "Ítem",
     subtypes: ["veneno"],
     cost: 1,
-    power: 3,
-    text: "Al Jugar: otorga +2 de poder permanente al aliado más débil de este carril.",
+    power: 2,
+    text: "Al Jugar: otorga +3 de poder permanente al aliado más débil de este carril.",
     effectId: "insignia",
     keyword: "insignia",
-    keywordValue: 2,
+    keywordValue: 3,
     rarity: "common",
     trigger: "on_play",
   },
@@ -1017,10 +1017,10 @@ export const ROGUE2_CARDS: CardDef[] = [
     category: "Ataque",
     subtypes: ["combate"],
     cost: 2,
-    power: 8,
-    text: "Al Jugar: gana +1 por cada carta enemiga que ya esté en este carril.",
-    effectId: "refriega",
-    keyword: "refriega",
+    power: 7,
+    text: "Al Jugar: resta 1 de poder al enemigo más débil de este carril; si tiene 1 o menos, lo destruye.",
+    effectId: "remate",
+    keyword: "remate",
     keywordValue: 1,
     rarity: "common",
     trigger: "on_play",
@@ -1103,13 +1103,201 @@ export const ROGUE2_CARDS: CardDef[] = [
     category: "Acción",
     subtypes: ["sigilo"],
     cost: 5,
-    power: 17,
-    text: "Al Jugar: gana un escudo que absorbe las próximas 4 reducciones de poder.",
+    power: 16,
+    text: "Al Jugar: gana un escudo que absorbe las próximas 5 reducciones de poder.",
     effectId: "coraza",
     keyword: "coraza",
-    keywordValue: 4,
+    keywordValue: 5,
     rarity: "common",
     trigger: "on_play",
+  },
+];
+
+// ============================================================================
+// CARTAS DE JEFE (4ª tanda, 2026-10) — 4 cartas nuevas por spec temática
+// (Sigilo · Hielo · Protección), todas con keywords EXISTENTES y combos
+// (coste, poder, keyword, X, trigger) que NO se repiten en el catálogo.
+// El jugador TAMBIÉN puede conseguirlas: entran al pool de su clase
+// (ALL_CARDS_V3) — nada exclusivo de los bots.
+// ============================================================================
+
+export const SIGILO_BOSS_CARDS: CardDef[] = [
+  // ------------------------- CARRIL SIGILO +4 -------------------------
+  {
+    id: "punialada_traicionera",
+    name: "Puñalada Traicionera",
+    category: "Ataque",
+    subtypes: ["sigilo"],
+    cost: 1,
+    power: 4,
+    text: "Al Jugar: reduce en 1 el poder del enemigo más fuerte de este carril. Los escudos lo absorben.",
+    effectId: "golpe_certero",
+    keyword: "golpe_certero",
+    keywordValue: 1,
+    rarity: "common",
+    trigger: "on_play",
+  },
+  {
+    id: "cuchilla_susurrante",
+    name: "Cuchilla Susurrante",
+    category: "Ataque",
+    subtypes: ["sigilo"],
+    cost: 2,
+    power: 9,
+    text: "Al Jugar: el resto de cartas de tu mano gana +1 de poder permanente.",
+    effectId: "conspiracion",
+    keyword: "conspiracion",
+    keywordValue: 1,
+    rarity: "common",
+    trigger: "on_play",
+  },
+  {
+    id: "velo_nocturno",
+    name: "Velo Nocturno",
+    category: "Ítem",
+    subtypes: ["sigilo"],
+    cost: 2,
+    power: 7,
+    text: "Al Jugar: gana un escudo que absorbe las próximas 2 reducciones de poder.",
+    effectId: "coraza",
+    keyword: "coraza",
+    keywordValue: 2,
+    rarity: "common",
+    trigger: "on_play",
+  },
+  {
+    id: "cobro_por_encargo",
+    name: "Cobro por Encargo",
+    category: "Acción",
+    subtypes: ["sigilo"],
+    cost: 3,
+    power: 11,
+    text: "Último Aliento: el aliado más débil de este carril gana +2 de poder permanente.",
+    effectId: "legado",
+    keyword: "legado",
+    keywordValue: 2,
+    rarity: "common",
+    trigger: "on_death",
+  },
+];
+
+export const HIELO_BOSS_CARDS: CardDef[] = [
+  // ------------------------- CARRIL HIELO +4 -------------------------
+  {
+    id: "aliento_gelido",
+    name: "Aliento Gélido",
+    category: "Ataque",
+    subtypes: ["hielo"],
+    cost: 2,
+    power: 8,
+    text: "Fin de Turno: reduce en 1 el poder de TODAS las cartas enemigas de este carril.",
+    effectId: "ventisca",
+    keyword: "ventisca",
+    keywordValue: 1,
+    rarity: "common",
+    trigger: "end_turn",
+  },
+  {
+    id: "estatua_viviente",
+    name: "Estatua Viviente",
+    category: "Ataque",
+    subtypes: ["hielo"],
+    cost: 3,
+    power: 9,
+    text: "Inicio de Turno: gana +2 de poder permanente (el hielo crece).",
+    effectId: "fervor",
+    keyword: "fervor",
+    keywordValue: 2,
+    rarity: "common",
+    trigger: "start_turn",
+  },
+  {
+    id: "cetro_de_escarcha",
+    name: "Cetro de Escarcha",
+    category: "Ítem",
+    subtypes: ["hielo"],
+    cost: 2,
+    power: 7,
+    text: "Inicio de Turno: tu escudo se restaura hasta 2 puntos.",
+    effectId: "escarcha",
+    keyword: "escarcha",
+    keywordValue: 2,
+    rarity: "common",
+    trigger: "start_turn",
+  },
+  {
+    id: "granizo_defensivo",
+    name: "Granizo Defensivo",
+    category: "Acción",
+    subtypes: ["hielo"],
+    cost: 4,
+    power: 14,
+    text: "Al Jugar: gana un escudo que absorbe las próximas 3 reducciones de poder.",
+    effectId: "coraza",
+    keyword: "coraza",
+    keywordValue: 3,
+    rarity: "common",
+    trigger: "on_play",
+  },
+];
+
+export const PROTECCION_BOSS_CARDS: CardDef[] = [
+  // ----------------------- CARRIL PROTECCIÓN +4 -----------------------
+  {
+    id: "escudero_diligente",
+    name: "Escudero Diligente",
+    category: "Ataque",
+    subtypes: ["proteccion"],
+    cost: 2,
+    power: 8,
+    text: "Inicio de Turno: el escudo del aliado más débil de este carril (puede ser ella misma) se restaura hasta 1 punto.",
+    effectId: "custodia",
+    keyword: "custodia",
+    keywordValue: 1,
+    rarity: "common",
+    trigger: "start_turn",
+  },
+  {
+    id: "torre_de_asedio_viviente",
+    name: "Torre de Asedio Viviente",
+    category: "Ataque",
+    subtypes: ["proteccion"],
+    cost: 4,
+    power: 13,
+    text: "Inicio de Turno: gana +2 de poder permanente (la torre sigue en pie).",
+    effectId: "fervor",
+    keyword: "fervor",
+    keywordValue: 2,
+    rarity: "common",
+    trigger: "start_turn",
+  },
+  {
+    id: "paves_de_la_muralla",
+    name: "Pavés de la Muralla",
+    category: "Ítem",
+    subtypes: ["proteccion"],
+    cost: 2,
+    power: 9,
+    text: "Al Jugar: tus demás cartas de este carril ganan un escudo de 1.",
+    effectId: "amparo",
+    keyword: "amparo",
+    keywordValue: 1,
+    rarity: "common",
+    trigger: "on_play",
+  },
+  {
+    id: "juramento_de_acero",
+    name: "Juramento de Acero",
+    category: "Acción",
+    subtypes: ["proteccion"],
+    cost: 2,
+    power: 7,
+    text: "Fin de Turno: todas tus cartas de este carril ganan +1.",
+    effectId: "fortaleza",
+    keyword: "fortaleza",
+    keywordValue: 1,
+    rarity: "common",
+    trigger: "end_turn",
   },
 ];
 
@@ -1120,6 +1308,9 @@ export const ALL_CARDS_V3: CardDef[] = [
   ...WARRIOR2_CARDS,
   ...MAGE2_CARDS,
   ...ROGUE2_CARDS,
+  ...PROTECCION_BOSS_CARDS,
+  ...HIELO_BOSS_CARDS,
+  ...SIGILO_BOSS_CARDS,
 ];
 
 /** Mazo espejo por clase (jugador e IA usan el mismo). */
@@ -1145,6 +1336,20 @@ export function classDecksOf(cls: GameClass): CardDef[][] {
 }
 
 // ============================================================================
+// MAZOS DE JEFE — un mazo PROPIO por jefe, 100% temático (una sola spec).
+//   Vharos, Sombra Primigenia (asesino) → SIGILO
+//   Nyx, Reina de Escarcha (mago)       → HIELO
+//   Korgath, Coloso de Hierro (guerrero)→ PROTECCIÓN
+// Reutiliza las cartas existentes de la spec + las 4 nuevas; SIN keywords
+// nuevas y SIN duplicar combos (coste+poder+efecto) del catálogo.
+// ============================================================================
+export const BOSS_DECKS: Record<GameClass, CardDef[]> = {
+  guerrero: ALL_CARDS_V3.filter((c) => c.subtypes.includes("proteccion")),
+  mago: ALL_CARDS_V3.filter((c) => c.subtypes.includes("hielo")),
+  asesino: ALL_CARDS_V3.filter((c) => c.subtypes.includes("sigilo")),
+};
+
+// ============================================================================
 // PROGRESIÓN — el jugador NO empieza con las 24 cartas de su clase.
 // Mazo inicial = las cartas NEUTRALES de la clase (keywords compartidas o
 // sin keyword) rellenadas hasta 12 con las exclusivas más baratas. El resto
@@ -1157,9 +1362,15 @@ export const NEUTRAL_KEYWORD_IDS: ReadonlySet<string> = new Set([
   "fervor", "coraza", "insignia", "remate", "legado", "fortaleza",
 ]);
 
-/** Las 24 cartas de una clase (mazo I + mazo II) en orden de catálogo. */
+/** Las 28 cartas de una clase (mazo I + mazo II + las 4 de su JEFE). */
 export function classCardsOf(cls: GameClass): CardDef[] {
-  return [...CLASS_DECKS[cls], ...CLASS_DECKS_SECOND[cls]];
+  return [
+    ...CLASS_DECKS[cls],
+    ...CLASS_DECKS_SECOND[cls],
+    ...BOSS_DECKS[cls].filter(
+      (c) => !CLASS_DECKS[cls].some((d) => d.id === c.id) && !CLASS_DECKS_SECOND[cls].some((d) => d.id === c.id)
+    ),
+  ];
 }
 
 /**
@@ -1169,7 +1380,7 @@ export function classCardsOf(cls: GameClass): CardDef[] {
  */
 export function starterDeckFor(cls: GameClass): CardDef[] {
   const all24 = classCardsOf(cls);
-  const neutral = all24.filter((c) => !c.keyword || NEUTRAL_KEYWORD_IDS.has(c.keyword));
+  const neutral = all24.filter((c) => !c.keyword || NEUTRAL_KEYWORD_IDS.has(c.keyword)).slice(0, 12);
   const exclusives = all24
     .filter((c) => c.keyword && !NEUTRAL_KEYWORD_IDS.has(c.keyword))
     .sort((a, b) => a.cost - b.cost);

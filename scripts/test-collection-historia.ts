@@ -10,6 +10,7 @@ import {
   type CardReward,
 } from "../src/store/collectionStore";
 import { CLASS_DECKS, starterDeckFor, battleDeckFromOwned, classCardsOf, NEUTRAL_KEYWORD_IDS } from "../src/lib/game/cards";
+import { useStatsStore } from "../src/store/statsStore";
 import {
   materializeCard,
   getBalanceInfo,
@@ -71,14 +72,16 @@ section("1. Colección: arranque, recompensas y fusión");
   assert(useCollectionStore.getState().countOf(first.id, "epic") === 1, "queda 1 épica");
   assert(useCollectionStore.getState().bestTier(first.id) === "epic", "bestTier refleja la épica");
 
-  // Legendaria = tope de fusión
-  assert(nextRarity("legendary") === null, "la legendaria no fusiona más");
+  // Mítica = tope de fusión (legendaria ahora SÍ fusiona → mítica)
+  assert(nextRarity("legendary") === "mythic", "la legendaria fusiona a mítica");
+  assert(nextRarity("mythic") === null, "la mítica no fusiona más");
 
-  // Recompensas: 2 cartas, nunca legendarias, y suman copias
+  // Recompensas: 2 cartas y suman copias (nivel 1 → mesa 100% común)
+  useStatsStore.setState({ level: 1, xp: 0 });
   const before = useCollectionStore.getState().totalCopies();
   const rewards: CardReward[] = useCollectionStore.getState().addRewards(2);
   assert(rewards.length === 2, "la victoria otorga 2 cartas");
-  assert(rewards.every((r) => RARITY_ORDER.includes(r.rarity as never) && r.rarity !== "legendary"), "ninguna recompensa es legendaria");
+  assert(rewards.every((r) => RARITY_ORDER.includes(r.rarity as never) && r.rarity === "common"), "a nivel 1 solo caen comunes");
   assert(useCollectionStore.getState().totalCopies() === before + 2, "las copias se suman");
 }
 
@@ -184,12 +187,16 @@ section("4. Progresión: mazo inicial neutral y mazo de batalla por copias");
     assert(starter.length === 12, `${cls}: mazo inicial de 12 cartas (real ${starter.length})`);
     assert(new Set(starter.map((c) => c.id)).size === 12, `${cls}: 12 cartas ÚNICAS en el inicial`);
     assert(starter.some((c) => c.cost === 1), `${cls}: el inicial tiene carta de coste 1`);
-    // Neutrales primero: el inicial contiene TODAS las neutrales de la clase
+    // Neutrales primero (cap 12): con las cartas de jefe la clase puede tener
+    // 13 neutrales — el inicial se queda con las 12 primeras del catálogo.
     const neutrals = classCardsOf(cls).filter(
       (c) => !c.keyword || NEUTRAL_KEYWORD_IDS.has(c.keyword)
     );
-    const missing = neutrals.filter((n) => !starter.some((s) => s.id === n.id));
-    assert(missing.length === 0, `${cls}: incluye sus ${neutrals.length} neutrales (faltan ${missing.length})`);
+    const wanted = neutrals.slice(0, 12);
+    const missing = wanted.filter((n) => !starter.some((s) => s.id === n.id));
+    assert(missing.length === 0, `${cls}: incluye las 12 neutrales del cap (${neutrals.length} disponibles)`);
+    assert(starter.every((s2) => wanted.some((n) => n.id === s2.id)) || neutrals.length <= 12,
+      `${cls}: el inicial son las 12 neutrales cuando hay suficientes`);
   }
 
   // Mazo de batalla: con solo el grant, el mazo = el inicial
