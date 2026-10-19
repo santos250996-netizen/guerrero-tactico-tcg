@@ -787,3 +787,23 @@ Work Log:
 Stage Summary:
 - La selección de clase ya refleja el catálogo COMPLETO: 28 cartas por clase, 9 keywords exclusivas (+6 neutrales), y los 3 mazos (I, II y el del JEFE temático) visibles de un vistazo
 - Los datos salen de KEYWORD_META/classCardsOf/BOSS_DECKS — futuras tandas de cartas actualizan la UI solas
+
+---
+Task ID: 37
+Agent: Z.ai main agent
+Task: "eso se ve demasiado desorganizado, mucho texto para simplemente elegir clase" — ClassSelect minimalista
+
+Work Log:
+- Diagnóstico: el Task 36 llenó cada tarjeta con catálogo (descripción, 9 chips de keywords, línea "+ neutrales", subtipos, 3 chips de mazos I/II/Jefe, badge N/28) + escalera en caja con cabecera/rival/reglas al pie = 3 pantallas de texto para lo que es un picker
+- Rediseño MINIMALISTA (154 líneas nuevas vs 365 borradas, −211 netas):
+  * NUEVA CampaignStrip: UNA línea delgada (rounded-full) — 15 segmentos finos (superados ámbar, actual latiendo blanco), jefes 5/10/15 como CRÁNEOS en línea (hecho rosa, actual latiendo, futuro apagado), ★ prestigio solo si >0, chip "ESC N/15" que se tiñe rosa con cráneo cuando el próximo es JEFE. Cero texto explicativo
+  * Tarjetas compactas: icono (48px) + nombre + lema de una línea + fila [MAZO | JUGAR]. FUERA: descripción, subtipos, keywords, neutrales, chips de mazos, badge de colección, overlay de bloqueo (código muerto), divider ⚔, subtítulo del título, línea "Siguiente rival", reglas al pie — ese detalle ya vive en DeckEditor/colección
+  * Botón unificado "JUGAR ▶" en las 3 clases (el escalón lo muestra la tira); rosa + cráneo cuando el próximo escalón es jefe; MAZO secundario intacto
+- Layout: main ahora flex justify-center — 3 tarjetas + tira centradas en 844px sin scroll
+- Verificación: tsc 0 · lint 0 · 11 suites verdes (campana 116 · colección 69 · fx 51 · kw-v2 35 · kw-v3 30 · kw-v4 71 · local-pvp 32 · pvp-engine 62 · turn-flow 27 · tanda28 33 · tanda29 77) · build estático RC=0 · E2E 390×844: estado fresco (ESC 1/15, botones ámbar) → JUGAR guerrero arranca vs "BRAM, APRENDIZ DE GUERRERO" (escalón 1 correcto) → storage step=5: 4 ámbar + cráneo latiendo, chip rosa "☠ ESC 5/15", 3 JUGAR rosas con cráneo → 0 errores de página; screenshots scripts/e2e-clases-minimal*.png
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- Elegir clase vuelve a ser ELEGIR CLASE: una tira visual + 3 tarjetas de dos líneas — toda la info de campaña es la propia escalera dibujada, no texto
+- La campaña (Task 35) queda intacta: mismo startHistoria por escalón, jefes emergen solos, botín/XP escalables
+- Regla de diseño: el detalle de catálogo/colección NO se repite en pantallas de elección — vive donde se gestiona
