@@ -22,6 +22,14 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
+import { useCampaignStore } from "@/store/campaignStore";
+import {
+  CAMPAIGN_STEPS,
+  isBossStep,
+  rivalNameForStep,
+  stepChipLabel,
+  xpBonusForStep,
+} from "@/lib/game/campaign";
 import { useStatsStore, xpForNext } from "@/store/statsStore";
 import { useSettings } from "@/lib/settings";
 import { music } from "@/lib/music";
@@ -353,8 +361,10 @@ export function PvpGame() {
 
 // ──────────────────────────────────────────────────────────────
 // ───────────────────────────────────────────────────
-// Fin de partida en MODO HISTORIA: victoria paga 2 cartas, derrota/empate
-// paga 1 (regla del usuario: siempre hay botín, ganar paga doble).
+// Fin de partida — LA CAMPAÑA: el botín y la XP salen del ESCALÓN jugado
+// (crecen al avanzar; el jefe paga legendaria garantizada). Los botones
+// encadenan la escalera: victoria → SIGUIENTE ESCALÓN (o NUEVA CAMPAÑA ★
+// si cerró la escalera) · derrota → REINTENTAR ESCALÓN (sin retroceder).
 // ───────────────────────────────────────────────────
 function HistoriaEndOverlay({
   open,
@@ -369,6 +379,9 @@ function HistoriaEndOverlay({
 }) {
   const result = usePvpStore.getState().view?.finalResult?.result;
   const bossActive = usePvpStore.getState().bossActive;
+  const playedStep = usePvpStore.getState().campaignStep ?? 1;
+  const campaignClosed = usePvpStore.getState().campaignCompleted;
+  const { step: nextStep, prestige } = useCampaignStore.getState();
   const won = result === "WIN";
   const loot = rewards ?? [];
   // NIVEL: celebra la subida (flash del statsStore) y muestra el XP ganado
@@ -394,7 +407,9 @@ function HistoriaEndOverlay({
               won ? "border-amber-500/60 from-amber-950" : "border-rose-800/60 from-rose-950"
             )}
           >
-            {won && bossActive ? (
+            {won && campaignClosed ? (
+              <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
+            ) : won && bossActive ? (
               <Skull className="mx-auto h-9 w-9 text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
             ) : (
               <Trophy className={cn("mx-auto h-9 w-9", won ? "text-amber-400" : "text-rose-500/60")} />
@@ -406,8 +421,25 @@ function HistoriaEndOverlay({
               )}
               style={{ fontFamily: "var(--font-cinzel), serif" }}
             >
-              {won ? (bossActive ? "¡Jefe derrotado!" : "¡Victoria!") : "Derrota"}
+              {won
+                ? campaignClosed
+                  ? "¡Campaña completada!"
+                  : bossActive
+                    ? "¡Jefe derrotado!"
+                    : "¡Victoria!"
+                : "Derrota"}
             </div>
+
+            {/* Chip del ESCALÓN jugado (+ estrellas de prestigio) */}
+            <p
+              className={cn(
+                "mt-1 text-[9px] font-black uppercase tracking-[0.25em]",
+                isBossStep(playedStep) ? "text-rose-300/90" : "text-zinc-400"
+              )}
+            >
+              {stepChipLabel(playedStep)} / {CAMPAIGN_STEPS}
+              {prestige > 0 && <span className="text-amber-300/80"> · ★ {prestige}</span>}
+            </p>
 
             {stats.levelUpFlash && (
               <motion.div
@@ -422,6 +454,7 @@ function HistoriaEndOverlay({
             )}
             <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">
               Nivel {stats.level} · {stats.xp}/{need} XP
+              {won && <span className="text-amber-300/90"> · +{xpBonusForStep(playedStep, prestige)} XP de escalón</span>}
             </p>
 
             {loot.length > 0 && (
@@ -476,7 +509,7 @@ function HistoriaEndOverlay({
             )}
             {!won && loot.length > 0 && (
               <p className="mt-1 text-[9px] uppercase tracking-widest text-rose-200/70">
-                El bot te venció — igual te llevas 1 carta
+                El bot te venció — igual te llevas 1 carta y el escalón te espera
               </p>
             )}
             {!won && loot.length === 0 && (
@@ -485,13 +518,35 @@ function HistoriaEndOverlay({
               </p>
             )}
 
-            <div className="mt-4 flex justify-center gap-2">
+            {/* LA CAMPAÑA encadena: siguiente escalón / reintentar / nueva vuelta */}
+            <div className="mt-4 flex flex-col items-center gap-2">
               <Button
                 onClick={onRematch}
-                className="border-amber-400/60 bg-gradient-to-b from-amber-600 to-amber-800 text-amber-50 hover:from-amber-500 hover:to-amber-700"
+                className={cn(
+                  "w-full border",
+                  won
+                    ? "border-amber-400/60 bg-gradient-to-b from-amber-600 to-amber-800 text-amber-50 hover:from-amber-500 hover:to-amber-700"
+                    : "border-rose-400/60 bg-gradient-to-b from-rose-700 to-rose-900 text-rose-50 hover:from-rose-600 hover:to-rose-800"
+                )}
               >
-                Revancha
+                {won
+                  ? campaignClosed
+                    ? "Nueva Campaña ★"
+                    : isBossStep(playedStep)
+                      ? "Continuar Campaña"
+                      : "Siguiente Escalón"
+                  : "Reintentar Escalón"}
               </Button>
+              {won && !campaignClosed && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Siguiente: <span className="text-zinc-300">{rivalNameForStep(nextStep)}</span>
+                </p>
+              )}
+              {won && campaignClosed && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-amber-300/80">
+                  ★ Prestigio {prestige} — la escalera recomienza con rivales reforzados
+                </p>
+              )}
               <Button
                 onClick={onExit}
                 variant="outline"

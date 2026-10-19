@@ -40,8 +40,8 @@ function copiesOf(c: Copies | undefined): number {
   return (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) + (c.mythic ?? 0);
 }
 
-function rollRarity(): Rarity {
-  const level = useStatsStore.getState().level;
+function rollRarity(floorLevel = 0): Rarity {
+  const level = Math.max(useStatsStore.getState().level, floorLevel);
   const table = dropTableFor(level);
   const roll = Math.random();
   let acc = 0;
@@ -94,10 +94,11 @@ interface CollectionState {
   grantStarterDeck: (cls: GameClass) => boolean;
   /**
    * Recompensa de cartas aleatorias de cualquier clase. La rareza sale de la
-   * MESA DE DROPS del nivel del jugador; con bonusForLevel la victoria añade
-   * las cartas extra de nivel (+1 en N5, +1 más en N10).
+   * MESA DE DROPS del nivel del jugador (o de floorLevel si es mayor — LA
+   * CAMPAÑA la usa para que el escalón mejore los drops); con bonusForLevel
+   * la victoria añade las cartas extra de nivel (+1 en N5, +1 más en N10).
    */
-  addRewards: (n?: number, opts?: { bonusForLevel?: boolean }) => CardReward[];
+  addRewards: (n?: number, opts?: { bonusForLevel?: boolean; floorLevel?: number }) => CardReward[];
   /** Botín del JEFE (solo victoria): 1 LEGENDARIA garantizada + 1 de rollo. */
   addBossRewards: () => CardReward[];
   canFuse: (id: string, rarity: Rarity) => boolean;
@@ -150,9 +151,10 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     const rewards: CardReward[] = [];
     const next = { ...copies };
     const total = n + (opts?.bonusForLevel ? bonusDropCards(useStatsStore.getState().level) : 0);
+    const floorLevel = opts?.floorLevel ?? 0;
     for (let i = 0; i < total; i++) {
       const card = pool[Math.floor(Math.random() * pool.length)];
-      const rarity = rollRarity();
+      const rarity = rollRarity(floorLevel);
       const cur = next[card.id] ?? {};
       const isNew = copiesOf(cur) === 0;
       next[card.id] = { ...cur, [rarity]: (cur[rarity] ?? 0) + 1 };

@@ -70,3 +70,4 @@ android/app/src/main/assets/public/_next/static/chunks/*.js.map
 
 # z.ai session artifacts (temp tool outputs)
 /tool-results/
+screenshots/*.png

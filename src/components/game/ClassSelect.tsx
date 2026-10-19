@@ -1,9 +1,12 @@
 "use client";
 
 // ============================================================================
-// Entrada del MODO HISTORIA (botón JUGAR del menú): elige tu clase, edita tu
-// mazo y a JUGAR — la partida arranca directa contra un BOT ALEATORIO
-// (cualquier clase, cualquiera de sus 2 mazos). Sin pantalla intermedia.
+// Entrada del MODO HISTORIA — LA CAMPAÑA (escalera de guerra): eliges tu
+// clase y CONTINÚAS la escalera de 15 escalones. Los JEFES emergen solos
+// como muros (escalones 5/10/15) — ya NO existe el botón "Desafiar al Jefe".
+// El botón único encadena: victoria → siguiente escalón; derrota → repites
+// (sin retroceder). El botín y la XP crecen con cada escalón y el escalón 15
+// vencido abre el PRESTIGIO (rivales reforzados, bucle infinito).
 // Colección: aquí se entrega el mazo inicial de cada clase (una vez) y se
 // muestra cuántas cartas de las 24 tienes desbloqueadas.
 // ============================================================================
@@ -12,12 +15,20 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
-import { usePvpStore, HISTORIA_BOSSES, BOSS_THEME } from "@/store/pvpStore";
-import { ArrowLeft, ChevronRight, Dices, EyeOff, Library, Lock, Skull, Sparkles, Swords, Wand2 } from "lucide-react";
+import { usePvpStore } from "@/store/pvpStore";
+import { useCampaignStore } from "@/store/campaignStore";
+import {
+  CAMPAIGN_STEPS,
+  isBossStep,
+  rivalNameForStep,
+  stepChipLabel,
+} from "@/lib/game/campaign";
+import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2 } from "lucide-react";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
 import { classCardsOf } from "@/lib/game/cards";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
+import { cn } from "@/lib/utils";
 
 interface ClassDef {
   id: GameClass;
@@ -30,8 +41,6 @@ interface ClassDef {
   desc: string;
   // Short tagline shown as a Cinzel subtitle under the class name
   tagline: string;
-  // Approximate number of cards in this class's pool (for the "X cartas" badge)
-  cardCount: number;
 }
 
 const CLASSES: ClassDef[] = [
@@ -45,7 +54,6 @@ const CLASSES: ClassDef[] = [
     unlocked: true,
     desc: "Maestro del combate cuerpo a cuerpo. Domina los tres carriles con tácticas agresivas, defensa sólida y furia desatada.",
     tagline: "Fuerza · Disciplina · Sangre",
-    cardCount: 12,
   },
   {
     id: "mago",
@@ -57,7 +65,6 @@ const CLASSES: ClassDef[] = [
     unlocked: true,
     desc: "Tejedor de arcano. Poder alto que entra de golpe y se disipa: llamaradas devoradoras, hielo restaurable y maná desbordante.",
     tagline: "Maná · Elementos · Burst",
-    cardCount: 12,
   },
   {
     id: "asesino",
@@ -69,7 +76,6 @@ const CLASSES: ClassDef[] = [
     unlocked: true,
     desc: "Precisión quirúrgica. Veneno que perfora escudos, golpes que castigan descuidos y cuchillas que limpian a los débiles.",
     tagline: "Sigilo · Veneno · Precisión",
-    cardCount: 12,
   },
 ];
 
@@ -123,6 +129,104 @@ const COLOR_MAP: Record<ClassDef["color"], {
   },
 };
 
+// ─────────────────────────────────────────────────────────────
+// LA CAMPAÑA — barra de la escalera: 15 segmentos con los cráneos de los
+// jefes encima de los muros (5/10/15). Persistente y GLOBAL (se comparte
+// entre clases): avanzar en cualquier clase avanza LA escalera.
+// ─────────────────────────────────────────────────────────────
+function CampaignLadder({ step, prestige }: { step: number; prestige: number }) {
+  const nextIsBoss = isBossStep(step);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="rounded-2xl border border-amber-500/30 bg-zinc-950/60 p-3 shadow-[0_0_24px_rgba(251,191,36,0.08)]"
+    >
+      {/* Cabecera: título + prestigio + escalón */}
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-300"
+          style={{ fontFamily: "var(--font-cinzel), serif" }}
+        >
+          La Campaña
+        </span>
+        <div className="flex items-center gap-1.5">
+          {prestige > 0 && (
+            <span className="flex items-center gap-0.5 rounded-full border border-amber-400/50 bg-amber-950/50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-300">
+              <Star className="h-2.5 w-2.5" />
+              Prestigio {prestige}
+            </span>
+          )}
+          <span
+            className={cn(
+              "rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider",
+              nextIsBoss
+                ? "border-rose-500/50 bg-rose-950/50 text-rose-300"
+                : "border-zinc-700 bg-zinc-900/70 text-zinc-300"
+            )}
+          >
+            {stepChipLabel(step)} / {CAMPAIGN_STEPS}
+          </span>
+        </div>
+      </div>
+
+      {/* La escalera — superados en ámbar, jefes en rosa, actual latiendo */}
+      <div className="mt-3 flex items-center gap-[3px] pt-2">
+        {Array.from({ length: CAMPAIGN_STEPS }, (_, i) => {
+          const s = i + 1;
+          const boss = isBossStep(s);
+          const done = s < step;
+          const current = s === step;
+          return (
+            <div key={s} className={cn("relative", boss ? "flex-[1.5]" : "flex-1")}>
+              {boss && (
+                <Skull
+                  className={cn(
+                    "absolute -top-2 left-1/2 h-2 w-2 -translate-x-1/2",
+                    done ? "text-rose-400/80" : current ? "text-rose-300" : "text-rose-500/50"
+                  )}
+                />
+              )}
+              <div
+                className={cn(
+                  "h-2 rounded-full border",
+                  done
+                    ? boss
+                      ? "border-rose-400/60 bg-rose-500/70"
+                      : "border-amber-400/50 bg-amber-500/70"
+                    : current
+                      ? boss
+                        ? "animate-pulse border-rose-300 bg-rose-400"
+                        : "border-zinc-100 bg-zinc-200"
+                      : boss
+                        ? "border-rose-800/60 bg-rose-950/60"
+                        : "border-zinc-700/60 bg-zinc-800/80"
+                )}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Lo que hay EN JUEGO ahora mismo */}
+      {nextIsBoss ? (
+        <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-[9px] font-black uppercase tracking-[0.18em] text-rose-300">
+          <Skull className="h-3 w-3 shrink-0" />
+          <span>{rivalNameForStep(step)} bloquea el paso · botín: legendaria</span>
+        </p>
+      ) : (
+        <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+          <ChevronRight className="h-3 w-3 shrink-0 text-amber-400" />
+          <span>
+            Siguiente rival: <span className="text-zinc-200">{rivalNameForStep(step)}</span>
+          </span>
+        </p>
+      )}
+    </motion.div>
+  );
+}
+
 export function ClassSelect() {
   const setView = useGameStore((s) => s.setView);
   const selectClass = useGameStore((s) => s.selectClass);
@@ -132,9 +236,14 @@ export function ClassSelect() {
   const startHistoria = usePvpStore((s) => s.startHistoria);
   // `copies` como dependencia de re-render: al ganar cartas cambia el contador.
   const copies = useCollectionStore((s) => s.copies);
+  // LA CAMPAÑA — escalera persistente (global entre clases)
+  const campaignStep = useCampaignStore((s) => s.step);
+  const prestige = useCampaignStore((s) => s.prestige);
+  const stepsCleared = useCampaignStore((s) => s.stepsCleared);
 
   useEffect(() => {
     hydrateCollection();
+    useCampaignStore.getState().hydrate();
     // Mazo inicial de CADA clase (una vez): las neutrales + relleno barato.
     ["guerrero", "mago", "asesino"].forEach((c) =>
       useCollectionStore.getState().grantStarterDeck(c as GameClass)
@@ -149,22 +258,21 @@ export function ClassSelect() {
     }).length;
   }
 
-  // JUGAR PARTIDA → modo historia contra bot aleatorio, SIN más pantallas.
-  const quickPlay = async (cls: GameClass) => {
-    selectClass(cls);
-    if (!deckLoading) await loadDeckAndPool();
-    const profileName = loadStoredProfileBrief()?.username ?? "";
-    startHistoria({ playerClass: cls, playerName: profileName || undefined });
-  };
+  // ¿La campaña ya fue iniciada alguna vez? (para el label del botón)
+  const campaignStarted = prestige > 0 || stepsCleared > 0;
+  const nextIsBoss = isBossStep(campaignStep);
 
-  // DESAFIAR AL JEFE → historia con reglas de jefe: mazo épico del bot,
-  // 1ª carta gratis en sus turnos pares, los 3 carriles con bono y botín
-  // con LEGENDARIA garantizada al vencerlo.
-  const bossPlay = async (cls: GameClass) => {
+  // JUGAR → LA CAMPAÑA en el ESCALÓN PENDIENTE (jefes incluidos: emergen
+  // solos de la escalera — sin botón aparte).
+  const startCampaign = async (cls: GameClass) => {
     selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
     const profileName = loadStoredProfileBrief()?.username ?? "";
-    startHistoria({ playerClass: cls, playerName: profileName || undefined, boss: true });
+    startHistoria({
+      playerClass: cls,
+      playerName: profileName || undefined,
+      step: useCampaignStore.getState().step,
+    });
   };
 
   // Open deck editor — remember we came from class-select
@@ -212,15 +320,18 @@ export function ClassSelect() {
         >
           Elige tu Héroe
         </h2>
-        {/* Rival aleatorio + botín — la partida arranca al tocar JUGAR */}
-        <p className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.18em] text-rose-300/80">
-          <Dices className="h-2.5 w-2.5" /> Rival aleatorio · ganar: 2 cartas · perder: 1
+        {/* LA CAMPAÑA — avanzar paga */}
+        <p className="px-14 text-center text-[8px] font-bold uppercase tracking-[0.18em] text-amber-300/80">
+          El botín y la XP crecen con cada escalón
         </p>
       </motion.div>
 
       {/* ── Class cards (translucent, color-coded) ── */}
       <main className="app-main relative z-10 mx-auto w-full max-w-md px-3 pb-6 pt-20">
         <div className="flex flex-col gap-3">
+          {/* LA CAMPAÑA — la escalera arriba, siempre visible */}
+          <CampaignLadder step={campaignStep} prestige={prestige} />
+
           {CLASSES.map((cls, i) => {
             const c = COLOR_MAP[cls.color];
             return (
@@ -228,7 +339,7 @@ export function ClassSelect() {
                 key={cls.id}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.12, duration: 0.5, ease: "easeOut" }}
+                transition={{ delay: 0.1 + i * 0.12, duration: 0.5, ease: "easeOut" }}
                 whileHover={cls.unlocked ? { scale: 1.01 } : undefined}
                 className={`relative overflow-hidden rounded-2xl border-2 ${c.border} ${c.bg} ${c.glow} backdrop-blur-[1px]`}
               >
@@ -340,39 +451,44 @@ export function ClassSelect() {
                         <Library className="h-3.5 w-3.5" />
                         <span>Mazo</span>
                       </button>
-                      {/* Jugar Partida — primary pill, 3/5 width → MODO HISTORIA (bot aleatorio) */}
+                      {/* BOTÓN ÚNICO — LA CAMPAÑA en el escalón pendiente.
+                          Si el próximo escalón es JEFE, el botón se tiñe de
+                          rosa: el muro avisa antes de golpear. */}
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => quickPlay(cls.id)}
-                        className={`col-span-3 flex items-center justify-center gap-2 rounded-lg border bg-gradient-to-r ${c.btnPrimary} py-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md transition-all`}
+                        onClick={() => startCampaign(cls.id)}
+                        className={cn(
+                          "col-span-3 flex items-center justify-center gap-2 rounded-lg border bg-gradient-to-r py-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md transition-all",
+                          nextIsBoss
+                            ? "border-rose-400/60 from-rose-700 via-rose-600 to-rose-800 hover:from-rose-600 hover:via-rose-500 hover:to-rose-700"
+                            : c.btnPrimary
+                        )}
                         style={{
                           fontFamily: 'var(--font-cinzel), serif',
                         }}
                       >
-                        <span>Jugar Partida</span>
+                        {nextIsBoss && <Skull className="h-3.5 w-3.5" />}
+                        <span>
+                          {!campaignStarted
+                            ? "Iniciar Campaña"
+                            : nextIsBoss
+                              ? `Enfrentar · ${stepChipLabel(campaignStep)}`
+                              : `Continuar · ${stepChipLabel(campaignStep)}`}
+                        </span>
                         <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </motion.button>
                     </div>
-                    {/* Desafiar al JEFE — slim rose strip, duelo difícil con
-                        botín de legendaria garantizada */}
-                    <motion.button
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => bossPlay(cls.id)}
-                      className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-500/50 bg-gradient-to-r from-rose-950/80 via-rose-900/70 to-rose-950/80 py-1.5 text-[8px] font-black uppercase tracking-[0.3em] text-rose-200 transition-colors hover:border-rose-400/70 hover:text-rose-100"
-                      style={{ fontFamily: "var(--font-cinzel), serif" }}
-                      title="Duelo difícil: bot épico con jugada gratis, 3 carriles con bono y legendaria garantizada al vencer"
-                    >
-                      <Skull className="h-3 w-3" />
-                      <span>
-                        Desafiar al {HISTORIA_BOSSES[cls.id].split(",")[0]} · mazo {BOSS_THEME[cls.id]}
-                      </span>
-                    </motion.button>
                   </div>
                 )}
               </motion.div>
             );
           })}
+
+          {/* Reglas de la campaña — pie discreto */}
+          <p className="text-center text-[8px] font-bold uppercase tracking-[0.18em] text-zinc-600">
+            Ganar avanza y paga mejor · perder repite el escalón · escalón {CAMPAIGN_STEPS} = ★ prestigio
+          </p>
         </div>
       </main>
     </div>

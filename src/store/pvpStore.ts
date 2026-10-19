@@ -29,6 +29,19 @@ import { useSettings } from "@/lib/settings";
 import { useCollectionStore, type CardReward } from "./collectionStore";
 import { useStatsStore, type MatchResult } from "./statsStore";
 import { useMissionStore } from "./missionStore";
+import { useCampaignStore } from "./campaignStore";
+import {
+  botTierForStep,
+  bossTierForPrestige,
+  bossClassForStep,
+  effectiveDropLevel,
+  isBossStep,
+  rewardCountForStep,
+  rivalClassForStep,
+  rivalDeckIndexForStep,
+  rivalNameForStep,
+  xpBonusForStep,
+} from "@/lib/game/campaign";
 import {
   LOCAL_PVP_PORT,
   handleLocalPvpApi,
@@ -39,28 +52,9 @@ import {
 export type PvpScreen = "setup" | "lobby" | "game";
 export type PvpMode = "online" | "historia";
 
-/** Bots predeterminados del modo historia — APRENDICES: rivales novatos que
- *  juegan los mazos comunes oficiales (el nombre ya no promete de más). */
-export const HISTORIA_BOTS: Record<GameClass, string> = {
-  guerrero: "Bram, Aprendiz de Guerrero",
-  mago: "Iria, Aprendiz de Mago",
-  asesino: "Kess, Aprendiz de Asesino",
-};
-
-/** JEFES del modo historia: mazo TEMÁTICO propio (Korgath→Protección,
- *  Nyx→Hielo, Vharos→Sigilo) materializado a ÉPICO + jugada gratis. */
-export const HISTORIA_BOSSES: Record<GameClass, string> = {
-  guerrero: "Korgath, Coloso de Hierro",
-  mago: "Nyx, Reina de Escarcha",
-  asesino: "Vharos, Sombra Primigenia",
-};
-
-/** Spec temática del jefe de cada clase (coincide con su mazo BOSS_DECKS). */
-export const BOSS_THEME: Record<GameClass, string> = {
-  guerrero: "Protección",
-  mago: "Hielo",
-  asesino: "Sigilo",
-};
+// LA CAMPAÑA: los nombres de bots y jefes viven en lib/game/campaign.ts
+// (junto al resto de la lógica de la escalera). Los jefes ya no se desafían
+// con un botón aparte: EMERGEN de la escalera en los escalones 5, 10 y 15.
 
 export interface PvpFloatingNumber {
   id: string;
@@ -94,8 +88,12 @@ interface PvpStoreState {
   localState: PvpState | null;
   botClass: GameClass | null;
   pendingRewards: CardReward[] | null;
-  /** MODO JEFE activo en esta partida de historia. */
+  /** MODO JEFE activo en esta partida de historia (escalón 5/10/15). */
   bossActive: boolean;
+  /** LA CAMPAÑA — escalón que se está jugando (null en PvP online). */
+  campaignStep: number | null;
+  /** La victoria acaba de CERRAR la campaña (escalón 15) → celebración ★. */
+  campaignCompleted: boolean;
   /** seq de la última acción "pass" — dispara el choque de carriles en UI. */
   clashSeq: number;
 
@@ -147,9 +145,9 @@ interface PvpStoreState {
   openSetup: () => void;
   exitToMenu: () => void;
 
-  /** Modo historia: partida local contra un bot ALEATORIO (cualquier clase,
-   *  cualquiera de sus 2 mazos) — o contra un JEFE (boss: true). */
-  startHistoria: (opts: { playerClass: GameClass; playerName?: string; boss?: boolean }) => void;
+  /** Modo historia — LA CAMPAÑA: juega el ESCALÓN dado de la escalera de
+   *  guerra (5/10/15 son JEFES). Rival determinista, tier que escala. */
+  startHistoria: (opts: { playerClass: GameClass; playerName?: string; step: number }) => void;
 
   createRoom: () => Promise<void>;
   joinRoom: () => Promise<void>;
@@ -564,10 +562,13 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     checkHistoriaEnd();
   }
 
-  /** Al terminar la partida: victoria → 2 cartas, derrota/empate → 1 carta.
-   *  (Regla del jugador: perder un combate paga 1 carta, ganar 2 — así el
-   *  farming sigue vivo aunque el bot te gane.)
-   *  MODO JEFE: la victoria paga 1 LEGENDARIA garantizada + 1 carta.
+  /** Al terminar la partida: la CAMPAÑA paga según el ESCALÓN — botín y XP
+   *  crecen al avanzar (regla del jugador: perder SIEMPRE paga 1 carta para
+   *  que el farming siga vivo; perder NO hace retroceder la escalera).
+   *  VICTORIA normal: rewardCountForStep cartas (2→5) con mesa de drops
+   *  max(nivel, escalón+2) + XP extra de escalón + advance().
+   *  VICTORIA de JEFE: 1 LEGENDARIA garantizada + 1 carta (addBossRewards).
+   *  Escalón 15 vencido → cierra la campaña: ★ Prestigio+1.
    *  Además contabiliza stats por clase + rachas y misiones diarias. */
   function checkHistoriaEnd(): void {
     const st = get();
@@ -578,13 +579,23 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const won = final ? final.playerWins > final.enemyWins : false;
     const lost = final ? final.playerWins < final.enemyWins : false;
     const result: MatchResult = won ? "WIN" : lost ? "LOSS" : "DRAW";
+    const step = st.campaignStep ?? 1;
     const col = useCollectionStore.getState();
     if (won) {
       col.registerWin();
       const rewards = st.bossActive
         ? col.addBossRewards()
-        : col.addRewards(2, { bonusForLevel: true }); // +1 carta extra en N5/N10
+        : col.addRewards(rewardCountForStep(step), {
+            bonusForLevel: true, // +1 carta extra en N5/N10
+            floorLevel: effectiveDropLevel(useStatsStore.getState().level, step),
+          });
       set({ pendingRewards: rewards });
+      // LA CAMPAÑA avanza (persistente) + XP EXTRA de escalón (6+step, ×1.5
+      // en prestigio) encima de la XP base que ya dio registerMatch.
+      const campaign = useCampaignStore.getState();
+      const done = campaign.advance().completed;
+      useStatsStore.getState().addXp(xpBonusForStep(step, campaign.prestige));
+      if (done) set({ campaignCompleted: true });
     } else {
       const rewards = col.addRewards(1);
       set({ pendingRewards: rewards });
@@ -622,6 +633,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     botClass: null,
     pendingRewards: null,
     bossActive: false,
+    campaignStep: null,
+    campaignCompleted: false,
     clashSeq: 0,
     playerName: "",
     gameClass: "guerrero",
@@ -721,6 +734,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         rivalPlay: null,
         highlightUid: null,
         bossActive: false,
+        campaignStep: null,
+        campaignCompleted: false,
       });
       // vuelve al menú principal (gameStore)
       import("@/store/gameStore").then(({ useGameStore }) => {
@@ -728,7 +743,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       });
     },
 
-    startHistoria: ({ playerClass, playerName, boss = false }) => {
+    startHistoria: ({ playerClass, playerName, step }) => {
       cancelBotTimer();
       get().stopPolling();
       if (get().hostingLocal) void stopLocalPvpServer();
@@ -747,17 +762,21 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         gameClass: playerClass,
         deck,
       });
-      // Bot/jefe ALEATORIO: cualquier clase. Normal: cualquiera de sus 2 mazos
-      // (6 rivales posibles). JEFE: su MAZO TEMÁTICO propio (una sola spec,
-      // 12 cartas únicas) materializado a ÉPICO — y enableBossMode activa
-      // jugada gratis + 3 bonos.
-      const BOT_CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
-      const botClass = BOT_CLASSES[Math.floor(Math.random() * BOT_CLASSES.length)];
-      const botDecks = classDecksOf(botClass);
-      const botName = boss ? HISTORIA_BOSSES[botClass] : HISTORIA_BOTS[botClass];
+      // LA CAMPAÑA — el rival sale del ESCALÓN (determinista): los escalones
+      // 5/10/15 son JEFES con su mazo temático materializado (épico, o
+      // legendaria en prestigio) y enableBossMode (jugada gratis + 3 bonos).
+      // El resto son bots de rotación fija cuyo mazo oficial se materializa
+      // al tier del tramo (común → raro → épico, +1 por prestigio).
+      const boss = isBossStep(step);
+      const prestige = useCampaignStore.getState().prestige;
+      const bossClass = bossClassForStep(step);
+      const botClass = bossClass ?? rivalClassForStep(step);
+      const botName = rivalNameForStep(step);
       const botDeck = boss
-        ? BOSS_DECKS[botClass].map((c) => materializeCard(c, "epic"))
-        : botDecks[Math.floor(Math.random() * botDecks.length)];
+        ? BOSS_DECKS[botClass].map((c) => materializeCard(c, bossTierForPrestige(prestige)))
+        : classDecksOf(botClass)[rivalDeckIndexForStep(step)].map((c) =>
+            materializeCard(c, botTierForStep(step, prestige))
+          );
       joinBotPvpState(state, {
         name: botName,
         gameClass: botClass,
@@ -781,6 +800,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         error: null,
         gameClass: playerClass,
         bossActive: boss,
+        campaignStep: step,
+        campaignCompleted: false,
         rivalPlay: null,
         highlightUid: null,
       });
@@ -1036,13 +1057,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
     requestRematch: async () => {
       const st = get();
-      // Historia: revancha local contra el MISMO bot (mismos mazos, nuevo sorteo)
+      // Historia — LA CAMPAÑA: la revancha es el ESCALÓN ACTUAL de la escalera.
+      // Tras una victoria el campaignStore ya avanzó → esto encadena el
+      // siguiente escalón; tras una derrota repite el mismo (sin retroceder).
       if (st.mode === "historia" && st.localState) {
         cancelBotTimer();
-        startPvpMatch(st.localState);
-        set({ pendingRewards: null, lastActionSeq: 0, selectedCardUid: null, invalidPlayMsg: null });
-        applyView(buildClientView(st.localState, "a"));
-        scheduleBotIfNeeded();
+        const playerName = st.localState.players.a.name;
+        const step = useCampaignStore.getState().step;
+        get().startHistoria({ playerClass: st.gameClass, playerName: playerName || undefined, step });
         return;
       }
       const { code, token } = get();

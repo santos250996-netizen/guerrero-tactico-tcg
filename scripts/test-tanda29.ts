@@ -27,7 +27,7 @@ import {
 import { sanitizeClientDeck } from "../src/lib/game/pvp";
 import { useStatsStore, xpForNext, dropTableFor, bonusDropCards, XP_MISSION } from "../src/store/statsStore";
 import { useCollectionStore } from "../src/store/collectionStore";
-import { HISTORIA_BOTS, HISTORIA_BOSSES, BOSS_THEME } from "../src/store/pvpStore";
+import { CAMPAIGN_BOT_NAMES, CAMPAIGN_BOSS_NAMES, CAMPAIGN_BOSS_THEMES, rivalNameForStep } from "../src/lib/game/campaign";
 
 let passed = 0;
 let failed = 0;
@@ -308,15 +308,17 @@ section("8. sanitizeClientDeck acepta MÍTICA (colección online)");
 }
 
 // ---------------------------------------------------------------------------
-section("9. Bots APRENDIZ + temas de jefe");
+section("9. Bots de la CAMPAÑA + temas de jefe");
 {
-  assert(HISTORIA_BOTS.guerrero.includes("Aprendiz de Guerrero"), "bot guerrero = Aprendiz de Guerrero");
-  assert(HISTORIA_BOTS.mago.includes("Aprendiz de Mago"), "bot mago = Aprendiz de Mago");
-  assert(HISTORIA_BOTS.asesino.includes("Aprendiz de Asesino"), "bot asesino = Aprendiz de Asesino");
-  assert(BOSS_THEME.guerrero === "Protección" && BOSS_THEME.mago === "Hielo" && BOSS_THEME.asesino === "Sigilo",
+  assert(rivalNameForStep(1).includes("Aprendiz de Guerrero"), "escalón 1 = Aprendiz de Guerrero");
+  assert(rivalNameForStep(2).includes("Aprendiz de Mago"), "escalón 2 = Aprendiz de Mago");
+  assert(rivalNameForStep(3).includes("Aprendiz de Asesino"), "escalón 3 = Aprendiz de Asesino");
+  assert(CAMPAIGN_BOSS_THEMES.guerrero === "Protección" && CAMPAIGN_BOSS_THEMES.mago === "Hielo" && CAMPAIGN_BOSS_THEMES.asesino === "Sigilo",
     "tema del jefe por clase (Protección/Hielo/Sigilo)");
-  assert(HISTORIA_BOSSES.asesino.startsWith("Vharos") && HISTORIA_BOSSES.mago.startsWith("Nyx") && HISTORIA_BOSSES.guerrero.startsWith("Korgath"),
+  assert(CAMPAIGN_BOSS_NAMES.asesino.startsWith("Vharos") && CAMPAIGN_BOSS_NAMES.mago.startsWith("Nyx") && CAMPAIGN_BOSS_NAMES.guerrero.startsWith("Korgath"),
     "nombres de jefes intactos");
+  assert(CAMPAIGN_BOT_NAMES.guerrero === "Bram" && CAMPAIGN_BOT_NAMES.mago === "Iria" && CAMPAIGN_BOT_NAMES.asesino === "Kess",
+    "nombres base de bots intactos");
 }
 
 // ---------------------------------------------------------------------------

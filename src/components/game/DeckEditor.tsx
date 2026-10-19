@@ -5,6 +5,7 @@ import { ArrowLeft, Save, RotateCcw, Lock, Unlock, Trash2, Library, Info, Sparkl
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { usePvpStore } from "@/store/pvpStore";
+import { useCampaignStore } from "@/store/campaignStore";
 import { materializeCard } from "@/lib/game/balance";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { Button } from "@/components/ui/button";
@@ -66,14 +67,19 @@ export function DeckEditor() {
   // Returns to wherever the user came from (in-game header → game; class-select flow → class-select; default → main-menu)
   const handleBack = () => setView(deckEditorReturn);
 
-  // Empezar Batalla → MODO HISTORIA (bot aleatorio) con ESTE mazo. Guarda
-  // primero si hay cambios sin guardar (battleDeckFor lee el localStorage).
+  // Empezar Batalla → LA CAMPAÑA en el ESCALÓN PENDIENTE (jefes incluidos),
+  // con ESTE mazo. Guarda primero si hay cambios sin guardar (battleDeckFor
+  // lee el localStorage).
   const handleStartBattle = async () => {
     const gs = useGameStore.getState();
     if (gs.deckDirty) await gs.saveDeck();
     const cls = gs.gameClass;
     const profileName = loadStoredProfileBrief()?.username ?? "";
-    usePvpStore.getState().startHistoria({ playerClass: cls, playerName: profileName || undefined });
+    usePvpStore.getState().startHistoria({
+      playerClass: cls,
+      playerName: profileName || undefined,
+      step: useCampaignStore.getState().step,
+    });
   };
 
   // Whether the "Empezar Batalla" button should be shown (only in the JUGAR → Clase → Mazo flow)
