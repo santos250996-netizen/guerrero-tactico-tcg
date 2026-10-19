@@ -183,7 +183,7 @@ export function ClassSelect() {
           the bg show through. */}
       <div
         className="absolute inset-0 z-0 scale-105 bg-cover bg-center blur-[2px]"
-        style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
+        style={{ backgroundImage: 'url(/menu/main-bg.webp)' }}
       />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/85 via-black/65 to-black/85" />
 

@@ -10,3 +10,6 @@ FORCE=1 bun scripts/gen-card-art-v7.mjs
 echo "=== downscale a 432x576 ==="
 python3 scripts/fix-card-art-resolution.py
 echo "=== ARTE COMPLETO ==="
+
+echo "=== PNG → WebP (paso final: la APK solo lleva webp) ==="
+python3 scripts/png-to-webp.py

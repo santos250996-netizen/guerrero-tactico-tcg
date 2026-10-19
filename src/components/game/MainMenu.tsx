@@ -50,7 +50,12 @@ export function MainMenu() {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [misionesOpen, setMisionesOpen] = useState(false);
+  // true tras la rehidratación de stores persistidos (localStorage). El contador
+  // de misiones se pinta SOLO entonces: el HTML prerenderizado muestra "Misiones"
+  // a secas y el cliente también en el primer render → sin mismatch de hidratación
+  // (el store persist se rehidrata SINCRONO antes del mount → servidor 0/3 vs cliente 3/3).
   // Avatar elegido en Perfil → visible en el propio botón (si no, icono User).
+  const [ready, setReady] = useState(false);
   const [avatarCardId, setAvatarCardId] = useState<string | null>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
   const missions = useMissionStore((s) => s.missions);
@@ -63,6 +68,7 @@ export function MainMenu() {
     let alive = true;
     Promise.resolve().then(() => {
       if (!alive) return;
+      setReady(true);
       const brief = loadStoredProfileBrief();
       setAvatarCardId(brief?.avatarCardId ?? null);
       setAvatarBroken(false);
@@ -97,7 +103,7 @@ export function MainMenu() {
       {/* Background image — title + emblem baked in (matches launcher icon) */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: 'url(/menu/main-bg.png)' }}
+        style={{ backgroundImage: 'url(/menu/main-bg.webp)' }}
       />
       {/* Resplandores ambientales (G2) — ESTÁTICOS (el animate-pulse + blur
           en móvil costaba GPU y se notaba). Dan profundidad sin moverse. */}
@@ -120,7 +126,7 @@ export function MainMenu() {
       >
         {avatarCardId && !avatarBroken ? (
           <img
-            src={`/cards/${avatarCardId}.png`}
+            src={`/cards/${avatarCardId}.webp`}
             alt="Tu avatar"
             className="pointer-events-none h-full w-full rounded-full object-cover"
             decoding="async"
@@ -210,7 +216,7 @@ export function MainMenu() {
           style={{ fontFamily: "var(--font-cinzel), serif" }}
         >
           <ScrollText className="h-3 w-3" />
-          Misiones {missions.filter((m) => m.done).length}/{missions.length}
+          Misiones{ready ? ` ${missions.filter((m) => m.done).length}/${missions.length}` : ""}
         </button>
       </motion.div>
 

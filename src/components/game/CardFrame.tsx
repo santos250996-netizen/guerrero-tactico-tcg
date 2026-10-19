@@ -9,7 +9,7 @@
 //   ▸ CornerOrnaments : filigranas reutilizables a escala de página (tablero).
 //
 // Sin assets nuevos: todo es SVG/CSS, nítido a cualquier tamaño y compatible
-// con el pipeline existente (arte full-bleed en /cards/{id}.png).
+// con el pipeline existente (arte full-bleed en /cards/{id}.webp).
 // ============================================================================
 
 import type { ReactNode } from "react";

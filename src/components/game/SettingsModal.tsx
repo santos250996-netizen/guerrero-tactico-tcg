@@ -63,7 +63,7 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
           {/* Mini brand mark — transparent game icon */}
           <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700/60 bg-zinc-900/60 shadow-inner">
             <img
-              src="/menu/game-icon-transparent.png"
+              src="/menu/game-icon-transparent.webp"
               alt=""
               className="h-7 w-7 object-contain"
               aria-hidden

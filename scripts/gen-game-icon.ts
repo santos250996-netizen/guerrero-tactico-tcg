@@ -45,7 +45,7 @@ async function main() {
 
   const imageBase64 = response.data[0].base64;
   const buffer = Buffer.from(imageBase64, 'base64');
-  const outPath = '/home/z/my-project/public/menu/game-icon-1024.png';
+  const outPath = '/home/z/my-project/assets-src/game-icon-1024.png';
   fs.writeFileSync(outPath, buffer);
   console.log(`Saved: ${outPath} (${buffer.length} bytes)`);
 }

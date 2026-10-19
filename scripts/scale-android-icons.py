@@ -14,10 +14,10 @@ Also rewrites:
 import os
 from PIL import Image, ImageDraw, ImageFilter
 
-SRC = "/home/z/my-project/public/menu/game-icon-1024.png"
+SRC = "/home/z/my-project/assets-src/game-icon-1024.png"
 # Transparent variant (no dark corners) — used for the adaptive foreground so
 # the system's background layer (#0A0507 dark) shows through cleanly.
-SRC_TRANSPARENT = "/home/z/my-project/public/menu/game-icon-transparent.png"
+SRC_TRANSPARENT = "/home/z/my-project/assets-src/game-icon-transparent.png"
 ANDROID_RES = "/home/z/my-project/workspace/guerrero-tactico-tcg/android/app/src/main/res"
 
 # Android density sizes

@@ -109,7 +109,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
           <CardShell rarity={card.rarity} name={card.name} nameSize="lg" tierPips className="h-full w-full">
             {/* Full-bleed art */}
             <img
-              src={`/cards/${card.id}.png`}
+              src={`/cards/${card.id}.webp`}
               alt={card.name}
               className="absolute inset-0 h-full w-full object-cover"
               draggable={false}

@@ -45,7 +45,7 @@ export function HandCardComponent({
   const triggerMeta = TRIGGER_META[trigger];
   const keyword = card.keyword ?? "none";
   const keywordMeta = KEYWORD_META[keyword];
-  const artUrl = `/cards/${card.id}.png`;
+  const artUrl = `/cards/${card.id}.webp`;
   const effectivePower = (Number(card.power) || 0) + (Number(card.handBonus) || 0);
   const subtypeMetas = card.subtypes.map((s) => LANE_META[s]).filter(Boolean);
 

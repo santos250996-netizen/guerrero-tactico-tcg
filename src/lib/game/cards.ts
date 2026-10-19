@@ -23,7 +23,7 @@ import { CLASS_META } from "./types";
 // PATRÓN DE DISEÑO (docs/design-pattern-cards.md): el NOMBRE evoca la categoría
 // (Ataque = ser/golpe · Ítem = objeto · Acción = hecho/evento) y la spec
 // (imaginería del carril). Cada spec = 2 Ataque + 1 Ítem + 1 Acción. El arte se
-// deriva de nombre + tipo + spec (public/cards/{id}.png).
+// deriva de nombre + tipo + spec (public/cards/{id}.webp).
 //
 // Curva de costes: 1×2, 2×3, 3×5, 4×1, 5×1 (energía = nº de turno, 6 turnos).
 // Cadena de muerte testeable: Hacha de Ejecución remata (≤2) → si mata al

@@ -112,7 +112,7 @@ export function PvpLane({ position, side }: PvpLaneProps) {
           Overlay ALIGERADO (V2 gráficos): el arte es protagonista. */}
       <div
         className="pointer-events-none absolute inset-0 z-0 scale-105 bg-cover bg-center"
-        style={{ backgroundImage: `url(/menu/lane-${laneId}.png)` }}
+        style={{ backgroundImage: `url(/menu/lane-${laneId}.webp)` }}
       />
       {/* Tinte del color del carril (cohesión) + viñeta ligera */}
       <div

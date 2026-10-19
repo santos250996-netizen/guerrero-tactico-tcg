@@ -73,6 +73,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} antialiased bg-background text-foreground`}
       >
+        {/* Preload del fondo del menú (LCP): es CSS background → sin preload
+            el navegador lo descubre tarde. React 19 lo iza al <head>. */}
+        <link rel="preload" as="image" href="/menu/main-bg.webp" />
         {/* Traduce el botón "atrás" de Android a navegación interna de la app
             (solo activo en el APK nativo; en navegador no-op). */}
         <BackButtonBridge />

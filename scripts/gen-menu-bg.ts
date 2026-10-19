@@ -46,7 +46,7 @@ async function main() {
   const buffer = Buffer.from(imageBase64, 'base64');
   // Save the RAW background (no title) so compose-menu-title.py can re-composite the
   // title + emblem on top without piling artifacts onto an already-composited file.
-  const rawPath = '/home/z/my-project/public/menu/main-bg-raw.png';
+  const rawPath = '/home/z/my-project/assets-src/main-bg-raw.png';
   fs.writeFileSync(rawPath, buffer);
   console.log(`Saved raw background: ${rawPath} (${buffer.length} bytes)`);
 }

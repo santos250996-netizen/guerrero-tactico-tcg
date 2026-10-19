@@ -35,7 +35,7 @@ interface ProfileData {
   totalCardsPlayed: number;
   totalEnemyDestroyed: number;
   // null  → use the transparent game icon (default)
-  // string → use the card image at /cards/{avatarCardId}.png
+  // string → use the card image at /cards/{avatarCardId}.webp
   avatarCardId: string | null;
   // Set of card IDs the player has unlocked as avatar eligible. While in
   // testing mode this defaults to ALL cards; later it can be more restrictive.
@@ -248,9 +248,9 @@ export function ProfileScreen() {
   // Resolve avatar image source
   const avatarSrc = useMemo(() => {
     if (profile.avatarCardId) {
-      return `/cards/${profile.avatarCardId}.png`;
+      return `/cards/${profile.avatarCardId}.webp`;
     }
-    return "/menu/game-icon-transparent.png";
+    return "/menu/game-icon-transparent.webp";
   }, [profile.avatarCardId]);
 
   return (
@@ -261,7 +261,7 @@ export function ProfileScreen() {
           so they remain readable on top of this. */}
       <div
         className="absolute inset-0 z-0 scale-105 bg-cover bg-center blur-[2px]"
-        style={{ backgroundImage: 'url(/menu/profile-bg-raw.png)' }}
+        style={{ backgroundImage: 'url(/menu/profile-bg-raw.webp)' }}
       />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/80 via-black/55 to-black/80" />
 
@@ -612,7 +612,7 @@ function AvatarPickerModal({
           >
             <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-amber-500/40 bg-zinc-950">
               <img
-                src="/menu/game-icon-transparent.png"
+                src="/menu/game-icon-transparent.webp"
                 alt="Ícono del juego"
                 className="h-full w-full scale-110 object-contain"
         decoding="async"
@@ -689,7 +689,7 @@ function CardAvatarOption({
       title={locked ? "Bloqueada" : card.name}
     >
       <img
-        src={`/cards/${card.id}.png`}
+        src={`/cards/${card.id}.webp`}
         alt={card.name}
         className="h-full w-full object-cover"
         loading="lazy"

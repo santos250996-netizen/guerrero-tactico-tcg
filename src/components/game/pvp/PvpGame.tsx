@@ -430,7 +430,7 @@ function HistoriaEndOverlay({
                       >
                         <div
                           className="aspect-[3/4] w-full bg-cover bg-center"
-                          style={{ backgroundImage: `url(/cards/${r.id}.png)` }}
+                          style={{ backgroundImage: `url(/cards/${r.id}.webp)` }}
                         />
                         <div className="px-1 py-1">
                           <div className="truncate text-[8px] font-bold text-zinc-200">{def?.name ?? r.id}</div>
@@ -557,7 +557,7 @@ function RivalPlayAnnouncer({
           >
             {announce.defId ? (
               <img
-                src={`/cards/${announce.defId}.png`}
+                src={`/cards/${announce.defId}.webp`}
                 alt=""
                 className="h-11 w-8 shrink-0 rounded-md border border-rose-400/50 object-cover"
                 draggable={false}

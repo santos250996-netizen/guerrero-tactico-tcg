@@ -171,7 +171,7 @@ export function DeckEditor() {
       {/* ── Background: armory (same as profile — deck building fits the 'armory' theme) ── */}
       <div
         className="absolute inset-0 z-0 scale-105 bg-cover bg-center blur-[2px]"
-        style={{ backgroundImage: 'url(/menu/profile-bg-raw.png)' }}
+        style={{ backgroundImage: 'url(/menu/profile-bg-raw.webp)' }}
       />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/85 via-black/65 to-black/85" />
 
@@ -607,7 +607,7 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
       )}
       {/* Full-bleed art */}
       <img
-        src={`/cards/${card.id}.png`}
+        src={`/cards/${card.id}.webp`}
         alt={card.name}
         className="absolute inset-0 h-full w-full object-cover"
         loading="lazy"

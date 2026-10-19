@@ -72,7 +72,7 @@ function BoardCardMiniImpl({ card, side, onPreview, justPlayed }: BoardCardMiniP
       <CardShell rarity={card.rarity} corners cornerSize={9} tierPips className="h-full w-full">
         {/* Full square art */}
         <img
-          src={`/cards/${card.defId}.png`}
+          src={`/cards/${card.defId}.webp`}
           alt={card.name}
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"

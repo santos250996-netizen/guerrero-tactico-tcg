@@ -170,7 +170,7 @@ export function CollectionScreen() {
                 {/* Mini arte */}
                 <div
                   className="h-12 w-9 shrink-0 rounded border border-zinc-700 bg-cover bg-center"
-                  style={{ backgroundImage: `url(/cards/${card.id}.png)` }}
+                  style={{ backgroundImage: `url(/cards/${card.id}.webp)` }}
                 />
                 {/* Nombre + stats efectivos */}
                 <div className="min-w-0 flex-1">
