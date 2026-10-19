@@ -726,3 +726,24 @@ Stage Summary:
 - Háptica nativa en jugada/choque/trampa/victoria/derrota con fallback web — se puede desactivar en Ajustes
 - Música y vibración como toggles separados (persisten); "Sonido" sigue siendo el maestro
 - Pendiente visual/jugabilidad sugerido para próximas tandas: splash nativa + transiciones, carriles FX ambientales, misiones diarias rotativas, stats locales, bot Veterano, tutorial
+
+---
+Task ID: 34
+Agent: Z.ai main agent
+Task: "al poner una carta o en el cambio de turno el juego se pone lento... el juego tiene q estar fluido siempre" — caza de jank en la partida
+
+Work Log:
+- PERFIL: el cambio de turno disparaba ~8 re-renders del árbol completo en ~2s (banner set/clear + choque set/clear + anuncio set/clear + floats set/clear + highlight clear) y encima de ese vendaval, el banner "TU TURNO / TURNO DEL RIVAL" cubría TODA la pantalla con backdrop-blur-sm durante 1.6s — en WebView Android backdrop-filter re-blurea el viewport CADA FRAME mientras debajo se animan choque+floats+anuncio. El blur compositivo no se ve en longtasks (es GPU del teléfono): exacto al síntoma "en el cambio de turno se pone lento"
+- FIX 1 (el gordo): banner de turno SIN backdrop-blur → bg-black/70 plano (el dim sin filtro es capa GPU-gratis); también el modal de game-over (bg-black/90, sin blur) — PvpGame queda con 0 backdrop-filter
+- FIX 2: memo(PvpLane) — props {position,side} estables → los re-renders de overlays NO re-pintan los 6 carriles con sus cartas; las suscripciones internas (view/selección/highlight) siguen funcionando (memo no bloquea suscripciones)
+- FIX 3: PvpFloat memoizado por float con rect capturado UNA vez (useState initializer) — antes querySelector+getBoundingClientRect DURANTE el render de PvpFloatingNumbersLayer en cada re-render del padre = layout thrash justo cuando más anima
+- FIX 4: memo en PvpTurnBanner, RivalPlayAnnouncer y PvpFloatingNumbersLayer (props estables)
+- MEDICIÓN A/B (headless 390×844, PerformanceObserver longtask + muestreo rAF, mismo flujo drag→pasar): jugar carta 1×70ms → 0 longtasks; ventana del cambio de turno 18/395 frames >24ms → 6/357 (−67%). En el teléfono la mejora es mayor: el blur eliminado era trabajo de GPU por frame, invisible en desktop
+- Banner verificado en screenshot: idéntico peso visual con dim plano (tablero nítido detrás)
+- Verificación: tsc 0 · lint 0 · 11 suites verdes · build estático RC=0 (out/ 6.7MB) · E2E sin errores de página/consola
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- El cambio de turno ya no congela: sin blur full-screen + carriles blindados contra re-renders ajenos + floats sin layout thrash
+- El juego juega fluido: jugar carta = 0 tareas largas en main thread
+- Regla del proyecto: NUNCA backdrop-blur sobre algo que se anima — la partida queda con 0 backdrop-filter; los blur restantes viven solo en modales/estáticos de menús (ClassSelect, DeckEditor, etc.)

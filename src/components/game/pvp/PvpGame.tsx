@@ -14,7 +14,7 @@
 // pidió el diseño. Datos: pvpStore (polling del servidor autoritativo).
 // ============================================================================
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Hand, Zap, Layers, Swords, Wand2, EyeOff, Activity, Skull, Loader2,
@@ -381,8 +381,10 @@ function HistoriaEndOverlay({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
         >
+          {/* sin blur también aquí: la partida terminó pero el tablero sigue
+              debajo — el blur full-screen es el filtro más caro de WebView */}
           <motion.div
             initial={{ scale: 0.85, y: 20 }}
             animate={{ scale: 1, y: 0 }}
@@ -507,7 +509,7 @@ function HistoriaEndOverlay({
 
 // Banner de turno (TU TURNO / TURNO DEL RIVAL)
 // ──────────────────────────────────────────────────────────────
-function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | null }) {
+const PvpTurnBanner = memo(function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | null }) {
   return (
     <AnimatePresence>
       {banner && (
@@ -515,8 +517,11 @@ function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | n
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/70"
         >
+          {/* SIN backdrop-blur: un filtro full-screen sobre el tablero animándose
+              (choque + floats + anuncio) re-blurea CADA FRAME en WebView Android
+              = el jank del cambio de turno. El dim plano es GPU-gratis. */}
           <motion.div
             initial={{ scale: 0.6, rotate: -4 }}
             animate={{ scale: 1, rotate: 0 }}
@@ -548,7 +553,7 @@ function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | n
       )}
     </AnimatePresence>
   );
-}
+});
 
 // ──────────────────────────────────────────────────────────────
 // Anuncio de la jugada del rival: tarjeta compacta con el ARTE de la carta
@@ -556,7 +561,7 @@ function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | n
 // antes solo aparecía el cartel "TURNO DEL RIVAL" y las cartas aparecían
 // en el tablero sin que se supiera qué había jugado.
 // ──────────────────────────────────────────────────────────────
-function RivalPlayAnnouncer({
+function RivalPlayAnnouncerImpl({
   announce,
   rivalName,
 }: {
@@ -611,41 +616,52 @@ function RivalPlayAnnouncer({
     </div>
   );
 }
+const RivalPlayAnnouncer = memo(RivalPlayAnnouncerImpl);
 
 // ──────────────────────────────────────────────────────────────
 // Números flotantes (misma mecánica que solitario, data del store PvP)
+// El padre (PvpGame) re-renderiza en CADA cambio de store (banner, choque,
+// anuncio…): la posición de cada float se captura UNA vez al montar y el
+// componente es memo — querySelector/getBoundingClientRect durante cada
+// render forzaba layout repetido (layout thrash) justo cuando más anima.
 // ──────────────────────────────────────────────────────────────
-function PvpFloatingNumbersLayer({ floats }: { floats: { id: string; uid: string; value: number }[] }) {
+const PvpFloat = memo(function PvpFloat({ uid, value, id }: { uid: string; value: number; id: string }) {
+  const [pos] = useState(() => {
+    if (typeof document === "undefined") return null;
+    const el = document.querySelector(`[data-card-uid="${uid}"]`);
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top };
+  });
+  if (!pos) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 0, scale: 0.5 }}
+      animate={{ opacity: 1, y: -30, scale: 1.2 }}
+      exit={{ opacity: 0, y: -50, scale: 0.8 }}
+      transition={{ duration: 1.0, ease: "easeOut" }}
+      className={cn(
+        "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 px-2 py-0.5 text-sm font-black tabular-nums shadow-lg",
+        value > 0 ? "border-emerald-300 bg-emerald-600 text-white" : "border-rose-300 bg-rose-700 text-white"
+      )}
+      style={{ left: pos.x, top: pos.y }}
+    >
+      {value > 0 ? `+${value}` : `${value}`}
+    </motion.div>
+  );
+});
+
+const PvpFloatingNumbersLayer = memo(function PvpFloatingNumbersLayer({ floats }: { floats: { id: string; uid: string; value: number }[] }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-40">
       <AnimatePresence>
-        {floats.map((f) => {
-          const el = typeof document !== "undefined" ? document.querySelector(`[data-card-uid="${f.uid}"]`) : null;
-          if (!el) return null;
-          const rect = el.getBoundingClientRect();
-          const x = rect.left + rect.width / 2;
-          const y = rect.top;
-          return (
-            <motion.div
-              key={f.id}
-              initial={{ opacity: 0, y: 0, scale: 0.5 }}
-              animate={{ opacity: 1, y: -30, scale: 1.2 }}
-              exit={{ opacity: 0, y: -50, scale: 0.8 }}
-              transition={{ duration: 1.0, ease: "easeOut" }}
-              className={cn(
-                "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 px-2 py-0.5 text-sm font-black tabular-nums shadow-lg",
-                f.value > 0 ? "border-emerald-300 bg-emerald-600 text-white" : "border-rose-300 bg-rose-700 text-white"
-              )}
-              style={{ left: x, top: y }}
-            >
-              {f.value > 0 ? `+${f.value}` : `${f.value}`}
-            </motion.div>
-          );
-        })}
+        {floats.map((f) => (
+          <PvpFloat key={f.id} id={f.id} uid={f.uid} value={f.value} />
+        ))}
       </AnimatePresence>
     </div>
   );
-}
+});
 
 // ──────────────────────────────────────────────────────────────
 // Game over PvP: resultado desde TU perspectiva + revancha

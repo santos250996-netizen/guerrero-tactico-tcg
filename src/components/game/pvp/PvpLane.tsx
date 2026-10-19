@@ -10,6 +10,7 @@
 // fila rival se resuelve por POSICIÓN: sus cartas son board[miCarrilP].enemy.
 // ============================================================================
 
+import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LaneId } from "@/lib/game/types";
 import { LANE_META } from "@/lib/game/types";
@@ -36,7 +37,7 @@ interface PvpLaneProps {
   side: "me" | "rival";
 }
 
-export function PvpLane({ position, side }: PvpLaneProps) {
+export function PvpLaneImpl({ position, side }: PvpLaneProps) {
   const view = usePvpStore((s) => s.view);
   const selectedCardUid = usePvpStore((s) => s.selectedCardUid);
   const sendPlay = usePvpStore((s) => s.sendPlay);
@@ -277,3 +278,9 @@ export function PvpLane({ position, side }: PvpLaneProps) {
     </section>
   );
 }
+
+// memo: los props (position/side) son strings estables — así los re-renders del
+// padre por banner/floats/anuncio/choque NO re-pintan los 6 carriles con sus
+// cartas (el jank del cambio de turno). Las suscripciones internas (view,
+// selección, highlight) siguen disparando re-render cuando TOCA.
+export const PvpLane = memo(PvpLaneImpl);
