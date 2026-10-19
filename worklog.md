@@ -769,3 +769,21 @@ Stage Summary:
 - El modo historia ES ahora LA CAMPAÑA: una carrera persistente de 15 escalones donde el botón "Desafiar al Jefe" YA NO EXISTE — Korgath/Nyx/Vharos emergen como muros en 5/10/15
 - Avanzar paga: 2→5 cartas por victoria, XP 6+escalón (×1.5 prestigio), drops con piso escalón+2; rivales deterministas con tier creciente (común→raro→épico, legendario en prestigio); perder repite el escalón (nunca retrocede); el 15 vencido abre el PRESTIGIO infinito
 - Endgame rejugable: mismo motor PvP, cero assets nuevos, misiones/stats/rachas intactos
+
+---
+Task ID: 36
+Agent: Z.ai main agent
+Task: "en la ui de seleccion de clase hay q actualizarla ya hemos añadido cosas a las clases" — tarjetas de clase con el catálogo real
+
+Work Log:
+- Auditoría del pool real por clase (classCardsOf): 28 cartas (12 mazo I + 12 mazo II + 4 exclusivas del JEFE) y 15 keywords en uso (9 exclusivas: 6 originales + 3 de la 3ª tanda — guerrero: Orden de Batalla/Custodia/Desafío · mago: Drenar Poder/Detonación/Ruptura Glacial · asesino: Miasma/Caza Mayor/Conspiración)
+- ClassSelect: keywords de CLASSES pasan a IDS de Keyword (una sola fuente de verdad) y los chips renderizan KEYWORD_META[kw].label — ya no pueden desincronizarse del catálogo; las 6 neutrales (Fervor·Coraza·Insignia·Remate·Legado·Fortaleza) se derivan de NEUTRAL_KEYWORD_IDS y se muestran como línea discreta "+ neutrales: …"
+- Badge de colección dinámico: ownedDistinct/classCardsOf(cls).length ("12/28 cartas", antes "…/24" hardcodeado)
+- NUEVA fila MAZOS por clase: "Mazo I · 12" (color de clase) + "Mazo II · 12" + chip rosa "Jefe {tema} · +4 exclusivas" (CAMPAIGN_BOSS_THEMES/NAMES del campaign lib, tooltip con el nombre del jefe; count calculado contra mazos I/II)
+- Limpieza: eliminado script temporal de auditoría; comentario de cabecera actualizado (28)
+- Verificación: tsc 0 · lint 0 · suites clave verdes (campana 116 · colección 69) · build estático RC=0 · E2E 390×844: tarjeta guerrero muestra 12/28 cartas, 9 exclusivas + neutrales + 3 chips de mazos, 0 errores de página; screenshot scripts/e2e-clases-v2.png
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- La selección de clase ya refleja el catálogo COMPLETO: 28 cartas por clase, 9 keywords exclusivas (+6 neutrales), y los 3 mazos (I, II y el del JEFE temático) visibles de un vistazo
+- Los datos salen de KEYWORD_META/classCardsOf/BOSS_DECKS — futuras tandas de cartas actualizan la UI solas

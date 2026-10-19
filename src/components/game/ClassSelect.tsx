@@ -8,7 +8,8 @@
 // (sin retroceder). El botín y la XP crecen con cada escalón y el escalón 15
 // vencido abre el PRESTIGIO (rivales reforzados, bucle infinito).
 // Colección: aquí se entrega el mazo inicial de cada clase (una vez) y se
-// muestra cuántas cartas de las 24 tienes desbloqueadas.
+// muestra cuántas cartas del pool de la clase (28: mazos I+II + exclusivas
+// del jefe) tienes desbloqueadas.
 // ============================================================================
 
 import { useEffect } from "react";
@@ -24,9 +25,10 @@ import {
   stepChipLabel,
 } from "@/lib/game/campaign";
 import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2 } from "lucide-react";
-import type { GameClass } from "@/lib/game/types";
-import { CLASS_META } from "@/lib/game/types";
-import { classCardsOf } from "@/lib/game/cards";
+import type { GameClass, Keyword } from "@/lib/game/types";
+import { CLASS_META, KEYWORD_META } from "@/lib/game/types";
+import { classCardsOf, CLASS_DECKS, CLASS_DECKS_SECOND, BOSS_DECKS, NEUTRAL_KEYWORD_IDS } from "@/lib/game/cards";
+import { CAMPAIGN_BOSS_NAMES, CAMPAIGN_BOSS_THEMES } from "@/lib/game/campaign";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +36,8 @@ interface ClassDef {
   id: GameClass;
   name: string;
   subtypes: string;
-  keywords: string[];
+  /** Keywords EXCLUSIVAS de la clase (ids — el label sale de KEYWORD_META). */
+  keywords: Keyword[];
   icon: React.ReactNode;
   color: "amber" | "violet" | "emerald";
   unlocked: boolean;
@@ -43,12 +46,27 @@ interface ClassDef {
   tagline: string;
 }
 
+/** Keywords neutrales compartidas (labels — una sola fuente de verdad). */
+const NEUTRAL_LABELS = [...NEUTRAL_KEYWORD_IDS]
+  .map((id) => KEYWORD_META[id as Keyword].label)
+  .join(" · ");
+
+/** Cartas exclusivas del MAZO DEL JEFE de la clase (no están en los mazos I/II). */
+function bossExclusiveCount(cls: GameClass): number {
+  return BOSS_DECKS[cls].filter(
+    (c) => !CLASS_DECKS[cls].some((d) => d.id === c.id) && !CLASS_DECKS_SECOND[cls].some((d) => d.id === c.id)
+  ).length;
+}
+
 const CLASSES: ClassDef[] = [
   {
     id: "guerrero",
     name: "GUERRERO",
     subtypes: "Armas · Protección · Furia",
-    keywords: ["Hender Armadura", "Duelista", "Amparo", "Purificación", "Ímpetu", "Crueldad"],
+    keywords: [
+      "hender_armadura", "duelista", "amparo", "purificacion", "impetu", "crueldad",
+      "orden_batalla", "custodia", "desafio",
+    ],
     icon: <Swords className="h-7 w-7" strokeWidth={2.2} />,
     color: "amber",
     unlocked: true,
@@ -59,7 +77,10 @@ const CLASSES: ClassDef[] = [
     id: "mago",
     name: "MAGO",
     subtypes: "Arcana · Fuego · Hielo",
-    keywords: ["Convergencia", "Sobrecarga", "Llamarada", "Combustión", "Escarcha", "Ventisca"],
+    keywords: [
+      "convergencia", "sobrecarga", "llamarada", "combustion", "escarcha", "ventisca",
+      "drenar_poder", "detonacion", "ruptura_glacial",
+    ],
     icon: <Wand2 className="h-7 w-7" strokeWidth={2.2} />,
     color: "violet",
     unlocked: true,
@@ -70,7 +91,10 @@ const CLASSES: ClassDef[] = [
     id: "asesino",
     name: "ASESINO",
     subtypes: "Veneno · Combate · Sigilo",
-    keywords: ["Veneno", "Contagio", "Refriega", "Golpe Certero", "Emboscada", "Purga"],
+    keywords: [
+      "veneno", "contagio", "refriega", "golpe_certero", "emboscada", "purga",
+      "miasma", "caza_mayor", "conspiracion",
+    ],
     icon: <EyeOff className="h-7 w-7" strokeWidth={2.2} />,
     color: "emerald",
     unlocked: true,
@@ -385,7 +409,7 @@ export function ClassSelect() {
                         </h3>
                         {cls.unlocked ? (
                           <span className="shrink-0 rounded-full border border-emerald-600/40 bg-emerald-950/40 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-emerald-300">
-                            {ownedDistinct(cls.id)}/24 cartas
+                            {ownedDistinct(cls.id)}/{classCardsOf(cls.id).length} cartas
                           </span>
                         ) : (
                           <span className="shrink-0 rounded-full border border-zinc-700 bg-zinc-900/60 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-zinc-500">
@@ -425,16 +449,42 @@ export function ClassSelect() {
                     </div>
                   )}
 
-                  {/* Keywords */}
+                  {/* Keywords EXCLUSIVAS de la clase (labels desde KEYWORD_META)
+                      + las 6 neutrales compartidas como texto discreto */}
                   <div className="flex flex-wrap gap-1">
                     {cls.keywords.map((kw, j) => (
                       <span
                         key={j}
                         className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${c.chipBorder}`}
                       >
-                        {kw}
+                        {KEYWORD_META[kw].label}
                       </span>
                     ))}
+                  </div>
+                  <p className="text-[8px] font-bold uppercase tracking-wide text-zinc-600">
+                    + neutrales: {NEUTRAL_LABELS}
+                  </p>
+
+                  {/* MAZOS de la clase — lo añadido al catálogo, a la vista:
+                      Mazo I + Mazo II oficiales y el mazo TEMÁTICO del JEFE
+                      con sus cartas exclusivas (8 compartidas + 4 propias). */}
+                  <div className="flex flex-wrap gap-1">
+                    <span
+                      className={`flex items-center gap-1 rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${c.chipBorder}`}
+                    >
+                      <Library className="h-2.5 w-2.5" />
+                      Mazo I · {CLASS_DECKS[cls.id].length}
+                    </span>
+                    <span className="rounded border border-zinc-700 bg-zinc-900/60 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-zinc-300">
+                      <span className="inline">Mazo II · {CLASS_DECKS_SECOND[cls.id].length}</span>
+                    </span>
+                    <span
+                      className="flex items-center gap-1 rounded border border-rose-500/50 bg-rose-950/50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-rose-300"
+                      title={`Mazo de ${CAMPAIGN_BOSS_NAMES[cls.id]}: ${bossExclusiveCount(cls.id)} cartas exclusivas`}
+                    >
+                      <Skull className="h-2.5 w-2.5" />
+                      Jefe {CAMPAIGN_BOSS_THEMES[cls.id]} · +{bossExclusiveCount(cls.id)} exclusivas
+                    </span>
                   </div>
                 </div>
 
