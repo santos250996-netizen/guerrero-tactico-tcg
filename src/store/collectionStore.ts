@@ -99,8 +99,10 @@ interface CollectionState {
    * la victoria añade las cartas extra de nivel (+1 en N5, +1 más en N10).
    */
   addRewards: (n?: number, opts?: { bonusForLevel?: boolean; floorLevel?: number }) => CardReward[];
-  /** Botín del JEFE (solo victoria): 1 LEGENDARIA garantizada + 1 de rollo. */
-  addBossRewards: () => CardReward[];
+  /** Botín del JEFE a ELEGIR: n cartas distintas del tier dado (por defecto 3 RARAS). */
+  rollPickOptions: (n?: number, rarity?: Rarity) => CardReward[];
+  /** Confirma la opción elegida del pick (la añade en su tier;isNew real). */
+  grantPick: (option: CardReward) => CardReward;
   canFuse: (id: string, rarity: Rarity) => boolean;
   /** Fusiona 3 copias del mismo tier → 1 del siguiente. Devuelve el tier nuevo o null. */
   fuse: (id: string, rarity: Rarity) => Rarity | null;
@@ -165,27 +167,33 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     return rewards;
   },
 
-  addBossRewards: () => {
+  // ── Botín del JEFE a ELEGIR (decisión > azar): 3 opciones del tier dado,
+  //    todas distintas. RARAS por diseño del jugador: nada de legendarias
+  //    que aplanen la progresión.
+  rollPickOptions: (n = 3, rarity = "rare") => {
     const { copies } = get();
     const pool = ALL_CARDS_V3;
+    const picks: CardReward[] = [];
+    const used = new Set<string>();
+    let guard = 0;
+    while (picks.length < n && guard++ < 200) {
+      const card = pool[Math.floor(Math.random() * pool.length)];
+      if (used.has(card.id)) continue;
+      used.add(card.id);
+      picks.push({ id: card.id, rarity, isNew: copiesOf(copies[card.id] ?? {}) === 0 });
+    }
+    return picks;
+  },
+
+  grantPick: (option) => {
+    const { copies } = get();
     const next = { ...copies };
-    const rewards: CardReward[] = [];
-    // 1 LEGENDARIA garantizada — el trofeo del jefe
-    const legCard = pool[Math.floor(Math.random() * pool.length)];
-    const curL = next[legCard.id] ?? {};
-    const isNewL = copiesOf(curL) === 0;
-    next[legCard.id] = { ...curL, legendary: (curL.legendary ?? 0) + 1 };
-    rewards.push({ id: legCard.id, rarity: "legendary", isNew: isNewL });
-    // +1 carta con el rollo normal
-    const card = pool[Math.floor(Math.random() * pool.length)];
-    const rarity = rollRarity();
-    const cur = next[card.id] ?? {};
+    const cur = next[option.id] ?? {};
     const isNew = copiesOf(cur) === 0;
-    next[card.id] = { ...cur, [rarity]: (cur[rarity] ?? 0) + 1 };
-    rewards.push({ id: card.id, rarity, isNew });
+    next[option.id] = { ...cur, [option.rarity]: (cur[option.rarity] ?? 0) + 1 };
     set({ copies: next });
     persist(next, get().grantedClasses, get().wins);
-    return rewards;
+    return { id: option.id, rarity: option.rarity, isNew };
   },
 
   canFuse: (id, rarity) => {

@@ -216,15 +216,19 @@ section("3. MISIONES DIARIAS — determinismo, rotación y recompensa");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("4. Colección — addBossRewards (legendaria garantizada)");
+section("4. Colección — botín del JEFE a ELEGIR (3 RARAS, nada de legendarias)");
 {
   const col = useCollectionStore.getState();
   const before = col.totalCopies();
-  const rewards = col.addBossRewards();
-  check("botín del jefe = 2 cartas", rewards.length === 2);
-  check("1ª recompensa del jefe es LEGENDARIA", rewards[0].rarity === "legendary");
-  check("la legendaria quedó registrada en la colección", useCollectionStore.getState().countOf(rewards[0].id, "legendary") >= 1);
-  check("total de copias creció en 2", useCollectionStore.getState().totalCopies() === before + 2);
+  const opts = col.rollPickOptions(3, "rare");
+  check("el jefe ofrece 3 opciones", opts.length === 3);
+  check("todas las opciones son RARAS", opts.every((o) => o.rarity === "rare"));
+  check("las 3 opciones son cartas distintas", new Set(opts.map((o) => o.id)).size === 3);
+  const granted = col.grantPick(opts[0]);
+  check("la elegida quedó en la colección (tier raro)", useCollectionStore.getState().countOf(granted.id, "rare") >= 1);
+  check("total de copias creció en 1", useCollectionStore.getState().totalCopies() === before + 1);
+  const again = col.grantPick({ id: granted.id, rarity: "rare", isNew: true });
+  check("2ª copia de la misma carta ya no marca NUEVA", again.isNew === false);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

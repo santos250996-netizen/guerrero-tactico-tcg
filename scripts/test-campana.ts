@@ -21,6 +21,10 @@ import {
   xpBonusForStep,
   effectiveDropLevel,
   stepChipLabel,
+  biomeForStep,
+  loreForStep,
+  CAMPAIGN_BOT_LORE,
+  CAMPAIGN_BOSS_LORE,
 } from "../src/lib/game/campaign";
 import { useCampaignStore } from "../src/store/campaignStore";
 import { useCollectionStore, hydrateCollection } from "../src/store/collectionStore";
@@ -230,6 +234,46 @@ section("6. Botín con floorLevel: el escalón abre rarezas aunque seas N1");
   // N1 SIN floor sigue siendo 100% común
   const low = col.addRewards(4);
   assert(low.every((r) => r.rarity === "common"), "sin floor, N1 sigue pagando comunes");
+}
+
+// ===========================================================================
+section("7. Lore + biomas + botín del JEFE a ELEGIR (3 raras)");
+{
+  // Lore: cada clase rival tiene 3 líneas (por tramo) y cada jefe la suya
+  const classes: ("guerrero" | "mago" | "asesino")[] = ["guerrero", "mago", "asesino"];
+  assert(
+    classes.every((c) => CAMPAIGN_BOT_LORE[c].length === 3 && CAMPAIGN_BOT_LORE[c].every((l) => l.length > 10)),
+    "lore de rivales: 3 líneas por clase, no vacías"
+  );
+  assert(
+    classes.every((c) => CAMPAIGN_BOSS_LORE[c].length > 10),
+    "lore de jefes: línea propia por clase"
+  );
+  assert(!loreForStep(1).isBoss && loreForStep(1).text.length > 10, "lore escalón 1 = rival normal");
+  assert(loreForStep(7).text.length > 10 && !loreForStep(7).isBoss, "lore escalón 7 (Veterano) = rival normal");
+  assert(loreForStep(5).isBoss && loreForStep(10).isBoss && loreForStep(15).isBoss, "lore escalones 5/10/15 = JEFE");
+  // Biomas: la escalera cruza 3 tramos + muro propio por jefe
+  const expect: Record<number, string> = { 1: "tierras", 4: "tierras", 5: "hierro", 6: "ceniza", 9: "ceniza", 10: "escarcha", 11: "hielo", 14: "hielo", 15: "sombra" };
+  assert(
+    Object.entries(expect).every(([s, id]) => biomeForStep(Number(s)).id === id),
+    "bioma correcto por tramo y por muro de jefe"
+  );
+  assert(biomeForStep(3).tint.includes("radial-gradient") && biomeForStep(3).hex.length > 0, "bioma lleva tinte CSS + color de acento");
+  // Botín del JEFE: 3 opciones RARAS distintas, se confirma 1 con isNew real
+  useCollectionStore.getState().resetAll();
+  const col = useCollectionStore.getState();
+  const before = col.totalCopies();
+  const opts = col.rollPickOptions(3, "rare");
+  assert(opts.length === 3, "el jefe ofrece 3 opciones");
+  assert(opts.every((o) => o.rarity === "rare"), "todas las opciones son RARAS (nada de legendarias)");
+  assert(new Set(opts.map((o) => o.id)).size === 3, "las 3 opciones son cartas distintas");
+  const granted = col.grantPick(opts[0]);
+  assert(useCollectionStore.getState().countOf(granted.id, "rare") >= 1, "la carta elegida quedó en la colección (tier raro)");
+  assert(useCollectionStore.getState().totalCopies() === before + 1, "grantPick añade EXACTAMENTE 1 copia");
+  const again = col.grantPick({ id: granted.id, rarity: "rare", isNew: true });
+  assert(again.isNew === false, "segunda copia de la misma carta ya NO es NUEVA");
+  const once = col.grantPick({ id: opts[1].id, rarity: "rare", isNew: true });
+  assert(once.isNew === true || opts[1].id === granted.id, "1ª copia de una carta nueva SÍ marca NUEVA");
 }
 
 // ===========================================================================

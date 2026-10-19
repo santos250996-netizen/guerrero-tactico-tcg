@@ -826,3 +826,24 @@ Stage Summary:
 - El PvP ya es simétrico con la campaña en economía: ganar paga 2 cartas (con bonus de nivel y drops del nivel), perder/empatar paga 1 — misma filosofía de farming, sin tocar la escalera
 - La revancha online vuelve a pagar y contabilizar (bug latente de onlineEndNoted arreglado de paso)
 - Un solo motor, dos modos, la misma recompensa: bots o personas, jugar siempre suma
+
+---
+Task ID: 39
+Agent: Z.ai main agent
+Task: "mejorar el modo historia" — veredicto del usuario sobre 6 ideas + fix del preview bloqueado
+
+Work Log:
+- Ideas votadas por el usuario: 1 lore ✅ · 2 trucos de jefe ❌ ("peleas reales, nada de efectos independientes, el bot juega como un player") · 3 pick de botín ✅ pero de RARAS ("legendaria avanzaría demasiado rápido") · 4 biomas ✅ · 5 modificadores ❌ ("gameplay parejo para bot y player, nada de energía extra") · 6 rush de jefes ✅ para late game (pendiente para otro empujón)
+- LORE (campaign.ts): CAMPAIGN_BOT_LORE (3 líneas por clase rival — una por tramo Aprendiz/Veterano/Campeón), CAMPAIGN_BOSS_LORE (frase propia por jefe), loreForStep(); NUEVO BattleIntroSplash en PvpGame: overlay z-50 con bioma, icono (espada o cráneo rosa si jefe), nombre Cinzel, cita del rival, chip de escalón y botón «¡A LUCHAR!» — tap en cualquier lugar entra; solo historia; el bot no actúa durante el splash (turno 1 del jugador)
+- BIOMAS (campaign.ts): biomeForStep() → 6 paisajes con tinte radial estático (sin blur, cero coste): 1-4 Tierras Bajas (esmeralda), 5 Muralla de Hierro, 6-9 Paso de Ceniza, 10 Trono de Escarcha, 11-14 Corona de Hielo, 15 Umbral de Sombras; capa fija en PvpGame solo en historia
+- BOTÍN DEL JEFE = ELECCIÓN: collectionStore pierde addBossRewards (legendaria garantizada FUERA) → rollPickOptions(3,"rare") (cartas distintas) + grantPick (isNew real al confirmar); pvpStore: estado bossPickOptions + pickBossReward(i) → pasa la elegida a pendingRewards; checkHistoriaEnd solo paga pick si bossActive, con guard contra doble-disparo (pendingRewards || bossPickOptions); HistoriaEndOverlay muestra "Elige tu botín · 3 raras, 1 tuya" con 3 tiles clicables (flip 3D, borde por rareza) y OCULTA los botones de encadenar hasta elegir; tras elegir aparece "Botín del JEFE · tu elección"
+- FIX PREVIEW (HandCardComponent): handlePointerDown hacia `phase !== "playing"` return → en turno rival startRef nunca se fijaba y el tap moría sin abrir preview. Ahora el tap→preview funciona SIEMPRE (turno propio, rival y fin de partida); el drag vertical hacia el tablero sigue gateado por phase==="playing" (en turno rival el gesto se registra pero no arrastra ni selecciona, y al soltar NO abre preview)
+- Tests: test-campana sección 7 nueva (lore íntegro, biomas por tramo/muro, 3 raras distintas, grantPick 1 copia, isNew real) → 130 asserts; test-tanda28 sección 4 reescrita al nuevo pick (addBossRewards ya no existe)
+- Verificación: tsc 0 · lint 0 · 11 suites verdes · build estático RC=0 · E2E 390×844: splash Bram/Tierras Bajas (esmeralda) + entrada al duelo, storage step=5 → splash Korgath/Muralla de Hierro (cráneo rosa, "JEFE · ESCALÓN 5/15") + 0 errores; PvP 2 pestañas (sala YY9C): en turno del rival el que espera ABRE el preview de su mano (JUSTICIA DE LA LEGIÓN completa) y en turno propio también (AMOLADORA DE CAMPAMENTO — el grep fallaba por nombre truncado, screenshot lo confirma); screenshots scripts/e2e-splash-lore|jefe|preview-*.png
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- La campaña ahora se SIENTE una historia: rival que se presenta con su frase, paisajes que cambian por tramo, y jefes que dejan ELEGIR su trofeo (3 raras, decisión > azar)
+- La mecánica de duelo queda INTACTA e igual para bot y jugador (sin trucos ni modificadores) — lo pedido
+- El preview de cartas ya no se bloquea en el turno del rival (PvP e historia)
+- Pendiente aprobado: Rush de Jefes para late game (próximo empujón)

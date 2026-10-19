@@ -146,3 +146,101 @@ export function effectiveDropLevel(level: number, step: number): number {
 export function stepChipLabel(step: number): string {
   return isBossStep(step) ? `JEFE · Escalón ${step}` : `Escalón ${step}`;
 }
+
+// ── Lore: splash pre-batalla (la escalera se SIENTE escrita) ───────────────
+
+/** Línea de ambiente de cada rival normal — una por tramo de título. */
+export const CAMPAIGN_BOT_LORE: Record<GameClass, [string, string, string]> = {
+  guerrero: [
+    "Un recluta más en el camino. Bram afila su espada y te señala el vado: «primero el sudor, luego la gloria».",
+    "Bram ya conoce tu nombre. Los veteranos hablan de ti — y él vino a callarlos.",
+    "El maestro de armas ajusta su escudo: «hoy veremos de qué estás hecho, campeón».",
+  ],
+  mago: [
+    "Iria ajusta sus anillos de escarcha. El aire se enfría al cruzarla de camino.",
+    "Sus grimorios ya susurran tu nombre. «Veamos tu maná», sonríe Iria.",
+    "La hechicera de la corte despliega el arcano completo: este duelo será de sangre fría.",
+  ],
+  asesino: [
+    "Una sombra se mueve entre las carpas. Kess prueba tu guardia con cuchillas lentas.",
+    "El gremio puso precio a tu cabeza. Kess siempre cobra.",
+    "Ni el estruendo de la guerra lo delata: Kess ya está detrás de ti.",
+  ],
+};
+
+/** Línea de ambiente de cada JEFE (claves por clase del jefe). */
+export const CAMPAIGN_BOSS_LORE: Record<GameClass, string> = {
+  guerrero: "«Mil escalones, mil huesos. El muro soy yo.» — Korgath bloquea el paso con su muralla de hierro.",
+  mago: "«Inclínate: el invierno también corona.» — Nyx congela el sendero bajo tus pies.",
+  asesino: "«La última sombra no necesita luz para vencer.» — Vharos se derrite desde las propias sombras.",
+};
+
+/** Lore del escalón para el splash pre-batalla (jefe o rival por tramo). */
+export function loreForStep(step: number): { text: string; isBoss: boolean } {
+  const boss = bossClassForStep(step);
+  if (boss) return { text: CAMPAIGN_BOSS_LORE[boss], isBoss: true };
+  const cls = rivalClassForStep(step);
+  const title = botTitleForStep(step);
+  const tier = title === "Campeón" ? 2 : title === "Veterano" ? 1 : 0;
+  return { text: CAMPAIGN_BOT_LORE[cls][tier], isBoss: false };
+}
+
+// ── Biomas: la escalera cambia de paisaje ───────────────────────────────────
+
+export interface Biome {
+  id: string;
+  name: string;
+  /** Tinte ambiental del duelo (radial-gradient CSS — capa fija y estática). */
+  tint: string;
+  /** Color de acento del splash (componentes rgb "r,g,b"). */
+  hex: string;
+}
+
+const BIOMES: Record<string, Biome> = {
+  tierras: {
+    id: "tierras",
+    name: "Tierras Bajas",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(16,185,129,0.13), transparent 62%)",
+    hex: "16,185,129",
+  },
+  hierro: {
+    id: "hierro",
+    name: "Muralla de Hierro",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(161,161,170,0.15), transparent 62%)",
+    hex: "161,161,170",
+  },
+  ceniza: {
+    id: "ceniza",
+    name: "Paso de Ceniza",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(244,63,94,0.12), transparent 62%)",
+    hex: "244,63,94",
+  },
+  escarcha: {
+    id: "escarcha",
+    name: "Trono de Escarcha",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(56,189,248,0.13), transparent 62%)",
+    hex: "56,189,248",
+  },
+  hielo: {
+    id: "hielo",
+    name: "Corona de Hielo",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(103,232,249,0.11), transparent 62%)",
+    hex: "103,232,249",
+  },
+  sombra: {
+    id: "sombra",
+    name: "Umbral de Sombras",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(168,85,247,0.13), transparent 62%)",
+    hex: "168,85,247",
+  },
+};
+
+/** Bioma del escalón: la campaña cruza paisajes (cada muro tiene el suyo). */
+export function biomeForStep(step: number): Biome {
+  if (step === CAMPAIGN_BOSS_STEPS[2]) return BIOMES.sombra;
+  if (step === CAMPAIGN_BOSS_STEPS[1]) return BIOMES.escarcha;
+  if (step === CAMPAIGN_BOSS_STEPS[0]) return BIOMES.hierro;
+  if (step >= 11) return BIOMES.hielo;
+  if (step >= 6) return BIOMES.ceniza;
+  return BIOMES.tierras;
+}

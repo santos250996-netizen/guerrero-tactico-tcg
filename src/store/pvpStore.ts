@@ -92,6 +92,10 @@ interface PvpStoreState {
   bossActive: boolean;
   /** LA CAMPAÑA — escalón que se está jugando (null en PvP online). */
   campaignStep: number | null;
+  /** Splash pre-batalla de LA CAMPAÑA (lore del rival) pendiente de confirmar. */
+  battleIntro: boolean;
+  /** Botín del JEFE a ELEGIR: 3 raras — toma 1 (null fuera del caso). */
+  bossPickOptions: CardReward[] | null;
   /** La victoria acaba de CERRAR la campaña (escalón 15) → celebración ★. */
   campaignCompleted: boolean;
   /** seq de la última acción "pass" — dispara el choque de carriles en UI. */
@@ -144,6 +148,10 @@ interface PvpStoreState {
 
   openSetup: () => void;
   exitToMenu: () => void;
+  /** Cierra el splash de lore y deja ver el tablero (tap en «¡A LUCHAR!»). */
+  dismissBattleIntro: () => void;
+  /** Confirma la opción elegida del botín del JEFE → pasa a pendingRewards. */
+  pickBossReward: (index: number) => void;
 
   /** Modo historia — LA CAMPAÑA: juega el ESCALÓN dado de la escalera de
    *  guerra (5/10/15 son JEFES). Rival determinista, tier que escala. */
@@ -585,14 +593,15 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
    *  que el farming siga vivo; perder NO hace retroceder la escalera).
    *  VICTORIA normal: rewardCountForStep cartas (2→5) con mesa de drops
    *  max(nivel, escalón+2) + XP extra de escalón + advance().
-   *  VICTORIA de JEFE: 1 LEGENDARIA garantizada + 1 carta (addBossRewards).
+   *  VICTORIA de JEFE: ELIGE 1 de 3 RARAS (decisión > azar; sin legendarias
+   *  que aplanen la progresión).
    *  Escalón 15 vencido → cierra la campaña: ★ Prestigio+1.
    *  Además contabiliza stats por clase + rachas y misiones diarias. */
   function checkHistoriaEnd(): void {
     const st = get();
     const local = st.localState;
     if (st.mode !== "historia" || !local || local.phase !== "ended") return;
-    if (st.pendingRewards) return;
+    if (st.pendingRewards || st.bossPickOptions) return;
     const final = local.finalResultA;
     const won = final ? final.playerWins > final.enemyWins : false;
     const lost = final ? final.playerWins < final.enemyWins : false;
@@ -601,13 +610,16 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const col = useCollectionStore.getState();
     if (won) {
       col.registerWin();
-      const rewards = st.bossActive
-        ? col.addBossRewards()
-        : col.addRewards(rewardCountForStep(step), {
-            bonusForLevel: true, // +1 carta extra en N5/N10
-            floorLevel: effectiveDropLevel(useStatsStore.getState().level, step),
-          });
-      set({ pendingRewards: rewards });
+      if (st.bossActive) {
+        // ELIGE TU BOTÍN: 3 raras distintas, te llevas 1.
+        set({ bossPickOptions: col.rollPickOptions(3, "rare") });
+      } else {
+        const rewards = col.addRewards(rewardCountForStep(step), {
+          bonusForLevel: true, // +1 carta extra en N5/N10
+          floorLevel: effectiveDropLevel(useStatsStore.getState().level, step),
+        });
+        set({ pendingRewards: rewards });
+      }
       // LA CAMPAÑA avanza (persistente) + XP EXTRA de escalón (6+step, ×1.5
       // en prestigio) encima de la XP base que ya dio registerMatch.
       const campaign = useCampaignStore.getState();
@@ -650,6 +662,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     localState: null,
     botClass: null,
     pendingRewards: null,
+    battleIntro: false,
+    bossPickOptions: null,
     bossActive: false,
     campaignStep: null,
     campaignCompleted: false,
@@ -710,6 +724,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         localState: null,
         botClass: null,
         pendingRewards: null,
+        battleIntro: false,
+        bossPickOptions: null,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -739,6 +755,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         localState: null,
         botClass: null,
         pendingRewards: null,
+        battleIntro: false,
+        bossPickOptions: null,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -759,6 +777,15 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       import("@/store/gameStore").then(({ useGameStore }) => {
         useGameStore.getState().setView("main-menu");
       });
+    },
+
+    dismissBattleIntro: () => set({ battleIntro: false }),
+
+    pickBossReward: (index) => {
+      const opts = get().bossPickOptions;
+      if (!opts || !opts[index]) return;
+      const granted = useCollectionStore.getState().grantPick(opts[index]);
+      set({ pendingRewards: [granted], bossPickOptions: null });
     },
 
     startHistoria: ({ playerClass, playerName, step }) => {
@@ -807,6 +834,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         localState: state,
         botClass,
         pendingRewards: null,
+        battleIntro: true, // splash de lore — se cierra con «¡A LUCHAR!»
+        bossPickOptions: null,
         mySide: "a",
         code: "HIST",
         token: null,

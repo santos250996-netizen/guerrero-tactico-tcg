@@ -67,9 +67,11 @@ export function HandCardComponent({
 
   // ====== Direction-aware pointer handlers ======
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    // Skip non-primary pointers / non-playing phase
+    // Skip non-primary pointers
     if (!e.isPrimary) return;
-    if (phase !== "playing") return;
+    // NOTA: ya NO bloqueamos por fase — el TAP para previsualizar debe
+    // funcionar también en el turno del rival (y en replay final). El drag
+    // hacia el tablero sí queda gateado por `phase === "playing"`.
     // Ignore right-click / middle-click
     if (e.button !== 0 && e.pointerType === "mouse") return;
     startRef.current = { x: e.clientX, y: e.clientY };
@@ -95,14 +97,17 @@ export function HandCardComponent({
     if (modeRef.current === "none") {
       if (Math.abs(dx) > DIRECTION_THRESHOLD || Math.abs(dy) > DIRECTION_THRESHOLD) {
         if (Math.abs(dy) * 2 >= Math.abs(dx)) {
-          // ====== VERTICAL ====== → drag the card to play it on the board
+          // ====== VERTICAL ====== → drag the card to play it on the board.
+          // SOLO en tu turno: en el turno rival el gesto queda registrado
+          // (no abre preview al soltar) pero nunca arrastra ni selecciona.
           modeRef.current = "vertical";
-          setIsDragging(true);
-          // Now that a real drag is starting, capture the pointer so we keep
-          // receiving pointermove/pointerup events even if the pointer leaves the card.
-          try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-          setGhostPos({ x: e.clientX, y: e.clientY });
-          onDragStart?.(card.uid);
+          if (phase === "playing") {
+            // Now that a real drag is starting, capture the pointer so we keep
+            // receiving pointermove/pointerup events even if the pointer leaves the card.
+            try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+            setGhostPos({ x: e.clientX, y: e.clientY });
+            onDragStart?.(card.uid);
+          }
         } else {
           // ====== HORIZONTAL ====== → scroll the hand container
           // (Touch users will already have triggered native scrolling via
@@ -134,7 +139,7 @@ export function HandCardComponent({
     // a "stray" pointerup without a matching pointerdown. We must ignore these stray
     // events, otherwise the close-click opens another card (the bug we're fixing).
     const hadPointerDown = startRef.current !== null;
-    if (modeRef.current === "vertical" && hadPointerDown) {
+    if (phase === "playing" && modeRef.current === "vertical" && hadPointerDown) {
       // Find the lane under the pointer at drop time
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const laneEl = el?.closest("[data-lane-id]") as HTMLElement | null;
@@ -146,6 +151,8 @@ export function HandCardComponent({
       onDragEnd?.();
     } else if (modeRef.current === "none" && hadPointerDown) {
       // No drag movement exceeded the threshold → treat as a click/tap → open preview.
+      // Funciona SIEMPRE (turno propio, turno del rival y fin de partida):
+      // el preview es solo lectura — nunca juega la carta.
       // Only if pointerdown was actually received on this card (not a stray pointerup
       // from closing the modal).
       onPreview?.(card);

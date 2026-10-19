@@ -29,6 +29,8 @@ import {
   rivalNameForStep,
   stepChipLabel,
   xpBonusForStep,
+  biomeForStep,
+  loreForStep,
 } from "@/lib/game/campaign";
 import { useStatsStore, xpForNext, XP_DRAW, XP_LOSS, XP_WIN } from "@/store/statsStore";
 import { useSettings } from "@/lib/settings";
@@ -69,6 +71,11 @@ export function PvpGame() {
   const mode = usePvpStore((s) => s.mode);
   const pendingRewards = usePvpStore((s) => s.pendingRewards);
   const bossActive = usePvpStore((s) => s.bossActive);
+  const campaignStep = usePvpStore((s) => s.campaignStep);
+  // LA CAMPAÑA: splash de lore + bioma + botín del jefe a elegir
+  const battleIntro = usePvpStore((s) => s.battleIntro);
+  const bossPickOptions = usePvpStore((s) => s.bossPickOptions);
+  const dismissBattleIntro = usePvpStore((s) => s.dismissBattleIntro);
 
   // CHOQUE DE CARRILES: al cerrar un medio-turno (pass) las dos filas se
   // embisten hacia el separador con sacudida + chispas. 750ms y vuelve.
@@ -149,7 +156,18 @@ export function PvpGame() {
   const RivalIcon = rivalIcon;
 
   return (
-    <div className="app-frame text-zinc-100">
+    <div className="app-frame relative overflow-hidden text-zinc-100">
+      {/* ══ BIOMA — tinte ambiental del tramo (capa FIJA y estática, sin blur) ══
+          La campaña cruza paisajes: Tierras Bajas → Ceniza → Corona de Hielo,
+          con muro propio en cada jefe. Cero coste de render. */}
+      {mode === "historia" && campaignStep != null && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ background: biomeForStep(campaignStep).tint }}
+        />
+      )}
+
       {/* ══ FRANJA RIVAL (compacta, esquina superior) ══ */}
       <div className="relative z-30 flex items-center justify-between gap-2 border-b border-rose-900/40 bg-gradient-to-b from-rose-950/60 to-zinc-950/90 px-2 py-1">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -287,6 +305,15 @@ export function PvpGame() {
       <Confetti trigger={view.phase === "ended" && view.finalResult?.result === "WIN"} />
       <LegendaryBurst trigger={legendaryBurst} onDone={() => usePvpStore.setState({ legendaryBurst: false })} />
 
+      {/* ══ SPLASH PRE-BATALLA — lore del rival (solo LA CAMPAÑA) ══ */}
+      {mode === "historia" && campaignStep != null && (
+        <BattleIntroSplash
+          open={battleIntro && view.phase === "playing"}
+          step={campaignStep}
+          onEnter={() => { sfx.click(); dismissBattleIntro(); }}
+        />
+      )}
+
       {/* Game over */}
       {mode === "historia" ? (
         <HistoriaEndOverlay
@@ -363,10 +390,98 @@ export function PvpGame() {
 // ──────────────────────────────────────────────────────────────
 // ───────────────────────────────────────────────────
 // Fin de partida — LA CAMPAÑA: el botín y la XP salen del ESCALÓN jugado
-// (crecen al avanzar; el jefe paga legendaria garantizada). Los botones
+// (crecen al avanzar; el JEFE deja ELEGIR 1 de 3 raras). Los botones
 // encadenan la escalera: victoria → SIGUIENTE ESCALÓN (o NUEVA CAMPAÑA ★
 // si cerró la escalera) · derrota → REINTENTAR ESCALÓN (sin retroceder).
 // ───────────────────────────────────────────────────
+// Splash pre-batalla (solo LA CAMPAÑA): el rival se PRESENTA con una línea
+// de lore y el bioma del tramo. Tap en «¡A LUCHAR!» entra al duelo — el bot
+// no actúa durante el splash (es el turno 1 del jugador).
+function BattleIntroSplash({
+  open,
+  step,
+  onEnter,
+}: {
+  open: boolean;
+  step: number;
+  onEnter: () => void;
+}) {
+  const lore = loreForStep(step);
+  const biome = biomeForStep(step);
+  const rival = rivalNameForStep(step);
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onPointerDown={onEnter}
+          className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/90 px-6"
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 16 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            className="w-full max-w-sm rounded-2xl border-2 p-6 text-center"
+            style={{
+              borderColor: `rgba(${biome.hex},0.55)`,
+              background: `linear-gradient(to bottom, rgba(${biome.hex},0.14), rgba(0,0,0,0.92))`,
+              boxShadow: `0 0 40px rgba(${biome.hex},0.18)`,
+            }}
+          >
+            {/* Bioma del tramo */}
+            <p
+              className="text-[9px] font-black uppercase tracking-[0.4em]"
+              style={{ color: `rgb(${biome.hex})`, fontFamily: "var(--font-cinzel), serif" }}
+            >
+              {biome.name}
+            </p>
+
+            {lore.isBoss ? (
+              <Skull className="mx-auto mt-3 h-10 w-10 text-rose-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.7)]" />
+            ) : (
+              <div
+                className="mx-auto mt-3 flex h-10 w-10 items-center justify-center rounded-full border"
+                style={{ borderColor: `rgba(${biome.hex},0.6)` }}
+              >
+                <Swords className="h-5 w-5" style={{ color: `rgb(${biome.hex})` }} />
+              </div>
+            )}
+
+            <h2
+              className={cn(
+                "mt-3 text-lg font-black uppercase leading-tight tracking-[0.18em]",
+                lore.isBoss ? "text-rose-300" : "text-zinc-50"
+              )}
+              style={{ fontFamily: "var(--font-cinzel), serif" }}
+            >
+              {rival}
+            </h2>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-zinc-300">“{lore.text}”</p>
+
+            <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+              {stepChipLabel(step)} / {CAMPAIGN_STEPS}
+            </p>
+
+            <Button
+              onClick={(e) => { e.stopPropagation(); }}
+              className="mt-5 w-full border text-white"
+              style={{
+                borderColor: `rgba(${biome.hex},0.6)`,
+                background: `linear-gradient(to bottom, rgba(${biome.hex},0.8), rgba(${biome.hex},0.5))`,
+              }}
+            >
+              ¡A LUCHAR!
+            </Button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function HistoriaEndOverlay({
   open,
   rewards,
@@ -383,6 +498,10 @@ function HistoriaEndOverlay({
   const playedStep = usePvpStore.getState().campaignStep ?? 1;
   const campaignClosed = usePvpStore.getState().campaignCompleted;
   const { step: nextStep, prestige } = useCampaignStore.getState();
+  // Botín del JEFE a ELEGIR (3 raras) — suscripción reactiva: al confirmar
+  // una carta el picker desaparece y la elegida aparece como botín.
+  const bossPick = usePvpStore((s) => s.bossPickOptions);
+  const picking = result === "WIN" && !!bossPick?.length;
   const won = result === "WIN";
   const loot = rewards ?? [];
   // NIVEL: celebra la subida (flash del statsStore) y muestra el XP ganado
@@ -458,11 +577,55 @@ function HistoriaEndOverlay({
               {won && <span className="text-amber-300/90"> · +{xpBonusForStep(playedStep, prestige)} XP de escalón</span>}
             </p>
 
-            {loot.length > 0 && (
+            {/* ELIGE TU BOTÍN (jefe vencido): 3 raras, tomas 1 — decisión > azar */}
+            {picking && bossPick && (
+              <>
+                <p className="mt-3 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">
+                  <Skull className="h-3.5 w-3.5 shrink-0" />
+                  Elige tu botín · 3 raras, 1 tuya
+                </p>
+                <div className="mt-3 flex justify-center gap-3">
+                  {bossPick.map((opt, i) => (
+                    <motion.button
+                      key={`${opt.id}-${i}`}
+                      initial={{ rotateY: 90, opacity: 0 }}
+                      animate={{ rotateY: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 + i * 0.4, duration: 0.45 }}
+                      whileHover={{ scale: 1.06, y: -4 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        sfx.click();
+                        haptic("success");
+                        usePvpStore.getState().pickBossReward(i);
+                      }}
+                      className="w-24 overflow-hidden rounded-lg border-2 bg-zinc-950 shadow-lg"
+                      style={{ borderColor: rarityBorderColor(opt.rarity) }}
+                    >
+                      <div
+                        className="aspect-[3/4] w-full bg-cover bg-center"
+                        style={{ backgroundImage: `url(/cards/${opt.id}.webp)` }}
+                      />
+                      <div className="px-1 py-1">
+                        <div className="truncate text-[8px] font-bold text-zinc-200">{cardById(opt.id)?.name ?? opt.id}</div>
+                        <div className="text-[7px] font-black uppercase tracking-widest text-zinc-500">
+                          {RARITY_LABEL[opt.rarity]}
+                          {opt.isNew && <span className="ml-1 text-emerald-400">NUEVA</span>}
+                        </div>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[8px] uppercase tracking-widest text-zinc-500">
+                  Toca la carta que quieras llevarte
+                </p>
+              </>
+            )}
+
+            {loot.length > 0 && !picking && (
               <>
                 <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-200/80">
                   {bossActive && won
-                    ? "Botín del JEFE · legendaria garantizada"
+                    ? "Botín del JEFE · tu elección"
                     : `Botín · ${loot.length} ${loot.length === 1 ? "carta" : "cartas"} para tu colección`}
                 </p>
                 <div className="mt-3 flex justify-center gap-3">
@@ -505,7 +668,7 @@ function HistoriaEndOverlay({
                 </p>
               </>
             )}
-            {loot.length === 0 && (
+            {loot.length === 0 && !picking && (
               <p className="mt-2 text-[10px] text-zinc-500">Sin botín esta vez…</p>
             )}
             {!won && loot.length > 0 && (
@@ -519,7 +682,9 @@ function HistoriaEndOverlay({
               </p>
             )}
 
-            {/* LA CAMPAÑA encadena: siguiente escalón / reintentar / nueva vuelta */}
+            {/* LA CAMPAÑA encadena: siguiente escalón / reintentar / nueva vuelta.
+                Ocultos mientras el botín del jefe está SIN elegir. */}
+            {!picking && (
             <div className="mt-4 flex flex-col items-center gap-2">
               <Button
                 onClick={onRematch}
@@ -556,6 +721,7 @@ function HistoriaEndOverlay({
                 Menú
               </Button>
             </div>
+            )}
           </motion.div>
         </motion.div>
       )}
