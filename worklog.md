@@ -807,3 +807,22 @@ Stage Summary:
 - Elegir clase vuelve a ser ELEGIR CLASE: una tira visual + 3 tarjetas de dos líneas — toda la info de campaña es la propia escalera dibujada, no texto
 - La campaña (Task 35) queda intacta: mismo startHistoria por escalón, jefes emergen solos, botín/XP escalables
 - Regla de diseño: el detalle de catálogo/colección NO se repite en pantallas de elección — vive donde se gestiona
+
+---
+Task ID: 38
+Agent: Z.ai main agent
+Task: "para que el pvp dé recompensas también" — el PvP paga botín como la campaña
+
+Work Log:
+- Contexto: el usuario aclaró que Historia y PvP comparten motor (cambia el rival: bots vs personas) y pidió que el PvP también pague recompensas — hasta hoy el fin online solo contabilizaba stats/liga/misiones (XP base 6/3/4 de registerMatch) sin cartas
+- pvpStore (bloque fin online en applyView):
+  * PAGO: victoria = addRewards(2, bonusForLevel + floorLevel=nivel) — 2 cartas (+1 en N5/N10) con mesa de drops del nivel del jugador; derrota/empate = addRewards(1) — misma regla de consuelo que la campaña ("nunca manos vacías"); set({pendingRewards}) para que lo muestre el overlay
+  * FIX latente: el guard onlineEndNoted no se rearmaba tras aceptar una REVANCHA → la 2ª partida no pagaría ni contabilizaría stats/misiones. Ahora applyView detecta phase≠ended tras un fin y rearma el guard + limpia pendingRewards
+- PvpGameOverModal: nueva prop rewards + sección "Botín · N cartas para tu colección" (tiles 64px con borde por rareza — helper rarityBorderColor compartido, flip 3D escalonado, tag NUEVA) + línea "+N XP · 3 iguales del tier → fusión" (XP_WIN/LOSS/DRAW importados de statsStore); PvpGame le pasa pendingRewards
+- Verificación: tsc 0 · lint 0 · 11 suites verdes · build estático RC=0 · E2E REAL 2 pestañas 390×844: anfitrión crea sala DEFM, invitado se une, partida completa solo-pases hasta el fin (scripts/e2e-pvp-rewards.sh) → EMPATE muestra "BOTÍN · 1 CARTA" (Salamandra Anciana, NUEVA) +4 XP en ambos clientes (rolls independientes: invitado Tónica R…) → REVANCHA aceptada en ambas → 2ª partida vuelve a pagar (Justicia de…) = rearme verificado → 0 errores de página en las 2 pestañas; screenshots scripts/e2e-pvp-botin*.png
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- El PvP ya es simétrico con la campaña en economía: ganar paga 2 cartas (con bonus de nivel y drops del nivel), perder/empatar paga 1 — misma filosofía de farming, sin tocar la escalera
+- La revancha online vuelve a pagar y contabilizar (bug latente de onlineEndNoted arreglado de paso)
+- Un solo motor, dos modos, la misma recompensa: bots o personas, jugar siempre suma

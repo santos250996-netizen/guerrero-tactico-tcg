@@ -318,8 +318,18 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       connectionLost: false,
     });
 
-    // ══ Fin de partida ONLINE: contabiliza stats + liga + misiones UNA vez
-    //    por sala (guard onlineEndNoted; los polls repetirían este bloque).
+    // ══ Nueva partida (revancha aceptada): rearma el guard de fin y limpia
+    //    el botín mostrado — la revancha TAMBIÉN paga y contabiliza.
+    if (view.phase !== "ended" && onlineEndNoted) {
+      onlineEndNoted = false;
+      set({ pendingRewards: null });
+    }
+
+    // ══ Fin de partida ONLINE: EL PVP TAMBIÉN PAGA — victoria 2 cartas
+    //    (+1 en N5/N10) con mesa de drops del nivel del jugador; derrota/
+    //    empate 1 de consuelo (misma regla que la campaña: nunca manos
+    //    vacías). Además stats + liga + misiones, UNA vez por sala (guard
+    //    onlineEndNoted; los polls repetirían este bloque).
     if (view.phase === "ended" && st.mode === "online" && !onlineEndNoted) {
       const f = view.finalResult;
       if (f) {
@@ -329,6 +339,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
           const result: MatchResult =
             f.result === "WIN" || f.result === "LOSS" ? f.result : "DRAW";
           useStatsStore.getState().registerMatch(result, { cls, online: true });
+          const col = useCollectionStore.getState();
+          const rewards = result === "WIN"
+            ? col.addRewards(2, {
+                bonusForLevel: true, // +1 carta extra en N5/N10
+                floorLevel: useStatsStore.getState().level,
+              })
+            : col.addRewards(1);
+          set({ pendingRewards: rewards });
           const ms = useMissionStore.getState();
           if (result === "WIN") ms.progress("win-games");
           if (result === "WIN") ms.progress("win-class", 1, cls);
@@ -336,7 +354,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
           const laneWins = f.laneOutcomes.filter((o) => o.winner === "player").length;
           if (laneWins > 0) ms.progress("win-lanes", laneWins);
         } catch (err) {
-          console.error("[pvp] fin online: stats/misiones descartadas:", err);
+          console.error("[pvp] fin online: botín/stats/misiones descartados:", err);
         }
       }
     }

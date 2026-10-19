@@ -30,7 +30,7 @@ import {
   stepChipLabel,
   xpBonusForStep,
 } from "@/lib/game/campaign";
-import { useStatsStore, xpForNext } from "@/store/statsStore";
+import { useStatsStore, xpForNext, XP_DRAW, XP_LOSS, XP_WIN } from "@/store/statsStore";
 import { useSettings } from "@/lib/settings";
 import { music } from "@/lib/music";
 import { haptic } from "@/lib/haptics";
@@ -298,6 +298,7 @@ export function PvpGame() {
       ) : (
         <PvpGameOverModal
           open={view.phase === "ended"}
+          rewards={pendingRewards}
           onRematch={() => { sfx.click(); requestRematch(); }}
           onExit={() => { sfx.click(); exitToMenu(); }}
         />
@@ -721,8 +722,18 @@ const PvpFloatingNumbersLayer = memo(function PvpFloatingNumbersLayer({ floats }
 // ──────────────────────────────────────────────────────────────
 // Game over PvP: resultado desde TU perspectiva + revancha
 // ──────────────────────────────────────────────────────────────
-function PvpGameOverModal({ open, onRematch, onExit }: {
+// Borde del tile de botín según rareza (compartido por los dos overlays).
+function rarityBorderColor(rar: string): string {
+  return rar === "mythic" ? "rgb(251 113 133 / 0.85)"
+    : rar === "legendary" ? "rgb(251 191 36 / 0.85)"
+    : rar === "epic" ? "rgb(217 70 239 / 0.7)"
+    : rar === "rare" ? "rgb(56 189 248 / 0.7)"
+    : "rgb(113 113 122 / 0.7)";
+}
+
+function PvpGameOverModal({ open, rewards, onRematch, onExit }: {
   open: boolean;
+  rewards: { id: string; rarity: string; isNew: boolean }[] | null;
   onRematch: () => void;
   onExit: () => void;
 }) {
@@ -783,6 +794,46 @@ function PvpGameOverModal({ open, onRematch, onExit }: {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Botín — el PvP también paga (victoria 2 · derrota/empate 1) */}
+          {rewards && rewards.length > 0 && (
+            <div className="rounded-xl border border-amber-800/40 bg-amber-950/20 p-3">
+              <div className="text-center text-[9px] font-bold uppercase tracking-[0.25em] text-amber-200/80">
+                Botín · {rewards.length} {rewards.length === 1 ? "carta" : "cartas"} para tu colección
+              </div>
+              <div className="mt-2 flex justify-center gap-2.5">
+                {rewards.map((r, i) => {
+                  const def = cardById(r.id);
+                  const rar = r.rarity as keyof typeof RARITY_META;
+                  return (
+                    <motion.div
+                      key={`${r.id}-${i}`}
+                      initial={{ rotateY: 90, opacity: 0 }}
+                      animate={{ rotateY: 0, opacity: 1 }}
+                      transition={{ delay: 0.25 + i * 0.25, duration: 0.4 }}
+                      className="w-16 overflow-hidden rounded-md border-2 bg-zinc-950"
+                      style={{ borderColor: rarityBorderColor(r.rarity) }}
+                    >
+                      <div
+                        className="aspect-[3/4] w-full bg-cover bg-center"
+                        style={{ backgroundImage: `url(/cards/${r.id}.webp)` }}
+                      />
+                      <div className="px-1 py-0.5">
+                        <div className="truncate text-[7px] font-bold text-zinc-200">{def?.name ?? r.id}</div>
+                        <div className="text-[6px] font-black uppercase tracking-widest text-zinc-500">
+                          {RARITY_LABEL[rar]}
+                          {r.isNew && <span className="ml-0.5 text-emerald-400">NUEVA</span>}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-center text-[8px] font-bold uppercase tracking-widest text-zinc-500">
+                +{result === "WIN" ? XP_WIN : result === "LOSS" ? XP_LOSS : XP_DRAW} XP · 3 iguales del tier → fusión
+              </p>
             </div>
           )}
 
