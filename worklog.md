@@ -560,3 +560,22 @@ Stage Summary:
 - Perder paga 1 carta (ganar 2): el farming nunca se corta en seco
 - Anti-freeze del anfitrión en 4 capas (applyView a prueba de throws + audio blindado + resync al volver del fondo + ErrorBoundary); la IA quedó AUDITADA sin violaciones de energía
 - Pendiente heredado: calibración perf.ts en real device, playtest de equilibrado, gráficos 1+2+3 aprobados sin empezar, puntos gráficos 4/5/6
+
+---
+Task ID: 27
+Agent: Z.ai main agent
+Task: "el turno de la ia no se visualiza, solo es el cartel de turno rival" — hacer VISIBLE el turno del bot
+
+Work Log:
+- Diagnóstico: el bot SÍ jugaba (runBotTurn, 850ms entre jugadas) pero (1) empezaba a los 1000ms, DETRÁS del cartel "TURNO DEL RIVAL" (vive 1600ms, overlay bg-black/60+blur) → su primera jugada se perdía; (2) las cartas entraban a la fila rival con solo el fly-in sutil de BoardCardMini y el FX de polvo — sin anuncio de QUÉ había jugado (mano rival oculta, no hay forma de saberlo)
+- pvpStore: estado nuevo rivalPlay (RivalPlayAnnounce: name/defId/rarity/cost/power/laneTitle) + highlightUid; applyView detecta la.type==="play" && la.side!==mine → busca la carta por playedUid en board[lanes].enemy y arma el anuncio (fallback a cardName de lastAction si murió al entrar); auto-limpieza 1900ms/1500ms con guard por id (mismo patrón blindado que el banner); resets en openSetup/exitToMenu/startHistoria
+- Timing: scheduleBotIfNeeded 1000→1900ms (el cartel vive 1600ms — el bot ya no juega detrás de él); pausa entre jugadas 850→1100ms (cadencia legible con el anuncio de 1.9s)
+- PvpGame: RivalPlayAnnouncer nuevo — tarjeta compacta top-center (z-40, pointer-events-none) con ARTE de la carta + "THRALGRIM jugó · PROTECCIÓN" + nombre + ⚡coste + ⚔poder, spring desde arriba, data-testid=rival-play-announce; separador central ahora late (animate-pulse text-rose-300) y dice "<nombre rival> juega…" mientras no es tu turno
+- BoardCardMini: prop justPlayed → anillo ámbar pulsante (-inset-3px, keyframes opacity 1.4s) FUERA del CardShell (el negativo se recortaría); PvpLane pasa justPlayed={card.uid===highlightUid} — funciona igual en PvP online (mismo applyView)
+- Verificación: tsc limpio en src/ (solo ruido legacy de scripts/) · lint OK · pvp-engine 62/62 · turn-flow 27/27 · build estático RC=0 · E2E agent-browser con sampler DOM cada 180ms durante el turno del bot: t=180-1800ms cartel+separador latiendo → t=1994ms toast "Thralgrim jugó · PROTECCIÓN Oración del B…" + ring=1 → t=3076ms "Te toca", limpieza correcta; drag&drop real jugó Guardián (regresión OK); partida COMPLETA hasta el final: DERROTA con botín de 1 carta; 0 errores de consola
+- Commit 6b7e062 push a main (CI genera APK)
+
+Stage Summary:
+- El turno del bot ahora se VE: cartel → anuncio con el arte/nombre/coste/poder de CADA carta que juega + anillo ámbar sobre la carta en el carril + separador "<rival> juega…" latiendo; el bot ya no actúa detrás del cartel
+- Vale también para PvP online (el anuncio sale con las jugadas del rival humano)
+- Pendiente heredado: calibración perf.ts en real device, playtest de equilibrado, gráficos 1+2+3 aprobados sin empezar, puntos gráficos 4/5/6
