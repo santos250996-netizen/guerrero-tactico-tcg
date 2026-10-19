@@ -97,8 +97,12 @@ def main() -> int:
         total_before += b
         total_after += a
 
-    # ── 3. Menú: convertir todo lo que quede en public/menu ──
+    # ── 3. Menú: convertir lo restante; los sources de herramientas SOLO viven
+    #        en assets-src/ (si quedara alguno aquí, se borra tras el copy) ──
     for png in sorted(glob.glob(f"{MENU}/*.png")):
+        if os.path.basename(png) in TOOL_SOURCES:
+            os.remove(png)  # ya preservado en assets-src/ — no viaja en la APK
+            continue
         b, a = convert(png, quality=menu_quality(os.path.basename(png)))
         total_before += b
         total_after += a
