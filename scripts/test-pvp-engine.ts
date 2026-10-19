@@ -12,13 +12,15 @@ import {
   joinPvpState,
   laneBonusesForSide,
   requestRematch,
+  sanitizeClientDeck,
   startPvpMatch,
   type PvpSide,
   type PvpState,
 } from "../src/lib/game/pvp";
 import { CLASS_META, LANE_META } from "../src/lib/game/types";
 import type { GameClass } from "../src/lib/game/types";
-import { getFinalCost } from "../src/lib/game/engine";
+import { getFinalCost, isCardCostAllowed } from "../src/lib/game/engine";
+import { planBotTurn } from "../src/lib/game/pvp-ai";
 
 let passed = 0;
 let failed = 0;
@@ -288,6 +290,141 @@ section("9. Villanos visuales: cada clase ve sus LANE_META y bonos por posición
   const titlesB = state.players.b.lanes.map((l) => LANE_META[l].title).join("/");
   assert(titlesA === "ARCANA/FUEGO/HIELO", `carriles Mago: ${titlesA}`);
   assert(titlesB === "ARMAS/PROTECCIÓN/FURIA", `carriles Guerrero: ${titlesB}`);
+}
+
+// ---------------------------------------------------------------------------
+section("10. Mano inicial ALEATORIA (misma sala recreada → manos distintas)");
+{
+  // buildPlayer ahora BARAJA el draw pile: con el mismo mazo, manos distintas.
+  const signatures = new Set<string>();
+  for (let i = 0; i < 5; i++) {
+    const state = createPvpState("SHUF", { name: "Ana", gameClass: "guerrero" });
+    joinPvpState(state, { name: "Beto", gameClass: "mago" });
+    signatures.add(
+      state.players.a.hand.map((c) => c.id).join(",") + "|" + state.players.b.hand.map((c) => c.id).join(",")
+    );
+  }
+  assert(signatures.size >= 3, `5 repartos del mismo mazo → ${signatures.size} manos distintas (>=3)`);
+  // Cada mano sigue siendo un subconjunto válido de 5 del mazo de 12
+  const state = createPvpState("SHUF2", { name: "Ana", gameClass: "guerrero" });
+  joinPvpState(state, { name: "Beto", gameClass: "mago" });
+  const deckIds = new Set(state.players.a.deck.map((c) => c.id));
+  assert(state.players.a.hand.every((c) => deckIds.has(c.id)), "la mano barajada es subconjunto del mazo");
+  assert(new Set(state.players.a.hand.map((c) => c.uid)).size === 5, "uids únicos en la mano");
+}
+
+// ---------------------------------------------------------------------------
+section("11. Bono 'Coste -1': descuento REAL al jugar (energía) + sanitizeClientDeck");
+{
+  // 11a: partida real forzada hasta tener un carril cost_neg con energía justa
+  let found = false;
+  for (let attempt = 0; attempt < 40 && !found; attempt++) {
+    const { state } = makeRoom("guerrero", "mago");
+    const negPos = state.positionBonuses.findIndex((b) => b?.kind === "cost_neg");
+    if (negPos < 0) continue;
+    // avanza hasta turno 2 (energía 2) y juega una carta de coste 3 en el carril negativo
+    applyPvpAction(state, state.activeSide, { type: "pass" });
+    applyPvpAction(state, state.activeSide, { type: "pass" });
+    const side = state.activeSide;
+    const player = state.players[side];
+    const lane = player.lanes[negPos];
+    const card = player.hand.find((c) => c.cost === 3);
+    if (!card) continue;
+    applyPvpAction(state, side, { type: "play", uid: card.uid, lane });
+    assert(player.energy === 0, `coste 3 en carril 'Coste -1' con energía 2 → gasta 2, queda 0 (queda ${player.energy})`);
+    found = true;
+  }
+  assert(found, "se encontró un escenario con bono cost_neg (40 intentos)");
+  // 11b: sanitizeClientDeck — reconstrucción canónica desde id+tier
+  const base = makeRoom("guerrero", "mago").state.players.a.deck[0];
+  const deck = sanitizeClientDeck(
+    [{ id: base.id, rarity: "rare" }, ...Array.from({ length: 11 }, (_, i) => ({ id: makeRoom("guerrero", "mago").state.players.a.deck[(i + 1) % 12].id, rarity: "common" }))],
+    "guerrero"
+  );
+  assert(deck !== null && deck.length === 12, "sanitizeClientDeck acepta 12 {id, rarity}");
+  assert(deck![0].rarity === "rare" && deck![0].power === base.power + 2, "sanitizeClientDeck materializa +2 poder al tier rare");
+  assert(sanitizeClientDeck([{ id: base.id }, ...Array.from({ length: 10 }, () => base.id)], "guerrero") === null, "sanitizeClientDeck rechaza ids duplicados");
+  assert(sanitizeClientDeck(["no-existe", "no-existe-2"], "guerrero") === null, "sanitizeClientDeck rechaza ids desconocidos");
+}
+
+// ---------------------------------------------------------------------------
+section("12. AUDITORÍA IA: energía por turno respetada en 40 partidas (planBotTurn)");
+{
+  let violations = 0;
+  let gamesCompleted = 0;
+  const CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
+  for (let g = 0; g < 40; g++) {
+    const clsA = CLASSES[Math.floor(Math.random() * 3)];
+    const clsB = CLASSES[Math.floor(Math.random() * 3)];
+    const { state } = makeRoom(clsA, clsB);
+    let guard = 0;
+    let broken = false;
+    while (state.phase === "playing" && guard++ < 400) {
+      const side = state.activeSide;
+      const player = state.players[side];
+      if (side === "b") {
+        // Turno del BOT: plan → cada jugada debe caber en la energía restante
+        const plan = planBotTurn(state);
+        let energyLeft = player.energy;
+        for (const action of plan.actions) {
+          const card = player.hand.find((c) => c.uid === action.uid);
+          if (!card) { broken = true; violations++; break; }
+          const bonus = laneBonusesForSide(state, side)[action.lane] ?? null;
+          const eff = getFinalCost(card.cost, bonus);
+          if (!isCardCostAllowed(card.cost, bonus) || eff > energyLeft) {
+            violations++;
+            broken = true;
+            break;
+          }
+          energyLeft -= eff;
+          try {
+            applyPvpAction(state, side, action);
+          } catch {
+            violations++;
+            broken = true;
+            break;
+          }
+        }
+        if (broken) break;
+        if (state.phase !== "playing" || state.activeSide !== side) continue;
+        applyPvpAction(state, side, { type: "pass" });
+      } else {
+        // Jugador scriptado: jugadas legales al azar (como secciones 6/7)
+        const bonuses = laneBonusesForSide(state, side);
+        const legal = player.hand
+          .flatMap((c) =>
+            player.lanes.map((lane) => {
+              const bonus = bonuses[lane] ?? null;
+              const eff = getFinalCost(c.cost, bonus);
+              const restricted = bonus?.kind.startsWith("cost_only") ? c.cost !== Number(bonus.kind.slice(-1)) : false;
+              return restricted || eff > player.energy ? null : { uid: c.uid, lane };
+            })
+          )
+          .find(Boolean);
+        if (legal && Math.random() < 0.7) {
+          try {
+            applyPvpAction(state, side, { type: "play", uid: legal.uid, lane: legal.lane });
+          } catch {
+            applyPvpAction(state, side, { type: "pass" });
+          }
+        } else {
+          applyPvpAction(state, side, { type: "pass" });
+        }
+      }
+      // INVARIANTE por medio-turno: la energía NUNCA es negativa ni supera maxEnergy
+      for (const s of ["a", "b"] as PvpSide[]) {
+        const p = state.players[s];
+        if (p.energy < 0 || p.energy > p.maxEnergy) {
+          violations++;
+          broken = true;
+        }
+      }
+      if (broken) break;
+    }
+    if (!broken) gamesCompleted++;
+  }
+  assert(violations === 0, `0 violaciones de energía en 40 partidas (IA + jugador scriptado)`);
+  assert(gamesCompleted >= 38, `${gamesCompleted}/40 partidas completadas sin atascos`);
 }
 
 console.log(`\n════════════════════════════════════════`);

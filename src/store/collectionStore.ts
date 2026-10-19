@@ -8,9 +8,10 @@
 // ============================================================================
 
 import { create } from "zustand";
-import type { GameClass, Rarity } from "@/lib/game/types";
-import { ALL_CARDS_V3, starterDeckFor } from "@/lib/game/cards";
-import { FUSION_COPIES, MAX_FUSION_RARITY, nextRarity } from "@/lib/game/balance";
+import type { CardDef, GameClass, Rarity } from "@/lib/game/types";
+import { ALL_CARDS_V3, starterDeckFor, cardPoolForClass, battleDeckFromOwned } from "@/lib/game/cards";
+import { FUSION_COPIES, MAX_FUSION_RARITY, nextRarity, materializeCard } from "@/lib/game/balance";
+import { readEditedDeckIds } from "@/lib/game/deck-storage";
 
 export interface CardReward {
   id: string;
@@ -103,6 +104,14 @@ interface CollectionState {
   registerWin: () => void;
   /** Devuelve TODAS las copias (p.ej. para reinicio voluntario). */
   resetAll: () => void;
+  /**
+   * MAZO DE BATALLA de la clase, MATERIALIZADO (+2 poder por tier ganado en
+   * fusiones). Es el mazo que se juega en TODOS los modos — historia (vs bots)
+   * y PvP online: la colección es global, no solo del modo historia.
+   * Prioridad: (1) mazo editado en el editor si es válido y 100% propio;
+   * (2) las 12 mejores propias (battleDeckFromOwned, incluye el starter).
+   */
+  battleDeckFor: (cls: GameClass) => CardDef[];
 }
 
 export const useCollectionStore = create<CollectionState>((set, get) => ({
@@ -212,6 +221,32 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   resetAll: () => {
     set({ copies: {}, grantedClasses: [], wins: 0 });
     persist({}, [], 0);
+  },
+
+  battleDeckFor: (cls) => {
+    const pool = cardPoolForClass(cls);
+    const ids = readEditedDeckIds(cls);
+    if (ids) {
+      const { copies } = get();
+      const allOwned = ids.every((id) => {
+        const c = copies[id];
+        return (
+          !!c &&
+          (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) > 0 &&
+          pool.some((p) => p.id === id)
+        );
+      });
+      if (allOwned) {
+        return ids.map((id) => {
+          const base = pool.find((p) => p.id === id)!;
+          return materializeCard(base, get().bestTier(id));
+        });
+      }
+    }
+    // Sin mazo editado válido (o con cartas ya no propias) → las 12 mejores.
+    return battleDeckFromOwned(cls, (id) => get().tierRankOf(id)).map((c) =>
+      materializeCard(c, get().bestTier(c.id))
+    );
   },
 }));
 

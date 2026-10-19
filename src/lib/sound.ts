@@ -33,18 +33,26 @@ function tone(f: number, d: number, t: OscillatorType = "sine", g = 0.15, delay 
   if (!a) return;
   if (a.state === "suspended") a.resume().catch(() => {});
 
-  const s = a.currentTime + delay;
-  const o = a.createOscillator();
-  const gn = a.createGain();
-  o.type = t;
-  o.frequency.setValueAtTime(f, s);
-  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(1, slide), s + d);
-  gn.gain.setValueAtTime(0, s);
-  gn.gain.linearRampToValueAtTime(effectiveGain, s + 0.01);
-  gn.gain.exponentialRampToValueAtTime(0.001, s + d);
-  o.connect(gn).connect(a.destination);
-  o.start(s);
-  o.stop(s + d + 0.05);
+  // Blindaje: si el AudioContext quedó "closed"/"interrupted" (la APK pasó a
+  // segundo plano para tocar el hotspot, llamada, etc.), crear nodos LANZA —
+  // y un throw aquí subía por applyView/sfx y congelaba la partida del
+  // anfitrión. Un tono que suena mal NUNCA debe romper el flujo del juego.
+  try {
+    const s = a.currentTime + delay;
+    const o = a.createOscillator();
+    const gn = a.createGain();
+    o.type = t;
+    o.frequency.setValueAtTime(f, s);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(1, slide), s + d);
+    gn.gain.setValueAtTime(0, s);
+    gn.gain.linearRampToValueAtTime(effectiveGain, s + 0.01);
+    gn.gain.exponentialRampToValueAtTime(0.001, s + d);
+    o.connect(gn).connect(a.destination);
+    o.start(s);
+    o.stop(s + d + 0.05);
+  } catch {
+    // AudioContext en estado inválido — silencio esta vez
+  }
 }
 export const sfx = {
   click: () => tone(600, 0.04, "square", 0.05),

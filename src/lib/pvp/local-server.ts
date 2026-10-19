@@ -22,6 +22,7 @@ import {
   createPvpState,
   joinPvpState,
   requestRematch,
+  sanitizeClientDeck,
   touchPresence,
   type PvpAction,
   type PvpClientView,
@@ -79,7 +80,8 @@ function sideForToken(env: MemRoom, token: string | null): PvpSide | null {
   return null;
 }
 
-/** Valida la entrada como pvpInputSchema (name catch→"Jugador", clase enum). */
+/** Valida la entrada como pvpInputSchema (name catch→"Jugador", clase enum)
+ *  + mazo de la colección del cliente reconstruido canónico (sanitizeClientDeck). */
 function parseInput(body: unknown): PvpPlayerInput | null {
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
@@ -91,7 +93,10 @@ function parseInput(body: unknown): PvpPlayerInput | null {
     if (b.deckIds.length > 12 || b.deckIds.some((d) => typeof d !== "string")) return null;
     deckIds = b.deckIds as string[];
   }
-  return { name, gameClass: b.gameClass, deckIds };
+  // Colección del jugador (copias raras/épicas por fusión): se reconstruye
+  // desde el catálogo base — si es inválida, el buildPlayer cae al mazo espejo.
+  const deck = b.deck !== undefined ? (sanitizeClientDeck(b.deck, b.gameClass) ?? undefined) : undefined;
+  return { name, gameClass: b.gameClass, deckIds, deck };
 }
 
 // --- router (misma semántica que las rutas Next) -----------------------------

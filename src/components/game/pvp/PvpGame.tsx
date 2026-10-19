@@ -58,6 +58,18 @@ export function PvpGame() {
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // Rescate anti-congelamiento: al volver del fondo (el anfitrión suele salir
+  // a activar el hotspot), re-sincroniza YA en vez de esperar el siguiente poll.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        usePvpStore.getState().resync();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   // sfx de victoria/derrota (una vez por partida — ref para no re-render)
   const endSoundRef = useRef(false);
   useEffect(() => {
@@ -261,7 +273,8 @@ export function PvpGame() {
 
 // ──────────────────────────────────────────────────────────────
 // ───────────────────────────────────────────────────
-// Fin de partida en MODO HISTORIA: recompensa de 2 cartas / derrota.
+// Fin de partida en MODO HISTORIA: victoria paga 2 cartas, derrota/empate
+// paga 1 (regla del usuario: siempre hay botín, ganar paga doble).
 // ───────────────────────────────────────────────────
 function HistoriaEndOverlay({
   open,
@@ -276,6 +289,7 @@ function HistoriaEndOverlay({
 }) {
   const result = usePvpStore.getState().view?.finalResult?.result;
   const won = result === "WIN";
+  const loot = rewards ?? [];
   return (
     <AnimatePresence>
       {open && (
@@ -305,13 +319,13 @@ function HistoriaEndOverlay({
               {won ? "¡Victoria!" : "Derrota"}
             </div>
 
-            {won && rewards && rewards.length > 0 && (
+            {loot.length > 0 && (
               <>
                 <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-200/80">
-                  Botín · 2 cartas para tu colección
+                  Botín · {loot.length} {loot.length === 1 ? "carta" : "cartas"} para tu colección
                 </p>
                 <div className="mt-3 flex justify-center gap-3">
-                  {rewards.map((r, i) => {
+                  {loot.map((r, i) => {
                     const def = cardById(r.id);
                     const rar = r.rarity as keyof typeof RARITY_META;
                     return (
@@ -343,11 +357,16 @@ function HistoriaEndOverlay({
                 </p>
               </>
             )}
-            {won && (!rewards || rewards.length === 0) && (
+            {loot.length === 0 && (
               <p className="mt-2 text-[10px] text-zinc-500">Sin botín esta vez…</p>
             )}
-            {!won && (
-              <p className="mt-2 text-[10px] uppercase tracking-widest text-rose-200/70">
+            {!won && loot.length > 0 && (
+              <p className="mt-1 text-[9px] uppercase tracking-widest text-rose-200/70">
+                El bot te venció — igual te llevas 1 carta
+              </p>
+            )}
+            {!won && loot.length === 0 && (
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-rose-200/70">
                 El bot te venció — afina tu mazo y reintenta
               </p>
             )}

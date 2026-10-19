@@ -1,14 +1,18 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save, RotateCcw, Lock, Unlock, Trash2, Library, Info, Sparkles, ChevronDown, Check, Play, MoreVertical, Plus, Eye } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
+import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
+import { usePvpStore } from "@/store/pvpStore";
+import { materializeCard } from "@/lib/game/balance";
+import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, RARITY_META, TRIGGER_META, KEYWORD_META, LANE_META } from "@/lib/game/types";
 import type { CardDef, CardCategory, LaneId, Rarity, Trigger, Keyword } from "@/lib/game/types";
+import { PRESET_DECKS, battleDeckFromOwned } from "@/lib/game/cards";
 import { cn } from "@/lib/utils";
 import { CardPreviewModal } from "./CardPreviewModal";
-import { PRESET_DECKS } from "@/lib/game/cards";
 import { sfx } from "@/lib/sound";
 
 const COST_BUCKETS = [1, 2, 3, 4, 5] as const;
@@ -20,12 +24,25 @@ export function DeckEditor() {
   const deckSaveStatus = useGameStore((s) => s.deckSaveStatus);
   const setView = useGameStore((s) => s.setView);
   const deckEditorReturn = useGameStore((s) => s.deckEditorReturn);
-  const initGame = useGameStore((s) => s.initGame);
   const saveDeck = useGameStore((s) => s.saveDeck);
   const resetDeck = useGameStore((s) => s.resetDeck);
   const swapCardInDeck = useGameStore((s) => s.swapCardInDeck);
   const setPreviewCard = useGameStore((s) => s.setPreviewCard);
   const previewCard = useGameStore((s) => s.previewCard);
+  const gameClass = useGameStore((s) => s.gameClass);
+  // Colección: copias por tier → cartas bloqueadas (🔒) y tiers materializados.
+  const copies = useCollectionStore((s) => s.copies);
+  const bestTier = useCollectionStore((s) => s.bestTier);
+  useEffect(() => {
+    hydrateCollection();
+  }, []);
+  /** ¿Tiene el jugador al menos 1 copia de esta carta? */
+  const isOwned = (id: string): boolean => {
+    const t = copies[id];
+    return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) > 0;
+  };
+  /** Cartas del mazo actual sin copias (aviso: no se jugarán). */
+  const unownedInDeck = deckCardIds.filter((id) => id && !isOwned(id));
   const [rarityFilter, setRarityFilter] = useState<Rarity | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<CardCategory | "all">("all");
   const [triggerFilter, setTriggerFilter] = useState<Trigger | "all">("all");
@@ -49,22 +66,36 @@ export function DeckEditor() {
   // Returns to wherever the user came from (in-game header → game; class-select flow → class-select; default → main-menu)
   const handleBack = () => setView(deckEditorReturn);
 
-  // Starts a fresh game with the current deck (used when entering from ClassSelect flow)
-  const handleStartBattle = () => {
-    initGame();
-    setView("game");
+  // Empezar Batalla → MODO HISTORIA (bot aleatorio) con ESTE mazo. Guarda
+  // primero si hay cambios sin guardar (battleDeckFor lee el localStorage).
+  const handleStartBattle = async () => {
+    const gs = useGameStore.getState();
+    if (gs.deckDirty) await gs.saveDeck();
+    const cls = gs.gameClass;
+    const profileName = loadStoredProfileBrief()?.username ?? "";
+    usePvpStore.getState().startHistoria({ playerClass: cls, playerName: profileName || undefined });
   };
 
   // Whether the "Empezar Batalla" button should be shown (only in the JUGAR → Clase → Mazo flow)
   const showStartBattle = deckEditorReturn === "class-select";
 
-  // Load a preset deck — replaces all 12 slots with the preset's card IDs
+  // Load a preset deck — replaces all 12 slots with the preset's card IDs.
+  // CON COLECCIÓN: solo entran cartas PROPIAS; si el preset queda corto se
+  // rellena con las mejores propias que no estén ya (mismo orden que battleDeckFor).
   const loadPresetDeck = (deckId: string) => {
     const preset = PRESET_DECKS.find((d) => d.id === deckId);
     if (!preset) return;
-    const ids = preset.cards.map((c) => c.id);
+    const col = useCollectionStore.getState();
+    const owned = (id: string) => col.tierRankOf(id) >= 0;
+    const ids = preset.cards.map((c) => c.id).filter(owned);
+    if (ids.length < 12) {
+      const fill = battleDeckFromOwned(gameClass, (id) => col.tierRankOf(id))
+        .map((c) => c.id)
+        .filter((id) => !ids.includes(id));
+      ids.push(...fill.slice(0, 12 - ids.length));
+    }
     useGameStore.setState({
-      deckCardIds: ids,
+      deckCardIds: ids.slice(0, 12),
       deckDirty: true,
       deckSaveStatus: "idle",
     });
@@ -88,12 +119,21 @@ export function DeckEditor() {
   // Was: filtered list (lost position info when user placed a card beyond
   // current deckCardIds length — the card ended up at the wrong slot).
   const deckSlots = useMemo<(CardDef | undefined)[]>(() => {
+    const owned = (id: string): boolean => {
+      const t = copies[id];
+      return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) > 0;
+    };
     return Array.from({ length: 12 }).map((_, idx) => {
       const id = deckCardIds[idx];
       if (!id) return undefined;
-      return uniqueCardPool.find((c) => c.id === id);
+      const base = uniqueCardPool.find((c) => c.id === id);
+      if (!base) return undefined;
+      // La copia del slot se muestra MATERIALIZADA: su tier ganado en la
+      // colección (marco raro/épico + poder +2). Lo que ves es lo que juegas.
+      if (!owned(id)) return base;
+      return materializeCard(base, bestTier(id));
     });
-  }, [deckCardIds, uniqueCardPool]);
+  }, [deckCardIds, uniqueCardPool, copies, bestTier]);
   // deckCards is the filtered list (no undefined entries) — used for stats
   // (avgCost, avgPower, costCurve) where empty slots shouldn't count.
   const deckCards = useMemo(() => deckSlots.filter((c): c is CardDef => Boolean(c)), [deckSlots]);
@@ -115,6 +155,13 @@ export function DeckEditor() {
   const maxCurveVal = Math.max(1, ...Object.values(costCurve));
 
   const handlePoolCardClick = (cardId: string) => {
+    // COLECCIÓN: las cartas sin copias están BLOQUEADAS — solo se previsualizan
+    // ("gana partidas para conseguirlas"). Nunca entran al mazo.
+    if (!isOwned(cardId)) {
+      const card = cardPool.find((c) => c.id === cardId);
+      if (card) setPreviewCard(card);
+      return;
+    }
     if (selectedSlot === null || deckLocked) { const card = cardPool.find((c) => c.id === cardId); if (card) setPreviewCard(card); return; }
     swapCardInDeck(selectedSlot, cardId); setSelectedSlot(null);
   };
@@ -323,6 +370,16 @@ export function DeckEditor() {
           <CompactStat label="Poder medio" value={avgPower} accent="rose" />
         </section>
 
+        {/* Aviso de colección: cartas bloqueadas dentro del mazo actual */}
+        {unownedInDeck.length > 0 && (
+          <div className="flex items-center gap-2 rounded-lg border border-rose-800/50 bg-rose-950/30 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-rose-300">
+            <Lock className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              {unownedInDeck.length} {unownedInDeck.length === 1 ? "carta" : "cartas"} de tu mazo sin copias — no se jugarán (gana partidas o sustitúyelas).
+            </span>
+          </div>
+        )}
+
         {/* Tu Mazo — translucent amber-tinted card.
             Always renders 12 slots. Filled slots show FullArtCardMini.
             Empty slots show a clickable EmptySlot placeholder so the user can
@@ -472,13 +529,19 @@ export function DeckEditor() {
           )}
           {availableCards.length === 0 ? <div className="rounded border border-dashed border-zinc-800 bg-zinc-900/40 p-4 text-center text-[10px] text-zinc-500">No hay cartas con este filtro.</div> :
           <div className="grid grid-cols-3 gap-1.5">
-            {availableCards.map((card) => (
-              <FullArtCardMini
-                key={card.id}
-                card={card}
-                onClick={() => handlePoolCardClick(card.id)}
-              />
-            ))}
+            {availableCards.map((base) => {
+              const owned = isOwned(base.id);
+              // Se muestra MATERIALIZADA (tier de la colección): lo que ves es lo que juegas.
+              const card = owned ? materializeCard(base, bestTier(base.id)) : base;
+              return (
+                <FullArtCardMini
+                  key={base.id}
+                  card={card}
+                  locked={!owned}
+                  onClick={() => handlePoolCardClick(base.id)}
+                />
+              );
+            })}
           </div>}
         </section>
       </main>
@@ -489,7 +552,9 @@ export function DeckEditor() {
 
 // Full-art card for the deck editor — same visual design as the hand cards
 // but rendered at mini scale (3-col grid on mobile).
-function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, dimmed }: {
+// `locked`: la carta NO tiene copias en la colección — gris + candado y su
+// click solo previsualiza (el gating real vive en handlePoolCardClick).
+function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, dimmed, locked }: {
   card: CardDef;
   onClick: () => void;
   // Optional: opens the preview modal (eye icon) without affecting slot selection
@@ -497,6 +562,7 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
   selected?: boolean;
   showSlotNumber?: number;
   dimmed?: boolean;
+  locked?: boolean;
 }) {
   const cat = CATEGORY_META[card.category];
   const rar = RARITY_META[card.rarity];
@@ -527,10 +593,18 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
         "relative flex aspect-[3/4] flex-col overflow-hidden rounded-lg border-2 text-left",
         "bg-zinc-950 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400/60",
         selected ? "border-yellow-400 ring-2 ring-yellow-400/60" : rar.borderClass,
-        dimmed && "opacity-60"
+        dimmed && "opacity-60",
+        locked && "grayscale"
       )}
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.6)" }}
     >
+      {/* Candado de colección: sin copias → no jugable hasta ganarla */}
+      {locked && (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-0.5 bg-black/55">
+          <Lock className="h-4 w-4 text-zinc-300" />
+          <span className="text-[6px] font-black uppercase tracking-widest text-zinc-300">Bloqueada</span>
+        </div>
+      )}
       {/* Full-bleed art */}
       <img
         src={`/cards/${card.id}.png`}

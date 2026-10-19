@@ -534,3 +534,29 @@ Stage Summary:
 - El juego tiene progresión real: entras con las neutrales de tu clase, cada victoria te da 2 cartas, 3 iguales se fusionan (+2 poder), y en batalla juegas SIEMPRE tus 12 mejores propias
 - "Reiniciar colección" en Ajustes para volver a empezar
 - El botón Opciones del menú vuelve a ser tocable (era un problema de capas pointer-events)
+
+---
+Task ID: 26
+Agent: Z.ai main agent
+Task: Tanda de 9 fixes del usuario — mano aleatoria, energía visible, marcador simple, coste -1 en UI, fuera selección de clase de Historia, colección global (también PvP), botín por derrota, freeze del anfitrión PvP, auditoría IA
+
+Work Log:
+- MANO ALEATORIA: buildDrawPileFrom NO barajaba (orden de catálogo) y drawStartingHand robaba con pop() → misma mano SIEMPRE. Fix: shuffle Fisher-Yates en buildPlayer (pvp.ts) y en initGame (gameStore); test sección 10 (5 repartos → 5 manos distintas)
+- ENERGÍA VISIBLE: PvpHandBar mostraba el pill "Tu turno" (duplicado del separador central) en lugar del círculo de energía → restaurado el GRAN CÍRCULO dorado estilo solitario (turno izq / energía centro / mazo der); pill eliminado
+- MARCADOR SIMPLE: el box de puntuación de la pareja se pintaba en las DOS filas (propia y rival) → ahora SOLO en la fila propia (PvpLane)
+- COSTE -1: el servidor YA descontaba (getFinalCost) pero la UI no lo reflejaba: affordability comparaba coste base → ahora es consciente del bono (una carta se ve jugable si ALGÚN carril la acepta con su coste efectivo, PvpHandBar + HandBar solitario); chip "⚡ N (tachado coste base)" en el banner del carril al seleccionar carta; test sección 11a (coste 3 en carril negativo con energía 2 → gasta 2)
+- FUERA SELECCIÓN DE CLASE: MainMenu HISTORIA → class-select directamente (como antes); ClassSelect es la entrada del modo historia (grant de los 3 starters al montar, contador N/24 por clase, línea "Rival aleatorio · ganar 2 / perder 1") y "Jugar Partida" → startHistoria vs bot aleatorio SIN pantalla intermedia; HistoriaSelect BORRADO (vista "historia-select" eliminada del gameStore y page.tsx); DeckEditor "Batalla" → startHistoria (guardando antes si hay cambios)
+- COLECCIÓN GLOBAL (no solo historia): collectionStore.battleDeckFor(cls) — mazo editado (localStorage, deck-storage.ts) si es 100% propio, si no las 12 mejores propias, MATERIALIZADO (+2/tier); lo usan startHistoria Y createRoom/joinRoom (PvP online): la colección viaja {id, rarity} y el servidor la reconstruye canónica con sanitizeClientDeck (zod schema + rooms.ts + parseInput del local-server); DeckEditor con pool gateado (🔒 Bloqueada en cartas sin copias, solo preview), slots y pool MATERIALIZADOS (lo que ves es lo que juegas), aviso si el mazo guarda cartas ya no propias, presets filtran a propias + relleno; loadDeckAndPool default = battleDeckFromOwned (antes el espejo completo)
+- BOTÍN POR DERROTA: checkHistoriaEnd → derrota/empate paga 1 carta (victoria 2, registerWin solo al ganar); HistoriaEndOverlay muestra el botín también en derrota ("igual te llevas 1 carta")
+- FREEZE DEL ANFITRIÓN: causa probable encontrada — un throw en applyView (sfx con AudioContext interrumpido al salir a activar el hotspot) moría ANTES del set({view}) y CADA poll re-fallaba para siempre: UI clavada mientras el invitado seguía jugando. Fixes: applyView blindado (set({view}) SIEMPRE; sfx/banner/FX/floats en try-catch separados), tone() de sound.ts try-catch (AudioContext closed), pollOnce con sync mínimo de respaldo, resync en visibilitychange (al volver del fondo), botón resync en el store, PvpErrorBoundary nuevo alrededor de PvpRoot (Reintentar/Salir al menú ante crash de render)
+- AUDITORÍA IA (sección 12): 40 partidas completas bot(planBotTurn) vs jugador scriptado → 0 violaciones de energía (gasto ≤ energía por medio-turno, 0≤energía≤maxEnergy), 40/40 sin atascos. La IA NO hacía trampa: la confusión venía de no ver la energía propia (círculo restaurado) + el chip del rival solo refrescaba por poll
+- Verificación: tsc limpio · lint OK en tocados · pvp-engine 62/62 (10 nuevas: shuffle, cost_neg real, sanitizeClientDeck ±, auditoría) · turn-flow 27/27 · colección-historia 65/65 · FX 51/51 · V2 34/34 · V3 30/30 · V4 71/71 · stress 300/300 · local-pvp 32/32 · build estático RC=0 · E2E agent-browser: HISTORIA→héroe→JUGAR sin pantallas extra, círculo de energía visible (1), pill "Tu turno" fuera, marcador solo en fila propia, drag&drop REAL jugó carta coste 1 en Protección (energía 1→0), rechazo correcto en "SOLO COSTE 3" con mensaje, energías 6/6 al turno 6 sin freeze, editor con 12 bloqueadas + rara materializada (+2 poder, marco sky), 0 errores consola
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- La mano inicial es aleatoria de verdad; la energía propia vuelve a verse en su círculo sobre la mano; el marcador de carriles aparece una sola vez; el bono "Coste -1" ahora se VE al jugar (chip ⚡ + affordability por carril) aunque el descuento del servidor ya era correcto
+- El flujo vuelve a ser: JUGAR → héroe (con Mazo editable) → partida vs bot aleatorio directo; sin HistoriaSelect
+- La colección es GLOBAL: lo ganado por farming (fusiones raro/épico/legendaria) se ve raro/épico en el editor y se juega igual en historia y en PvP online (el servidor reconstruye el mazo canónico desde id+tier)
+- Perder paga 1 carta (ganar 2): el farming nunca se corta en seco
+- Anti-freeze del anfitrión en 4 capas (applyView a prueba de throws + audio blindado + resync al volver del fondo + ErrorBoundary); la IA quedó AUDITADA sin violaciones de energía
+- Pendiente heredado: calibración perf.ts en real device, playtest de equilibrado, gráficos 1+2+3 aprobados sin empezar, puntos gráficos 4/5/6

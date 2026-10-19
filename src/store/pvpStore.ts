@@ -18,8 +18,7 @@ import {
   startPvpMatch,
 } from "@/lib/game/pvp";
 import type { CardDef, GameClass } from "@/lib/game/types";
-import { classDecksOf, battleDeckFromOwned } from "@/lib/game/cards";
-import { materializeCard } from "@/lib/game/balance";
+import { classDecksOf } from "@/lib/game/cards";
 import { planBotTurn } from "@/lib/game/pvp-ai";
 import { emitFx, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
@@ -121,6 +120,9 @@ interface PvpStoreState {
   tryResume: () => Promise<void>;
   startPolling: () => void;
   stopPolling: () => void;
+  /** Re-sincroniza YA con el servidor (poll único). Botón de rescate y
+   *  visibilitychange (al volver del fondo tras tocar el hotspot). */
+  resync: () => void;
 }
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -155,7 +157,11 @@ function myDeckIds(cls: GameClass): string[] | undefined {
 }
 
 export const usePvpStore = create<PvpStoreState>((set, get) => {
-  /** Aplica una vista del servidor: sincroniza estado + efectos de UI. */
+  /** Aplica una vista del servidor: sincroniza estado + efectos de UI.
+   *  A PRUEBA DE FALLOS: el set({ view }) se ejecuta SIEMPRE — cualquier
+   *  excepción en sonido/FX/banner no puede dejar la UI congelada con un
+   *  estado viejo (bug del anfitrión congelado tras tocar Pasar: un throw
+   *  aquí mataba applyView antes del set y CADA poll re-fallaba para siempre). */
   function applyView(view: PvpClientView) {
     const st = get();
     const prevSeq = st.lastActionSeq;
@@ -165,35 +171,40 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const newFloats: PvpFloatingNumber[] = [];
     let turnBanner = st.turnBanner;
     let legendaryBurst = st.legendaryBurst;
-    const la = view.lastAction;
-    if (la && la.seq > prevSeq) {
-      for (const m of la.mutations) {
-        if (m.powerDelta === 0) continue;
-        newFloats.push({ id: `pf-${++floatId}`, uid: m.uid, value: m.powerDelta });
+    try {
+      const la = view.lastAction;
+      if (la && la.seq > prevSeq) {
+        for (const m of la.mutations) {
+          if (m.powerDelta === 0) continue;
+          newFloats.push({ id: `pf-${++floatId}`, uid: m.uid, value: m.powerDelta });
+        }
+        if (la.playedRarity === "legendary") {
+          legendaryBurst = true;
+          setTimeout(() => set({ legendaryBurst: false }), 1900);
+        }
+        if (la.bannerFor && la.bannerFor !== mine && view.phase === "playing") {
+          // El banner de MI turno lo dispara el flip de activeSide (abajo)
+        }
+        if (la.bannerFor && la.bannerFor === mine && view.phase === "playing") {
+          turnBanner = { text: "TU TURNO", mine: true };
+          if (useSettings.getState().soundOn) sfx.turnPass();
+        } else if (la.bannerFor && view.phase === "playing") {
+          turnBanner = { text: "TURNO DEL RIVAL", mine: false };
+          if (useSettings.getState().soundOn) sfx.enemyTurn();
+        }
       }
-      if (la.playedRarity === "legendary") {
-        legendaryBurst = true;
-        setTimeout(() => set({ legendaryBurst: false }), 1900);
-      }
-      if (la.bannerFor && la.bannerFor !== mine && view.phase === "playing") {
-        // El banner de MI turno lo dispara el flip de activeSide (abajo)
-      }
-      if (la.bannerFor && la.bannerFor === mine && view.phase === "playing") {
-        turnBanner = { text: "TU TURNO", mine: true };
-        if (useSettings.getState().soundOn) sfx.turnPass();
-      } else if (la.bannerFor && view.phase === "playing") {
-        turnBanner = { text: "TURNO DEL RIVAL", mine: false };
-        if (useSettings.getState().soundOn) sfx.enemyTurn();
-      }
-    }
 
-    // Sonidos de mutaciones al llegar jugadas del rival
-    if (la && la.seq > prevSeq && la.side !== mine && view.phase === "playing") {
-      if (useSettings.getState().soundOn) {
-        sfx.cardPlay();
-        if (la.mutations.some((m) => m.powerDelta > 0)) sfx.buff();
-        if (la.mutations.some((m) => m.powerDelta < 0)) sfx.debuff();
+      // Sonidos de mutaciones al llegar jugadas del rival
+      if (la && la.seq > prevSeq && la.side !== mine && view.phase === "playing") {
+        if (useSettings.getState().soundOn) {
+          sfx.cardPlay();
+          if (la.mutations.some((m) => m.powerDelta > 0)) sfx.buff();
+          if (la.mutations.some((m) => m.powerDelta < 0)) sfx.debuff();
+        }
       }
+    } catch (err) {
+      // El audio/FX NUNCA tumba la sincronización del estado.
+      console.error("[pvp] applyView: efectos de UI descartados:", err);
     }
 
     // Cambio de pantalla lobby → game cuando la partida arranca
@@ -203,14 +214,18 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     // Auto-limpieza del banner
     if (turnBanner && turnBanner !== st.turnBanner) {
       setTimeout(() => {
-        const cur = get().turnBanner;
-        if (cur && cur.text === turnBanner!.text) set({ turnBanner: null });
+        try {
+          const cur = get().turnBanner;
+          if (cur && cur.text === turnBanner!.text) set({ turnBanner: null });
+        } catch {
+          // noop
+        }
       }, 1600);
     }
 
     set({
       view,
-      lastActionSeq: la?.seq ?? prevSeq,
+      lastActionSeq: view.lastAction?.seq ?? prevSeq,
       code: view.code,
       mySide: view.you.side,
       screen,
@@ -222,27 +237,40 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     // ====== VFX: eventos FX de la acción (DESPUÉS del set: los carriles ya
     // están en el DOM). Mapeo: lado absoluto a/b → player/enemy propio y
     // lanePos → carril propio de esa posición (el board viaja con MIS claves).
-    if (la && la.seq > prevSeq && la.fx && la.fx.length > 0 && useSettings.getState().animationsOn) {
-      const mapped: FxEvent[] = la.fx.map((f) => ({
-        kind: f.kind,
-        keyword: f.keyword,
-        lanePos: f.lanePos,
-        lane: view.you.lanes[f.lanePos] ?? view.you.lanes[0],
-        side: f.side === mine ? "player" : "enemy",
-        sourceUid: f.sourceUid,
-        targetUids: f.targetUids,
-        value: f.value,
-        delayMs: Math.max(f.delayMs ?? 0, 120), // margen para el re-render
-      }));
-      emitFx(mapped);
+    try {
+      const la = view.lastAction;
+      if (la && la.seq > prevSeq && la.fx && la.fx.length > 0 && useSettings.getState().animationsOn) {
+        const mapped: FxEvent[] = la.fx.map((f) => ({
+          kind: f.kind,
+          keyword: f.keyword,
+          lanePos: f.lanePos,
+          lane: view.you.lanes[f.lanePos] ?? view.you.lanes[0],
+          side: f.side === mine ? "player" : "enemy",
+          sourceUid: f.sourceUid,
+          targetUids: f.targetUids,
+          value: f.value,
+          delayMs: Math.max(f.delayMs ?? 0, 120), // margen para el re-render
+        }));
+        emitFx(mapped);
+      }
+    } catch (err) {
+      console.error("[pvp] applyView: FX descartados:", err);
     }
 
     if (newFloats.length > 0) {
-      set({ floatingNumbers: [...get().floatingNumbers, ...newFloats] });
-      setTimeout(() => {
-        const ids = new Set(newFloats.map((f) => f.id));
-        set({ floatingNumbers: get().floatingNumbers.filter((f) => !ids.has(f.id)) });
-      }, 1600);
+      try {
+        set({ floatingNumbers: [...get().floatingNumbers, ...newFloats] });
+        setTimeout(() => {
+          try {
+            const ids = new Set(newFloats.map((f) => f.id));
+            set({ floatingNumbers: get().floatingNumbers.filter((f) => !ids.has(f.id)) });
+          } catch {
+            // noop
+          }
+        }, 1600);
+      } catch {
+        // noop
+      }
     }
   }
 
@@ -296,7 +324,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       return;
     }
     set({ connectionLost: false });
-    applyView(data.view);
+    try {
+      applyView(data.view);
+    } catch (err) {
+      // Red de seguridad: si el mapeo de UI falla, el ESTADO se sincroniza
+      // igual para que la partida nunca quede pintada en un turno viejo.
+      console.error("[pvp] pollOnce: applyView falló — sync mínimo:", err);
+      set({ view: data.view, lastActionSeq: data.view.lastAction?.seq ?? get().lastActionSeq });
+    }
   }
 
   // ═══════════════════ MODO HISTORIA (partida local vs bot) ═══════════════════
@@ -365,7 +400,9 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     checkHistoriaEnd();
   }
 
-  /** Al terminar la partida: victoria → 2 cartas aleatorias a la colección. */
+  /** Al terminar la partida: victoria → 2 cartas, derrota/empate → 1 carta.
+   *  (Regla del jugador: perder un combate paga 1 carta, ganar 2 — así el
+   *  farming sigue vivo aunque el bot te gane.) */
   function checkHistoriaEnd(): void {
     const st = get();
     const local = st.localState;
@@ -379,7 +416,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       const rewards = col.addRewards(2);
       set({ pendingRewards: rewards });
     } else {
-      set({ pendingRewards: [] });
+      const rewards = col.addRewards(1);
+      set({ pendingRewards: rewards });
     }
   }
 
@@ -497,15 +535,11 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       if (get().hostingLocal) void stopLocalPvpServer();
 
       // Colección: entrega el mazo inicial (neutrales, 1 vez) y arma el mazo
-      // de BATALLA con las 12 mejores cartas PROPIAS de la clase (mejor
-      // rareza primero), materializadas con su tier (+2 poder por fusión).
+      // de BATALLA con lo editado por el jugador (12 propias, materializadas
+      // con su tier de fusión) — o las 12 mejores propias si nunca editó.
       const col = useCollectionStore.getState();
       col.grantStarterDeck(playerClass);
-      const deck: CardDef[] = battleDeckFromOwned(playerClass, (id) =>
-        useCollectionStore.getState().tierRankOf(id)
-      ).map((c) =>
-        materializeCard(c, useCollectionStore.getState().bestTier(c.id))
-      );
+      const deck: CardDef[] = useCollectionStore.getState().battleDeckFor(playerClass);
 
       const state = createPvpState("HIST", {
         name: playerName || "Tú",
@@ -549,9 +583,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     createRoom: async () => {
       const { playerName, gameClass } = get();
       set({ busy: true, error: null });
+      // La COLECCIÓN viaja al servidor: copias raras/épicas ganadas jugando
+      // también valen en PvP (farming con sentido). El servidor la reconstruye
+      // canónica con sanitizeClientDeck (solo id+tier, nunca poder crudo).
+      const battleDeck = useCollectionStore.getState().battleDeckFor(gameClass);
       const payload = {
         name: playerName || "Anfitrión",
         gameClass,
+        deck: battleDeck,
         deckIds: myDeckIds(gameClass),
       };
 
@@ -637,9 +676,11 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         return;
       }
       set({ busy: true, error: null });
+      const battleDeck = useCollectionStore.getState().battleDeckFor(gameClass);
       const payload = {
         name: playerName || "Reto",
         gameClass,
+        deck: battleDeck,
         deckIds: myDeckIds(gameClass),
       };
 
@@ -871,6 +912,12 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         pollTimer = null;
       }
       set({ polling: false });
+    },
+
+    resync: () => {
+      // Poll inmediato; si el intervalo había muerto, lo re-arranca.
+      void pollOnce();
+      if (!pollTimer && (get().code || get().mode === "historia")) get().startPolling();
     },
   };
 });

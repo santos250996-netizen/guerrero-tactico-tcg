@@ -1,10 +1,23 @@
 "use client";
 
+// ============================================================================
+// Entrada del MODO HISTORIA (botón JUGAR del menú): elige tu clase, edita tu
+// mazo y a JUGAR — la partida arranca directa contra un BOT ALEATORIO
+// (cualquier clase, cualquiera de sus 2 mazos). Sin pantalla intermedia.
+// Colección: aquí se entrega el mazo inicial de cada clase (una vez) y se
+// muestra cuántas cartas de las 24 tienes desbloqueadas.
+// ============================================================================
+
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { ArrowLeft, Lock, Swords, Sparkles, Skull, Library, Play, ChevronRight, Wand2, EyeOff } from "lucide-react";
+import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
+import { usePvpStore } from "@/store/pvpStore";
+import { ArrowLeft, ChevronRight, Dices, EyeOff, Library, Lock, Skull, Sparkles, Swords, Wand2 } from "lucide-react";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
+import { classCardsOf } from "@/lib/game/cards";
+import { loadStoredProfileBrief } from "@/lib/profile-storage";
 
 interface ClassDef {
   id: GameClass;
@@ -112,18 +125,36 @@ const COLOR_MAP: Record<ClassDef["color"], {
 
 export function ClassSelect() {
   const setView = useGameStore((s) => s.setView);
-  const initGame = useGameStore((s) => s.initGame);
   const selectClass = useGameStore((s) => s.selectClass);
   const loadDeckAndPool = useGameStore((s) => s.loadDeckAndPool);
   const deckLoading = useGameStore((s) => s.deckLoading);
   const setDeckEditorReturn = useGameStore((s) => s.setDeckEditorReturn);
+  const startHistoria = usePvpStore((s) => s.startHistoria);
+  // `copies` como dependencia de re-render: al ganar cartas cambia el contador.
+  const copies = useCollectionStore((s) => s.copies);
 
-  // Quick-play with default deck for selected class
+  useEffect(() => {
+    hydrateCollection();
+    // Mazo inicial de CADA clase (una vez): las neutrales + relleno barato.
+    ["guerrero", "mago", "asesino"].forEach((c) =>
+      useCollectionStore.getState().grantStarterDeck(c as GameClass)
+    );
+  }, []);
+
+  // Cartas desbloqueadas de la clase (re-renderiza con `copies`).
+  function ownedDistinct(cls: GameClass): number {
+    return classCardsOf(cls).filter((c) => {
+      const t = copies[c.id];
+      return !!t && (t.common ?? 0) + (t.rare ?? 0) + (t.epic ?? 0) + (t.legendary ?? 0) > 0;
+    }).length;
+  }
+
+  // JUGAR PARTIDA → modo historia contra bot aleatorio, SIN más pantallas.
   const quickPlay = async (cls: GameClass) => {
     selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
-    initGame();
-    setView("game");
+    const profileName = loadStoredProfileBrief()?.username ?? "";
+    startHistoria({ playerClass: cls, playerName: profileName || undefined });
   };
 
   // Open deck editor — remember we came from class-select
@@ -160,7 +191,7 @@ export function ClassSelect() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="absolute inset-x-0 top-3 z-20 flex justify-center"
+        className="absolute inset-x-0 top-3 z-20 flex flex-col items-center gap-1"
       >
         <h2
           className="text-sm font-black uppercase tracking-[0.4em] text-amber-400"
@@ -169,8 +200,12 @@ export function ClassSelect() {
             textShadow: '0 0 10px rgba(251,191,36,0.5), 0 1px 2px rgba(0,0,0,0.9)',
           }}
         >
-          Elige tu Clase
+          Elige tu Héroe
         </h2>
+        {/* Rival aleatorio + botín — la partida arranca al tocar JUGAR */}
+        <p className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.18em] text-rose-300/80">
+          <Dices className="h-2.5 w-2.5" /> Rival aleatorio · ganar: 2 cartas · perder: 1
+        </p>
       </motion.div>
 
       {/* ── Class cards (translucent, color-coded) ── */}
@@ -229,7 +264,7 @@ export function ClassSelect() {
                         </h3>
                         {cls.unlocked ? (
                           <span className="shrink-0 rounded-full border border-emerald-600/40 bg-emerald-950/40 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-emerald-300">
-                            {cls.cardCount} cartas
+                            {ownedDistinct(cls.id)}/24 cartas
                           </span>
                         ) : (
                           <span className="shrink-0 rounded-full border border-zinc-700 bg-zinc-900/60 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-zinc-500">
@@ -294,7 +329,7 @@ export function ClassSelect() {
                       <Library className="h-3.5 w-3.5" />
                       <span>Mazo</span>
                     </button>
-                    {/* Jugar Partida — primary pill, 3/5 width */}
+                    {/* Jugar Partida — primary pill, 3/5 width → MODO HISTORIA (bot aleatorio) */}
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}

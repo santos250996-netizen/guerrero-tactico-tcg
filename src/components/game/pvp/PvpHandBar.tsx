@@ -7,9 +7,10 @@
 // ============================================================================
 
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Hourglass, Loader2 } from "lucide-react";
+import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Loader2, Zap } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
 import { HandCardComponent } from "../HandCardComponent";
+import { getEffectiveCost, isCardCostAllowed } from "@/lib/game/engine";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,16 @@ export function PvpHandBar({
   const you = view.you;
   const myTurn = view.yourTurn;
 
+  // Affordability consciente del BONO de carril: una carta se ve jugable si
+  // existe ALGÚN carril donde el coste efectivo (con el bono, p.ej. "Coste -1")
+  // cabe en la energía actual. Antes se comparaba el coste base y una carta
+  // de coste 4 con 3 de energía se veía muerta aunque el carril la rebajara a 3.
+  const cardPlayableAnywhere = (cost: number): boolean =>
+    you.lanes.some((lane) => {
+      const bonus = you.laneBonuses[lane] ?? null;
+      return isCardCostAllowed(cost, bonus) && getEffectiveCost(cost, bonus) <= you.energy;
+    });
+
   const handlePlayCard = (cardUid: string, laneId: import("@/lib/game/types").LaneId) => {
     if (!myTurn) return;
     // el drag-and-drop ya dejó la carta seleccionada; jugar directo
@@ -44,7 +55,10 @@ export function PvpHandBar({
     <div className="relative border-t border-amber-700/30 bg-zinc-950/95">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
 
-      {/* Estado propio — mismo estilo CHIMERA que solitario */}
+      {/* Estado propio — mismo estilo CHIMERA que solitario: turno a la
+          izquierda, GRAN CÍRCULO DE ENERGÍA al centro, mazo a la derecha.
+          (El "Tu turno" grande vive en el separador del tablero y en el
+          banner — aquí va la energía, que era lo que faltaba.) */}
       <div className="relative flex items-center justify-between gap-2 border-b border-amber-700/15 bg-gradient-to-b from-zinc-900/80 to-zinc-950/60 px-3 py-1.5">
         <div className="flex items-baseline gap-1">
           <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">Turno</span>
@@ -54,16 +68,19 @@ export function PvpHandBar({
           <span className="text-[9px] font-bold tabular-nums text-zinc-500">/{view.maxTurns}</span>
         </div>
 
-        {/* Indicador de turno */}
-        {myTurn ? (
-          <span className="rounded-full border border-emerald-500/50 bg-emerald-950/60 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-emerald-300">
-            Tu turno
+        {/* CENTRO: gran círculo de energía con borde dorado + rayo + número */}
+        <div
+          className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-amber-400 bg-zinc-950 shadow-[0_0_10px_rgba(251,191,36,0.4)]"
+          title="Tu energía"
+        >
+          <Zap className="absolute -top-1 -right-0.5 h-2.5 w-2.5 text-amber-300" aria-hidden />
+          <span
+            className="text-base font-black tabular-nums text-amber-300"
+            style={{ fontFamily: "var(--font-cinzel), serif" }}
+          >
+            {you.energy}
           </span>
-        ) : (
-          <span className="flex items-center gap-1 rounded-full border border-rose-800/50 bg-rose-950/50 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-rose-300">
-            <Hourglass className="h-2.5 w-2.5" /> Rival juega
-          </span>
-        )}
+        </div>
 
         <div className="flex items-center gap-1">
           <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-zinc-500">Mazo</span>
@@ -105,7 +122,7 @@ export function PvpHandBar({
                 key={card.uid}
                 card={card}
                 selected={selectedCardUid === card.uid}
-                affordable={card.cost <= you.energy}
+                affordable={cardPlayableAnywhere(card.cost)}
                 onPlayCard={handlePlayCard}
                 onDragStart={handleDragStart}
                 onDragEnd={() => undefined}

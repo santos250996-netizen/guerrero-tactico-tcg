@@ -11,7 +11,6 @@ import { HistoryModal } from "@/components/game/HistoryModal";
 import { DeckEditor } from "@/components/game/DeckEditor";
 import { MainMenu } from "@/components/game/MainMenu";
 import { ClassSelect } from "@/components/game/ClassSelect";
-import { HistoriaSelect } from "@/components/game/HistoriaSelect";
 import { CollectionScreen } from "@/components/game/CollectionScreen";
 import { ProfileScreen } from "@/components/game/ProfileScreen";
 import { PvpRoot } from "@/components/game/pvp/PvpRoot";
@@ -69,7 +68,6 @@ export default function Home() {
   }, [onboardingSeen, deckLoading]);
 
   if (view === "main-menu") return <MainMenu />;
-  if (view === "historia-select") return <HistoriaSelect />;
   if (view === "coleccion") return <CollectionScreen />;
   if (view === "class-select") return <ClassSelect />;
   if (view === "profile") return <ProfileScreen />;

@@ -10,6 +10,20 @@ export const pvpInputSchema = z.object({
   name: z.string().trim().min(1).max(16).catch("Jugador"),
   gameClass: z.enum(["guerrero", "mago", "asesino"]),
   deckIds: z.array(z.string()).max(12).optional(),
+  // Colección materializada del cliente (id + tier). El servidor la
+  // reconstruye canónica con sanitizeClientDeck (el poder nunca viaja).
+  deck: z
+    .array(
+      z.union([
+        z.string(),
+        z.object({
+          id: z.string().min(1),
+          rarity: z.enum(["common", "rare", "epic", "legendary"]).optional(),
+        }),
+      ])
+    )
+    .max(12)
+    .optional(),
 });
 
 export type AuthOk = { env: RoomEnvelope; side: PvpSide };

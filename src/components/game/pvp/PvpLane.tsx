@@ -73,6 +73,14 @@ export function PvpLane({ position, side }: PvpLaneProps) {
     getEffectiveCost(selectedCard.cost, bonus) <= view.you.energy &&
     myCards.length < maxCards;
 
+  // Coste EFECTIVO de la carta seleccionada EN ESTE carril (bono aplicado).
+  // Con el bono "Coste -1" una carta de 4 se juega aquí por 3 — y ahora se VE.
+  const selectedEffCost =
+    side === "me" && selectedCard !== null && isCardCostAllowed(selectedCard.cost, bonus)
+      ? getEffectiveCost(selectedCard.cost, bonus)
+      : null;
+  const discount = selectedCard !== null && selectedEffCost !== null ? selectedCard.cost - selectedEffCost : 0;
+
   const onLaneClick = () => {
     if (side !== "me" || !myTurn || !selectedCard) return;
     // El servidor valida y responde con el mensaje exacto si es ilegal.
@@ -121,9 +129,28 @@ export function PvpLane({ position, side }: PvpLaneProps) {
         icon={meta.icon}
         hex={hex}
         right={
-          side === "me" && bonus ? (
-            <span title={bonus.description} className={cn("shrink-0 whitespace-nowrap rounded-full border px-1 py-0 text-[6.5px] font-bold uppercase leading-[11px]", BONUS_CHIP_CLASS[bonus.flavor].chip)}>
-              {bonus.label}
+          side === "me" && (bonus || selectedEffCost !== null) ? (
+            <span className="flex shrink-0 items-center gap-1">
+              {bonus && (
+                <span
+                  title={bonus.description}
+                  className={cn(
+                    "whitespace-nowrap rounded-full border px-1 py-0 text-[6.5px] font-bold uppercase leading-[11px]",
+                    BONUS_CHIP_CLASS[bonus.flavor].chip
+                  )}
+                >
+                  {bonus.label}
+                </span>
+              )}
+              {selectedEffCost !== null && discount > 0 && (
+                <span
+                  title={`Coste efectivo en este carril: ${selectedEffCost} (bono -${discount})`}
+                  className="whitespace-nowrap rounded-full border border-amber-300/70 bg-amber-500/90 px-1 py-0 text-[6.5px] font-black uppercase leading-[11px] text-zinc-950"
+                >
+                  ⚡ {selectedEffCost}
+                  <span className="ml-0.5 line-through opacity-70">{selectedCard!.cost}</span>
+                </span>
+              )}
             </span>
           ) : undefined
         }
@@ -185,39 +212,54 @@ export function PvpLane({ position, side }: PvpLaneProps) {
         </AnimatePresence>
       </div>
 
-      {/* Puntuación de la PAREJA (mi carril vs su carril pareado). Se muestra en
-          ambas filas para que cada jugador vea el marcador a la derecha de su vista. */}
-      <div className="relative z-10 rounded border border-white/5 bg-black/50 px-1 py-0.5">
-        <div className="flex items-center justify-between">
-          <div className="leading-none">
-            <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
-              {side === "me" ? "Tú" : view.rival.name}
+      {/* Puntuación de la PAREJA (mi carril vs su carril pareado) — SOLO en
+          la fila propia. Antes se pintaba el marcador idéntico en las dos
+          filas (una por jugador) y era ruido duplicado en pantalla. */}
+      {side === "me" && (
+        <div className="relative z-10 rounded border border-white/5 bg-black/50 px-1 py-0.5">
+          <div className="flex items-center justify-between">
+            <div className="leading-none">
+              <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">Tú</div>
+              <div
+                className={cn(
+                  "text-[12px] font-black tabular-nums leading-none",
+                  myScore >= rivalScore ? "text-emerald-400" : "text-zinc-400"
+                )}
+              >
+                {myScore}
+              </div>
             </div>
-            <div className={cn("text-[12px] font-black tabular-nums leading-none", (side === "me" ? myScore : rivalScore) >= (side === "me" ? rivalScore : myScore) ? (side === "me" ? "text-emerald-400" : "text-rose-400") : "text-zinc-400")}>
-              {side === "me" ? myScore : rivalScore}
+            {myScore !== rivalScore && (
+              <span className={cn("text-[8px] font-bold tabular-nums", myScore > rivalScore ? "text-emerald-500" : "text-rose-500")}>
+                +{Math.abs(myScore - rivalScore)}
+              </span>
+            )}
+            <div className="text-right leading-none">
+              <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">{view.rival.name}</div>
+              <div
+                className={cn(
+                  "text-[12px] font-black tabular-nums leading-none",
+                  rivalScore > myScore ? "text-rose-400" : "text-zinc-400"
+                )}
+              >
+                {rivalScore}
+              </div>
             </div>
           </div>
-          {myScore !== rivalScore && (
-            <span className={cn("text-[8px] font-bold tabular-nums", myScore > rivalScore ? "text-emerald-500" : "text-rose-500")}>
-              +{Math.abs(myScore - rivalScore)}
-            </span>
+          {(myScore > 0 || rivalScore > 0) && (
+            <div className="mt-0.5 flex h-1 w-full overflow-hidden rounded-full bg-black/60">
+              <div
+                className="bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
+                style={{ width: `${(myScore / (myScore + rivalScore)) * 100}%` }}
+              />
+              <div
+                className="bg-gradient-to-r from-rose-500 to-rose-700 transition-all duration-500"
+                style={{ width: `${(rivalScore / (myScore + rivalScore)) * 100}%` }}
+              />
+            </div>
           )}
-          <div className="text-right leading-none">
-            <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">
-              {side === "me" ? view.rival.name : "Tú"}
-            </div>
-            <div className={cn("text-[12px] font-black tabular-nums leading-none", (side === "me" ? rivalScore : myScore) > (side === "me" ? myScore : rivalScore) ? (side === "me" ? "text-rose-400" : "text-emerald-400") : "text-zinc-400")}>
-              {side === "me" ? rivalScore : myScore}
-            </div>
-          </div>
         </div>
-        {(myScore > 0 || rivalScore > 0) && (
-          <div className="mt-0.5 flex h-1 w-full overflow-hidden rounded-full bg-black/60">
-            <div className="bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500" style={{ width: `${(myScore / (myScore + rivalScore)) * 100}%` }} />
-            <div className="bg-gradient-to-r from-rose-500 to-rose-700 transition-all duration-500" style={{ width: `${(rivalScore / (myScore + rivalScore)) * 100}%` }} />
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Overlay "esperando" cuando no es mi turno (solo fila propia) */}
       <AnimatePresence>

@@ -5,6 +5,7 @@ import { useGameStore } from "@/store/gameStore";
 import { HandCardComponent } from "./HandCardComponent";
 import { AlertTriangle, Lock, Activity, Settings as SettingsIcon, Zap } from "lucide-react";
 import { sfx } from "@/lib/sound";
+import { getEffectiveCost, isCardCostAllowed } from "@/lib/game/engine";
 import type { LaneId } from "@/lib/game/types";
 
 // Total turns is a fixed rule constant (6 turns, energy 1→6).
@@ -17,6 +18,8 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
   const energy = useGameStore((s) => s.energy);
   const turn = useGameStore((s) => s.turn);
   const drawPile = useGameStore((s) => s.drawPile);
+  const activeLanes = useGameStore((s) => s.activeLanes);
+  const laneBonuses = useGameStore((s) => s.laneBonuses);
   const selectCard = useGameStore((s) => s.selectCard);
   const setDraggingCard = useGameStore((s) => s.setDraggingCard);
   const playSelectedCardIntoLane = useGameStore((s) => s.playSelectedCardIntoLane);
@@ -33,6 +36,15 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
   const handleDragEnd = () => {
     setDraggingCard(null);
   };
+
+  // Affordability consciente del BONO de carril (igual que el PvP): la carta
+  // se ve jugable si ALGÚN carril la acepta con su coste efectivo. Con el
+  // bono "Coste -1", una carta de 4 con 3 de energía ya no se ve apagada.
+  const cardPlayableAnywhere = (cost: number): boolean =>
+    activeLanes.some((lane) => {
+      const bonus = laneBonuses[lane] ?? null;
+      return isCardCostAllowed(cost, bonus) && getEffectiveCost(cost, bonus) <= energy;
+    });
   const handlePlayCard = (cardUid: string, laneId: LaneId) => {
     // selectCard was already called during onDragStart, so we just need to play.
     // (selectCard toggles, so calling it again here would deselect.)
@@ -142,7 +154,7 @@ export function HandBar({ onOpenRegistro, onOpenSettings }: { onOpenRegistro: ()
                 key={card.uid}
                 card={card}
                 selected={selectedCardUid === card.uid}
-                affordable={card.cost <= energy}
+                affordable={cardPlayableAnywhere(card.cost)}
                 onPlayCard={handlePlayCard}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}

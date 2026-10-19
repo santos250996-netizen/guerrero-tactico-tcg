@@ -50,10 +50,12 @@ import type {
   LaneBonuses,
   LaneId,
   Keyword,
+  Rarity,
 } from "./types";
 import type { FxEvent, FxKind } from "./fx";
 import { eventsFromPlayResult } from "./fx";
 import { CLASS_DECKS, buildDrawPileFrom, cardPoolForClass } from "./cards";
+import { materializeCard } from "./balance";
 import { v4 as uuidv4 } from "uuid";
 
 // ---------------------------------------------------------------------------
@@ -259,6 +261,33 @@ export function resolvePvpDeck(cls: GameClass, deckIds?: string[]): CardDef[] {
   return CLASS_DECKS[cls];
 }
 
+const LEGAL_RARITIES: Rarity[] = ["common", "rare", "epic", "legendary"];
+
+/**
+ * Mazo enviado por el CLIENTE (colección materializada: copias raras/épicas
+ * ganadas por fusión). Se RECONSTRUYE desde el catálogo base — el poder nunca
+ * viaja por HTTP, solo id + tier — y se materializa con el +2 por tier.
+ * Devuelve null si no son exactamente 12 ids únicos del pool de la clase
+ * (el llamador cae a su mazo por defecto).
+ */
+export function sanitizeClientDeck(raw: unknown, cls: GameClass): CardDef[] | null {
+  if (!Array.isArray(raw) || raw.length !== 12) return null;
+  const pool = cardPoolForClass(cls);
+  const seen = new Set<string>();
+  const out: CardDef[] = [];
+  for (const item of raw) {
+    const id = typeof item === "string" ? item : (item as { id?: unknown } | null)?.id;
+    const rarity = typeof item === "object" && item !== null ? (item as { rarity?: unknown }).rarity : undefined;
+    if (typeof id !== "string" || seen.has(id)) return null;
+    seen.add(id);
+    const base = pool.find((c) => c.id === id);
+    if (!base) return null;
+    const tier = LEGAL_RARITIES.includes(rarity as Rarity) ? (rarity as Rarity) : "common";
+    out.push(materializeCard(base, tier));
+  }
+  return out;
+}
+
 function drawStartingHand(pile: HandCard[], n: number): HandCard[] {
   const out: HandCard[] = [];
   for (let i = 0; i < n && pile.length > 0; i++) {
@@ -282,11 +311,16 @@ function drawStartingHand(pile: HandCard[], n: number): HandCard[] {
 
 function buildPlayer(input: PvpPlayerInput, deck?: CardDef[]): PvpPlayer {
   const resolvedDeck = deck ?? input.deck ?? resolvePvpDeck(input.gameClass, input.deckIds);
-  const pile: HandCard[] = buildDrawPileFrom(resolvedDeck).map((c) => ({
-    ...c,
-    uid: uuidv4(),
-    handBonus: 0,
-  }));
+  // BARAJAR el mazo antes de robar: buildDrawPileFrom preserva el orden del
+  // catálogo y sin shuffle la mano inicial salía SIEMPRE igual (pop desde el
+  // final = las mismas 5 cartas en el mismo orden, partida tras partida).
+  const pile: HandCard[] = shuffle(
+    buildDrawPileFrom(resolvedDeck).map((c) => ({
+      ...c,
+      uid: uuidv4(),
+      handBonus: 0,
+    }))
+  );
   const hand = drawStartingHand(pile, 5);
   return {
     name: input.name,

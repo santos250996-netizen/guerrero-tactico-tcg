@@ -10,11 +10,13 @@ import {
   buildClientView,
   createPvpState,
   joinPvpState,
+  sanitizeClientDeck,
   type PvpClientView,
   type PvpPlayerInput,
   type PvpSide,
   type PvpState,
 } from "@/lib/game/pvp";
+import type { GameClass } from "@/lib/game/types";
 
 const ROOM_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -112,13 +114,36 @@ async function codeAvailable(code: string): Promise<boolean> {
   }
 }
 
+/**
+ * Entrada cruda del cliente (tras zod): `deck` es la colección materializada
+ * (id + tier) ANTES de validar. Se reconstruye canónica en el servidor.
+ */
+export type RoomPlayerInput = {
+  name: string;
+  gameClass: GameClass;
+  deckIds?: string[];
+  deck?: unknown;
+};
+
+/** Valida el mazo del cliente; si es inválido, cae al mazo por defecto (logs). */
+function resolveInputDeck(input: RoomPlayerInput): PvpPlayerInput {
+  const { deck: rawDeck, ...rest } = input;
+  if (rawDeck === undefined) return rest as PvpPlayerInput;
+  const deck = sanitizeClientDeck(rawDeck, input.gameClass);
+  if (!deck) {
+    console.warn("[pvp] mazo del cliente inválido — se usa el mazo por defecto de la clase");
+    return rest as PvpPlayerInput;
+  }
+  return { ...rest, deck } as PvpPlayerInput;
+}
+
 export async function createRoom(
-  input: PvpPlayerInput
+  input: RoomPlayerInput
 ): Promise<{ code: string; token: string; side: PvpSide; view: PvpClientView }> {
   let code = genCode();
   for (let i = 0; i < 20 && !(await codeAvailable(code)); i++) code = genCode();
 
-  const state = createPvpState(code, input);
+  const state = createPvpState(code, resolveInputDeck(input));
   const env: RoomEnvelope = { state, tokens: { a: crypto.randomUUID(), b: null } };
   cache().rooms.set(code, env);
   await persistRoom(env);
@@ -132,13 +157,13 @@ export async function createRoom(
 
 export async function joinRoom(
   code: string,
-  input: PvpPlayerInput
+  input: RoomPlayerInput
 ): Promise<{ token: string; side: PvpSide; view: PvpClientView }> {
   const env = await getRoomEnvelope(code);
   if (!env) throw new Error("Sala no encontrada. Revisa el código.");
   if (env.state.players.b.name) throw new Error("La sala está llena.");
 
-  joinPvpState(env.state, input);
+  joinPvpState(env.state, resolveInputDeck(input));
   env.tokens.b = crypto.randomUUID();
   await persistRoom(env);
   return { token: env.tokens.b!, side: "b", view: buildClientView(env.state, "b") };

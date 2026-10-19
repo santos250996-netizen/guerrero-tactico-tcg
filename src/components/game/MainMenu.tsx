@@ -47,11 +47,6 @@ export function MainMenu() {
     setView("class-select");
   };
 
-  const goToHistoria = () => {
-    click();
-    setView("historia-select");
-  };
-
   const goToPvp = () => {
     click();
     setView("pvp");
@@ -107,7 +102,9 @@ export function MainMenu() {
         <SettingsIcon className="h-4 w-4" strokeWidth={2.2} />
       </motion.button>
 
-      {/* ── CENTER: HISTORIA button (modo principal — JUGAR) ── */}
+      {/* ── CENTER: HISTORIA button (modo principal — JUGAR) ──
+          Sin pantalla intermedia: va directo a la selección de clase donde
+          puedes editar tu mazo y al tocar JUGAR arranca la partida vs bot. */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -117,7 +114,7 @@ export function MainMenu() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.96 }}
-          onClick={goToHistoria}
+          onClick={goToClassSelect}
           className="pointer-events-auto group relative inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-800 px-10 py-2.5 text-white shadow-[0_4px_18px_-3px_rgba(251,191,36,0.55),0_0_0_1px_rgba(0,0,0,0.4)_inset] transition-all hover:border-amber-200/80 hover:from-amber-500 hover:via-amber-600 hover:to-rose-700"
         >
           {/* Top inner highlight (glossy) */}
@@ -178,7 +175,7 @@ export function MainMenu() {
         className="absolute inset-x-0 top-4 z-20 flex justify-center"
       >
         <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-amber-700/70">
-          v2.2 · 72 cartas · progresión por colección
+          v2.3 · 72 cartas · colección en todos los modos
         </p>
       </motion.div>
 

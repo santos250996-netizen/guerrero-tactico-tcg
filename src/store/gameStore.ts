@@ -39,7 +39,9 @@ import {
   type TrapState,
   type TriggerResult,
 } from "@/lib/game/engine";
-import { buildDrawPileFrom, CLASS_DECKS, cardPoolForClass, WARRIOR_DECK } from "@/lib/game/cards";
+import { buildDrawPileFrom, CLASS_DECKS, cardPoolForClass, WARRIOR_DECK, battleDeckFromOwned } from "@/lib/game/cards";
+import { readEditedDeckIds } from "@/lib/game/deck-storage";
+import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { emitFx, eventsFromPlayResult, type FxEvent } from "@/lib/game/fx";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
@@ -126,7 +128,7 @@ interface GameStoreState {
   legendaryBurst: boolean;
 
   // View switch (game / editor)
-  view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp" | "historia-select" | "coleccion";
+  view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp" | "coleccion";
 
   // Clase elegida + sus carriles activos (el tablero solo usa estos 3)
   gameClass: GameClass;
@@ -162,7 +164,7 @@ interface GameStoreState {
   clearFloatingNumbers: () => void;
 
   // View + preview
-  setView: (view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp" | "historia-select" | "coleccion") => void;
+  setView: (view: "main-menu" | "class-select" | "game" | "editor" | "profile" | "pvp" | "coleccion") => void;
   setDeckEditorReturn: (target: "game" | "class-select" | "main-menu") => void;
   setPreviewCard: (c: CardDef | null) => void;
 
@@ -266,6 +268,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Fisher-Yates in-place-ish shuffle (devuelve copia barajada). */
+function shuffleDeck<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 /** Pausa de pacing SOLO si las animaciones están activas (si no, instantáneo). */
 async function fxPause(ms: number): Promise<void> {
   if (useSettings.getState().animationsOn) {
@@ -356,11 +368,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   initGame: () => {
     const resolvedDeck = resolveDeck(get());
-    const pile = buildDrawPileFrom(resolvedDeck).map((c) => ({
-      ...c,
-      uid: "",
-      handBonus: 0,
-    }));
+    // BARAJAR antes de robar la mano inicial (mismo fix que el PvP: sin
+    // shuffle la mano salía idéntica cada partida al robar desde el final).
+    const pile = shuffleDeck(
+      buildDrawPileFrom(resolvedDeck).map((c) => ({
+        ...c,
+        uid: "",
+        handBonus: 0,
+      }))
+    );
     const drawPile = pile.map((c) => ({ ...c, uid: uuidv4() }));
     const hand = freshHandFromPile(drawPile, STARTING_HAND_SIZE);
     const activeLanes = get().activeLanes;
@@ -1032,18 +1048,18 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       const cardPool: CardDef[] = cardPoolForClass(cls);
 
       const storageKey = cls === "guerrero" ? "guerrero-tactico-deck" : `guerrero-tactico-deck-${cls}`;
-      // Load deck from localStorage (fallback al mazo espejo de la clase)
-      let deckCardIds: string[] = CLASS_DECKS[cls].map((c) => c.id);
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed?.cardIds) && parsed.cardIds.length === 12) {
-            deckCardIds = parsed.cardIds;
-          }
-        }
-      } catch {
-        // localStorage not available — use default deck
+      // Deck por defecto: las 12 MEJORES PROPIAS de la colección (progresión),
+      // NO el espejo oficial completo — así el editor muestra el mismo mazo
+      // que se juega en historia/PvP (battleDeckFor). Si hay mazo guardado,
+      // ese manda (el editor bloquea cartas bloqueadas; battleDeckFor valida).
+      hydrateCollection();
+      let deckCardIds: string[];
+      const col = useCollectionStore.getState();
+      const savedDeck = readEditedDeckIds(cls);
+      if (savedDeck) {
+        deckCardIds = savedDeck;
+      } else {
+        deckCardIds = battleDeckFromOwned(cls, (id) => col.tierRankOf(id)).map((c) => c.id);
       }
       
       set({
