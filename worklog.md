@@ -660,3 +660,24 @@ Stage Summary:
 - Salas PvP web ya no se acumulan para siempre (purga TTL al crear sala)
 - Herramientas de auditoría re-ejecutables quedan en scripts/ para futuras tandas
 - Nota: el hint de Radix "Missing Description for DialogContent" en CardPreviewModal persiste (a11y menor, preexistente)
+
+---
+Task ID: 31
+Agent: Z.ai main agent
+Task: "optimizar más el juego para móvil (imágenes a WebP etc.)" + fix error de hidratación reportado
+
+Work Log:
+- CAZA DEL USUARIO: el catálogo quedó en 84 cartas pero public/cards tenía 211 PNGs → diff IDs vivos (src/lib/game/**.ts, excluidos preset_* que son DECK_PRESETS, no cartas) vs archivos → 127 HUÉRFANOS (19.1MB de peso muerto viajando en la APK)
+- scripts/png-to-webp.py (re-ejecutable, idempotente): borra huérfanos, convierte 84 cartas q80/method6 (30.7→4.9MB, −85%) y menú por tipo (lane q78 · main-bg q82 · profile-bg-raw q80 · game-icon-transparent q88 alfa); bora el PNG tras verificar el WebP
+- Sources de generadores (game-icon-1024, game-icon-transparent, main-bg-raw) → assets-src/ en PNG (fuera de la APK); scale-android-icons.py, gen-game-icon.ts y gen-menu-bg.ts repuntados; art-restyle-chain.sh llama a png-to-webp.py como PASO FINAL (regenerar arte ya produce WebP directo)
+- 13 referencias .png→.webp en src/ (0 residuales); seguía habiendo lazy loading de la tanda anterior (BoardCardMini/DeckEditor/ProfileScreen/HandCard); <link rel=preload> del main-bg.webp en layout (LCP, React 19 lo iza al head)
+- FIX HIDRATACIÓN (MainMenu pill "MISIONES 3/3" vs "0/3"): missionStore persist con localStorage se rehidrata SÍNCRONO antes del mount → el HTML prerenderizado del export estático discrepa del primer render cliente. Contador gated tras microtask del effect existente (setReady) → servidor y cliente pintan "Misiones" a secas en hidratación, el contador aparece después. Mismo patrón que page.tsx
+- eslint.config.mjs: ignora android/** (chunks minificados del build Capacitor provocaban 12 errores falsos de no-this-alias), public/** y assets-src/**
+- Verificación: tsc 0 errores · lint 0 errores · 11 suites verdes (pvp-engine 62 · turn-flow · kw-v2/v3/v4 · colección 69 · fx 51 · tanda28 35 · tanda29 76 · local-pvp 32 · stress 300/300) · build estático RC=0 · E2E agent-browser 390×844: menú sin errores de página/consola, preload OK, bg=main-bg.webp, HISTORIA→guerrero→partida→carta jugada al tablero todo .webp (grito_de_agonia.webp), pill MISIONES 0/3 sin mismatch
+- Commits: 1e96c7d (migración + fix) y follow-up chore (el conversor ya no deja WebP de sources en public/) → push a main, CI genera APK
+
+Stage Summary:
+- public/ 51MB → 4.7MB (−91%); export estático out/ ~55MB → 6.9MB — la APK baja proporcional (CI la regenera)
+- 0 PNG en la app: catálogo 84 WebP vivos + menú WebP; arte huérfano imposible de vuelta (el conversor limpia en cada regeneración)
+- Hidratación limpia verificada en navegador: fin del warning "server rendered text didn't match" del pill de misiones
+- Descubrimiento clave del usuario: el conteo "211 PNGs" destapó 127 artes muertas — la auditoría de catálogo de la tanda 29 no borró sus imágenes
