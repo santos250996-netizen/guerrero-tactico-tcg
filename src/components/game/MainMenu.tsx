@@ -152,67 +152,55 @@ export function MainMenu() {
         <SettingsIcon className="h-4 w-4" strokeWidth={2.2} />
       </motion.button>
 
-      {/* ── ZONA DE JUEGO (jerarquía limpia, de arriba a abajo):
-             1) HISTORIA — botón principal grande
-             2) COLECCIÓN + PVP LOCAL — acciones de igual peso
-             3) MISIONES — pill fino del día */}
+      {/* ── ZONA DE JUEGO — UN stack flex-col con gap real. Los offsets
+             mágicos (bottom-24/70/9) anclaban cada pill POR SEPARADO al fondo:
+             con pantallas cortas, fuentes del sistema o un label que envolvía
+             (PVP LOCAL en 2 líneas) los tres bloques se pisaban entre sí. */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
-        className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center px-6"
+        className="pointer-events-none absolute inset-x-0 bottom-7 z-20 flex flex-col items-center gap-1.5 px-6"
       >
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.96 }}
           onClick={goToClassSelect}
-          className="pointer-events-auto group relative inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-800 px-10 py-2.5 text-white shadow-[0_4px_18px_-3px_rgba(251,191,36,0.55),0_0_0_1px_rgba(0,0,0,0.4)_inset] transition-all hover:border-amber-200/80 hover:from-amber-500 hover:via-amber-600 hover:to-rose-700"
+          className="pointer-events-auto group relative inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-800 px-8 py-2.5 text-white shadow-[0_4px_18px_-3px_rgba(251,191,36,0.55),0_0_0_1px_rgba(0,0,0,0.4)_inset] transition-all hover:border-amber-200/80 hover:from-amber-500 hover:via-amber-600 hover:to-rose-700"
         >
           {/* Top inner highlight (glossy) */}
           <span className="pointer-events-none absolute inset-x-3 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/40 to-transparent opacity-70" />
           {/* The label — Cinzel Black for that Roman-inscription fantasy feel */}
           <span
-            className="relative select-none text-2xl font-black uppercase tracking-[0.45em] text-amber-50"
+            className="relative select-none whitespace-nowrap text-[21px] font-black uppercase tracking-[0.32em] text-amber-50"
             style={{
               fontFamily: 'var(--font-cinzel), serif',
               textShadow: '0 1px 1px rgba(0,0,0,0.95), 0 0 12px rgba(251,191,36,0.55)',
-              paddingLeft: '0.45em',  // optical centering with tracking
+              paddingLeft: '0.32em',  // optical centering with tracking
             }}
           >
             Historia
           </span>
         </motion.button>
-      </motion.div>
 
-      {/* 2) COLECCIÓN + PVP LOCAL — misma fila, mismo estilo de pill */}
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut", delay: 0.35 }}
-        className="pointer-events-none absolute inset-x-0 bottom-[70px] z-20 flex items-center justify-center gap-2 px-6"
-      >
-        <div className="pointer-events-auto">
-          <CollectionMenuButton />
+        {/* COLECCIÓN + PVP LOCAL — misma fila, mismo estilo de pill */}
+        <div className="flex items-center justify-center gap-2">
+          <div className="pointer-events-auto">
+            <CollectionMenuButton />
+          </div>
+          <button
+            onClick={goToPvp}
+            className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-teal-400/50 bg-gradient-to-b from-teal-800/80 to-zinc-950/90 px-3.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-teal-200 transition-colors hover:border-teal-300/70"
+            style={{ fontFamily: "var(--font-cinzel), serif" }}
+          >
+            <Wifi className="h-3 w-3" /> PvP Local
+          </button>
         </div>
-        <button
-          onClick={goToPvp}
-          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-teal-400/50 bg-gradient-to-b from-teal-800/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-teal-200 transition-colors hover:border-teal-300/70"
-          style={{ fontFamily: "var(--font-cinzel), serif" }}
-        >
-          <Wifi className="h-3 w-3" /> PvP Local
-        </button>
-      </motion.div>
 
-      {/* 3) MISIONES del día — pill fino centrado al pie */}
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut", delay: 0.42 }}
-        className="pointer-events-none absolute inset-x-0 bottom-9 z-20 flex justify-center px-6"
-      >
+        {/* MISIONES del día */}
         <button
           onClick={() => { click(); setMisionesOpen(true); }}
-          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-gradient-to-b from-amber-900/80 to-zinc-950/90 px-4 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-amber-200 transition-colors hover:border-amber-300/70"
+          className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/50 bg-gradient-to-b from-amber-900/80 to-zinc-950/90 px-4 py-1 text-[9px] font-black uppercase tracking-[0.22em] text-amber-200 transition-colors hover:border-amber-300/70"
           style={{ fontFamily: "var(--font-cinzel), serif" }}
         >
           <ScrollText className="h-3 w-3" />

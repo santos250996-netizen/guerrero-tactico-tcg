@@ -45,7 +45,16 @@ function BoardCardMiniImpl({ card, side, onPreview, justPlayed }: BoardCardMiniP
       }}
       transition={{ type: "spring", stiffness: 380, damping: 26 }}
       whileHover={onPreview ? { scale: 1.08, zIndex: 10 } : undefined}
-      className={cn("relative aspect-[3/4] w-full", onPreview && "cursor-pointer")}
+      // La carta vive DENTRO de su celda del grid 2×2 del carril: w-full le da
+      // el ancho de la celda y aspect-[3/4] la altura — pero si la fila del
+      // grid es MÁS BAJA que la altura derivada (móviles cortos, insets de
+      // Android, fuente del sistema), la carta desbordaba su fila y se montaba
+      // sobre las de al lado. max-h-full la CLAMPA a la fila real y self-start
+      // la alinea arriba como los huecos vacíos → nunca se solapan.
+      className={cn(
+        "relative aspect-[3/4] w-full max-h-full self-start",
+        onPreview && "cursor-pointer"
+      )}
       data-card-uid={card.uid}
       // Spec principal (para la animación de muerte por spec del CardJuiceLayer)
       data-spec={card.subtypes[0] ?? ""}
