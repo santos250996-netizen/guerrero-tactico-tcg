@@ -936,3 +936,27 @@ Stage Summary:
 - Las reglas V3 ahora se SIENTEN: cada activación tiene su ritual (sonido+partículas+etiqueta), cada clase tiene su firma de victoria y su lore+consejo a un tap — sin tocar UN número de balance
 - Bonus: arreglado el hueco por el que TODOS los fx de fin de turno del segundo pasador se perdían (pre-existente desde keywords V2)
 - Pendiente vigente: Rush de Jefes (late game, aprobado en Task 39)
+
+---
+Task ID: 44
+Agent: Z.ai main agent
+Task: "espero ya no se pegue al cambiar turno ni nada de eso en movil" — auditoría de rendimiento del cambio de turno en móvil + endurecimiento (sin cambios de reglas)
+
+Work Log:
+- AUDITORÍA ESTÁTICA de toda la ruta del cambio de turno: pvpStore (applyView/poll/sendPass), pvp.ts (adaptador), PvpGame/PvpLane/BoardCardMini/PvpHandBar, FxLayer (canvas), CardJuiceLayer, Confetti, CSS de clash/sparks/shake, sound.ts y planBotTurn. Conclusión: la tanda 40 ya eliminó los grandes focos (banner 1.6s, burst clavado, foil en táctil, blur); memo en carriles/minis; FxLayer con calidad adaptativa y tope de FPS; sonidos procedurales (0 decode); planEnemyTurn trivial (3 iter × mano × carriles); poll salta applyView si version no cambió; CSS 100% transform/opacity
+- MEDICIÓN EN VIVO (build de producción estática servida + Galaxy S25 emulado 360×800, UA Android → tier LOW del juego): PerformanceObserver de longtask + monitor de huecos rAF >48ms + marcas alrededor de cada acción (scripts/e2e-perf-turn.sh + e2e-perf-phases.sh)
+- RESULTADO PRE-FIX: 3 cambios de turno completos (tap PASAR → choque → turno del bot con jugadas cada 1100ms) con CERO longtasks y CERO huecos de frame en sus ventanas
+- FIX 1 (pvpStore.applyView): los floating numbers viajan ahora EN el set principal (una notificación zustand → un render por acción; antes dos sets = render doble por jugada)
+- FIX 2 (pvpStore.applyView): auto-limpieza de floats a los 1600ms CON GUARD — si sus ids ya no están NO se hace set (antes re-renderizaba el tablero completo sin motivo en cada fin de ventana de floats)
+- FIX 3 (PvpGame.RivalPlayAnnouncer): decoding="async" en el arte del anuncio (el WebP 432×576 ya no compite con el raster del anuncio en la primera jugada del rival)
+- RESULTADO POST-FIX: 5 cambios de turno más (con carta propia en tablero, anuncios del rival, floats de Fervor acumulándose +1/turno, rituales y choques) → CERO longtasks y CERO huecos en TODAS las ventanas de cambio de turno
+- ÚNICOS longtasks de toda la sesión: arranque de página (76ms) y montaje del modal preview (56ms, one-shot al abrir) — ninguno es cambio de turno
+- Partida completa jugada hasta TURNO 6/6 en vivo: rival BRAM con 5 cartas y buffs acumulados, floats de Fervor correctos cada turno (+4 al cierre), PASAR sensible, 0 errores de consola (solo warning pre-existente de aria-describedby en DialogContent) — scripts/e2e-perf-{tablero,final}.png
+- Verificación: tsc 0 · lint 0 · 12 suites (campana 139 · clases-v3 66 · collection-historia 69 · fx 51 · kw-v2 35 · kw-v3 30 · kw-v4 71 · local-pvp 32 · pvp-engine 62 · turn-flow 27 · tanda28 37 · tanda29 77) = 696 asserts · 0 fallos · build estático RC=0
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- El cambio de turno está MEDIDO y limpio en emulación de móvil low-end: ni un solo longtask ni hueco de frame en 5 ciclos completos pre/post fix
+- 3 endurecimientos quirúrgicos sin tocar una regla: render único por acción, limpieza de floats sin render fantasma, decode asíncrono del anuncio
+- La causa histórica ("se pegaba") ya estaba eliminada en la tanda 40; ahora además está verificado con instrumentación y sobrado de margen
+- Pendiente vigente: Rush de Jefes (late game, aprobado en Task 39)

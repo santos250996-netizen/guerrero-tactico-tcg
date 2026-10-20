@@ -295,6 +295,9 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const screen: PvpScreen =
       view.phase === "playing" || view.phase === "ended" ? "game" : st.screen === "lobby" ? "lobby" : st.screen;
 
+    // PERF: los floats viajan EN el set principal — una sola notificación →
+    // un solo render por acción (en el móvil low-end cada render completo del
+    // tablero cuesta; dos sets seguidos era un render doble por jugada).
     set({
       view,
       lastActionSeq: view.lastAction?.seq ?? prevSeq,
@@ -305,6 +308,9 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       highlightUid,
       clashSeq,
       connectionLost: false,
+      ...(newFloats.length > 0
+        ? { floatingNumbers: [...st.floatingNumbers, ...newFloats] }
+        : null),
     });
 
     // ══ Nueva partida (revancha aceptada): rearma el guard de fin y limpia
@@ -415,20 +421,20 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       console.error("[pvp] applyView: FX descartados:", err);
     }
 
+    // Auto-limpieza de floats — CON GUARD: si sus ids ya no están (reset,
+    // limpieza previa) NO se hace set → cero re-render innecesario a los
+    // 1600ms (antes re-renderizaba el tablero completo sin motivo).
     if (newFloats.length > 0) {
-      try {
-        set({ floatingNumbers: [...get().floatingNumbers, ...newFloats] });
-        setTimeout(() => {
-          try {
-            const ids = new Set(newFloats.map((f) => f.id));
-            set({ floatingNumbers: get().floatingNumbers.filter((f) => !ids.has(f.id)) });
-          } catch {
-            // noop
-          }
-        }, 1600);
-      } catch {
-        // noop
-      }
+      const ids = new Set(newFloats.map((f) => f.id));
+      setTimeout(() => {
+        try {
+          const cur = get().floatingNumbers;
+          if (!cur.some((f) => ids.has(f.id))) return;
+          set({ floatingNumbers: cur.filter((f) => !ids.has(f.id)) });
+        } catch {
+          // noop
+        }
+      }, 1600);
     }
   }
 

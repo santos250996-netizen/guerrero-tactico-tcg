@@ -850,6 +850,9 @@ function RivalPlayAnnouncerImpl({
                 alt=""
                 className="h-11 w-8 shrink-0 rounded-md border border-rose-400/50 object-cover"
                 draggable={false}
+                // decoding async: el WebP 432×576 NO bloquea el raster del
+                // anuncio (la primera jugada del rival era el pico de decode)
+                decoding="async"
               />
             ) : (
               <ScrollText className="h-6 w-6 shrink-0 text-rose-400" />
