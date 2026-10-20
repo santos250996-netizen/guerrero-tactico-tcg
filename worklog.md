@@ -865,3 +865,27 @@ Work Log:
 - ARTE (patrón §8 anti-plantilla): docs/design-pattern-cards.md gana "Composición EXCLUSIVA por carta" — tríada PLANO+ÁNGULO+MOMENTO obligatoria por prompt, nada de misma postura con raza/fondo cambiados, anti-marco full-bleed con sujeto recortado por el borde + checklist ampliada; scripts/gen-card-art-v8.mjs regenera las 6 señaladas con encuadres únicos: Hacha (bodegón contraluz SIN marco), Colmillo (contrapicado, tajo hacia cámara), Fiera (worgen saltando a cámara, garras recortadas), Tajo (primerísimo plano del impacto), Justicia (general aéreo desde atrás), Quebrantador (barrido lateral rompiendo la fila) — pipeline 864→432x576→WebP (0 PNG residuales, 2.4MB→0.3MB)
 - Tests: test-campana +8 asserts de desbloqueo (umbrales 0/5/10, pistas Korgath/Nyx) y pick del jefe reescrito a épicas 2 copias (139/139); test-tanda28 sección 4 a épicas/2 (37/37)
 - Verificación: tsc 0 errores en todo el repo · lint limpio · 11 suites verdes (campana 139 · colección 69 · fx 51 · kw-v2 35 · kw-v3 30 · kw-v4 71 · local-pvp 32 · pvp-engine 62 · turn-flow 27 · tanda28 37 · tanda29 77) · build estático RC=0 (out/ 6.8MB) · E2E 390×844: locks correctos con stepsCleared 0 y 5 (mago abre, asesino sigue cerrada), chips 4-letras en mano (INICI+FERV, MUERT), drag nativo de mano a PROTECCIÓN con selección+fantasma+aterrizaje verificados a mitad de gesto, JUGAR EN FURIA desde el preview jugó el Hacha real (mano 5→4), partida completa 6 turnos sin banner full-screen ni burst, DERROTA con botín 1 carta y encadenado, 0 errores de consola
+
+---
+Task ID: 41
+Agent: Z.ai main agent
+Task: "verifica coherencia sin romper nada" — auditoría integral de la tanda 40 sin cambios funcionales
+
+Work Log:
+- tsc --noEmit: 0 errores en todo el repo · eslint: limpio (0)
+- 11 suites de tests: 630 asserts, 0 fallos (campana 139 · collection-historia 69 · fx 51 · kw-v2 35 · kw-v3 30 · kw-v4 71 · local-pvp 32 · pvp-engine 62 · pvp-turn-flow 27 · tanda28 37 · tanda29 77)
+- Referencias residuales de lo eliminado: 0 (addBossRewards / LegendaryBurst / legendaryBurst / turnBanner / PvpTurnBanner — nada queda en src/)
+- Keywords 4 letras: los 33 shorts de KEYWORD_META verificados uno a uno (FERV…CONS) + valor pintado aparte; el nombre completo y explicación SOLO en el preview (confirmado en vivo: "Coraza [2] — Al Jugar: gana un escudo…")
+- Bloqueo de clases: CLASS_UNLOCK_STEP 0/5/10 intacto; ClassSelect sin botones MAZO/JUGAR en bloqueadas; PvpSetup replica gate; screenshot scripts/e2e-verify-locks.png
+- Botín del jefe: rollPickOptions(3,"epic") + toggleBossPick/confirmBossPick con Confirmar deshabilitado salvo exactamente 2 — sin legendarias en el pick (regla intacta)
+- LÍNEA ROJA BOT=PLAYER: engine.ts simétrico — planEnemyTurn juega por el MISMO playCard con la MISMA validación de energía (effectiveCost > energy → -Infinity); 0 rutas exclusivas de IA (sin energía extra ni trucos)
+- APK actualizable: pacto-guerra.keystore committeado · signingConfig "pacto" en release Y debug · versionCode = github.run_number (monótono) + versionName 2.5 · CI sube app-release.apk
+- Arte: 84/84 assets en public/cards a 432×576 exactos (0 fuera de patrón); hacha_de_ejecucion.webp regenerada sin marco (34KB WebP); design-pattern-cards.md §8 "Composición EXCLUSIVA por carta" presente con checklist ampliada
+- Build estático STATIC_EXPORT=1: RC=0 (api stash/restore sin incidentes)
+- E2E 390×844 en vivo: splash de lore Bram/Tierras Bajas → ¡A LUCHAR! → mano con chips REMA 4 / CORA 2 / INSI 3 / FORT 1 → preview botón "JUGAR EN ARMAS" jugó Muñonera de Asedio (escudo 0/2 en carril) → PASAR → ESPERA… rival jugó → separador compacto "TURNO 2 · BRAM… JUEGA…" (SIN banner full-screen, SIN burst) → ciclo de vuelta a PASAR; 0 errores de página, 0 errores de consola — screenshots scripts/e2e-verify-{locks,splash,turn}.png
+
+Stage Summary:
+- La tanda 40 queda COHERENTE end-to-end: código, tests, build, arte, CI/APK y experiencia real alineados con las 10 peticiones del usuario
+- Ningún cambio funcional hecho: working tree solo suma este registro y 3 screenshots de verificación
+- Regla de oro intacta: el bot juega exactamente como un player (mismo engine, misma energía, mismos triggers)
+- Pendiente vigente: Rush de Jefes (late game, aprobado en Task 39)
