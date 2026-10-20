@@ -889,3 +889,27 @@ Stage Summary:
 - Ningún cambio funcional hecho: working tree solo suma este registro y 3 screenshots de verificación
 - Regla de oro intacta: el bot juega exactamente como un player (mismo engine, misma energía, mismos triggers)
 - Pendiente vigente: Rush de Jefes (late game, aprobado en Task 39)
+
+---
+Task ID: 42
+Agent: Z.ai main agent
+Task: MECÁNICAS SISTÉMICAS DE CLASE (V3) — Formación/Resonancia/Marca con balance por sim IA-vs-IA
+
+Work Log:
+- DISEÑO del usuario implementado 1-regla-por-clase ligada a CARRILES: ⚔ Guerrero FORMACIÓN (+1 permanente al cerrar turno a TODAS tus cartas de cada carril con 2+ propias, tope +1/carta tras calibrar) · 🔮 Mago RESONANCIA (misma spec consecutiva EN TU TURNO: la 2ª entra +2 y cuesta −1, suelo 0, cadenas permitidas, expira al cerrar turno) · 🗡 Asesino MARCA DE EJECUCIÓN (cada reducción REAL de poder enemigo = 1 PC, tope 5, persisten; jugar en carril con debilitado —debuffTaken>0— consume TODOS los PC: +4 c/u tras calibrar; debuff absorbido por escudo NO da PC)
+- LÍNEA ROJA PRESERVADA: mismo motor para ambos lados — sin rules declaradas las reglas están INACTIVAS (630 asserts legacy intactos); el bot NUNCA recibe nada que el player no tenga
+- ENGINE: ClassRulesState {classes, comboPoints, lastSpec} + emptyClassRules + constantes V3_* (únicos números de balance); playCard gana parámetro opcional rules (rulesOut funcional en PlayResult + resonancia/comboConsumed/comboGained); applyStartTurnEffects/applyEndTurnEffects/applyOnDeathEffects ganan rules opcional y rulesOut; Veneno/Crueldad/Ventisca/Contagio/Combustión/Detonación dan PC a su lado; Formación usa BoardCard.formation (nuevo campo types.ts) para el tope; planEnemyTurn/scoreAIPlay con rules (el bot Mago paga costes resonantes y el sim ve los bonus)
+- ADAPTADOR pvp.ts (único camino de TODAS las partidas): PvpState.combo/lastSpec (opcional, normalizado para salas viejas), rulesFor/writeRules a↔relativo, threading en handlePlay/fireStartTurn/fireEndTurn/cadena on_death, reset en startPvpMatch, logs V3 compactos, buildClientView expone you.comboPoints/you.lastSpec/rival.rivalComboPoints
+- FIX CRÍTICO encontrado por la auditoría del test 12 (9/40 partidas atascadas): el PRE-CHECK de energía de handlePlay no aplicaba el −1 de Resonancia y rechazaba jugadas que playCard SÍ aceptaba → pre-check replicado; el test auditó y ahora mira el descuento
+- IA (pvp-ai.ts): planBotTurn planifica con las reglas del estado (bot=enemy) — bot juega SU regla igual que un player
+- UI compacta (sin banners ni animaciones nuevas): chip PC fucsia junto a la energía (Asesino), chip PC del rival en su franja cuando >0, chips de cabecera de carril RES +2 (violeta) y FORM +1 (ámbar) SOLO fila propia, descuento resonante aplicado en canDrop/selectedEffCost/cardPlayableAnywhere/handPlayOptions (espejo exacto del server)
+- BALANCE POR SIMULACIÓN (scripts/sim-clases-v3.ts, planner idéntico para ambos lados, mazos oficiales CLASS_DECKS): ronda 1 (cap+3/PC2) → asesino 24-39% ⚠️; ajustes COMBO_POWER 4 + FORMACION_CAP 1 → ronda 80: 51.9/48.7/49.4 ✅; veredicto final 200 partidas/pareja (400 por emparejamiento, ~180 decididas): guerrero↔mago 45.6% · asesino↔guerrero 45.7% · asesino↔mago 51.4% ✅ BALANCEADO (±1.3σ del 50%)
+- TESTS: scripts/test-clases-v3.ts NUEVO — 46 asserts (inactividad sin rules, deltas exactos, tope Formación, suelo 0, cadenas, expiración, persistencia PC, cap 5, escudo no da PC, start/end/on_death sources, SIMETRÍA enemy-side, convivencia de 2 clases) → 12 suites verdes en total (676 asserts)
+- Verificación: tsc 0 · lint 0 · 12 suites (campana 139 · collection-historia 69 · fx 51 · kw-v2 35 · kw-v3 30 · kw-v4 71 · clases-v3 46 · local-pvp · pvp-engine 62 · pvp-turn-flow 27 · tanda28 37 · tanda29 77) · build estático RC=0
+- E2E 390×844 con las 3 clases reales: Asesino (stepsCleared 10) chip "0 PC" fucsia + rival IRIA CAMPEÓN DE MAGO con specs arcana/fuego/hielo; Mago (stepsCleared 5) vs JEFE KORGATH — jugada en ARCANA pinta chip "RES +2" en la cabecera del carril; Guerrero (fresco) 2 cartas en ARMAS pinta "FORM +1"; locks correctos (asesino cerrada con stepsCleared 5); bot rival juega su propia clase; 0 errores de consola — screenshots scripts/e2e-v3-{asesino-board,asesino-t2,mago-1,form-chip,locks-asesino}.png
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- Las 3 clases ahora se JUEGAN distinto (formación estable vs ráfaga arcana vs desgaste-execución) bajo UN solo motor simétrico — bot y player bajo las mismas reglas
+- Balance VERIFICADO por simulación masiva: ninguna clase supera el 52% ni cae bajo 45% en 400 partidas por emparejamiento
+- Pendiente vigente: Rush de Jefes (late game, aprobado en Task 39)

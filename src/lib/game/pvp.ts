@@ -35,7 +35,12 @@ import {
   playCard,
   MAX_HAND_SIZE,
   MAX_TURNS,
+  V3_COMBO_CAP,
+  V3_COMBO_POWER,
+  V3_RESONANCIA_COST_CUT,
+  V3_RESONANCIA_POWER,
   type Board,
+  type ClassRulesState,
   type PlayResult,
   type TriggerResult,
 } from "./engine";
@@ -168,6 +173,10 @@ export interface PvpState {
   lastSeen: { a: number; b: number };
   createdAt: number;
   endedSaved: boolean;
+  /** REGLAS V3: Puntos de Combo por lado (Asesino). Persisten entre turnos. */
+  combo?: { a: number; b: number };
+  /** REGLAS V3: último carril jugado por lado en SU medio-turno (Resonancia Mago). */
+  lastSpec?: { a: LaneId | null; b: LaneId | null };
 }
 
 export interface PvpPlayerInput {
@@ -202,6 +211,10 @@ export interface PvpClientView {
     energy: number;
     maxEnergy: number;
     drawPileCount: number;
+    /** REGLAS V3: tus PC (chip compacto, Asesino). */
+    comboPoints: number;
+    /** REGLAS V3: último carril que jugaste ESTE turno (aviso de Resonancia, Mago). */
+    lastSpec: LaneId | null;
   };
   rival: {
     name: string;
@@ -212,6 +225,8 @@ export interface PvpClientView {
     energy: number;
     maxEnergy: number;
     drawPileCount: number;
+    /** REGLAS V3: PC del rival (para leer el peligro, chip pasivo). */
+    rivalComboPoints: number;
     connected: boolean;
   };
   /** Tablero con TUS claves de carril; player = tú, enemy = rival. */
@@ -411,6 +426,43 @@ function mapLogSide(rel: TriggerResult["logs"][number]["side"], actor: PvpSide):
   return rel === "player" ? actor : otherSide(actor);
 }
 
+// ---------------------------------------------------------------------------
+// REGLAS SISTÉMICAS V3 — traducción lados absolutos (a/b) ↔ relativos (player)
+// ---------------------------------------------------------------------------
+
+/** Reglas relativas al lado que va a actuar (player = `side`, enemy = el otro).
+ *  Normaliza salas viejas sin combo/lastSpec (campos opcionales). */
+function rulesFor(state: PvpState, side: PvpSide): ClassRulesState {
+  const other = otherSide(side);
+  return {
+    classes: {
+      player: state.players[side].gameClass,
+      enemy: state.players[other].gameClass,
+    },
+    comboPoints: {
+      player: state.combo?.[side] ?? 0,
+      enemy: state.combo?.[other] ?? 0,
+    },
+    lastSpec: {
+      player: state.lastSpec?.[side] ?? null,
+      enemy: state.lastSpec?.[other] ?? null,
+    },
+  };
+}
+
+/** Escribe de vuelta las reglas relativas devueltas por el engine. */
+function writeRules(state: PvpState, side: PvpSide, rules: ClassRulesState): void {
+  const other = otherSide(side);
+  state.combo = {
+    [side]: rules.comboPoints.player,
+    [other]: rules.comboPoints.enemy,
+  } as PvpState["combo"];
+  state.lastSpec = {
+    [side]: rules.lastSpec.player,
+    [other]: rules.lastSpec.enemy,
+  } as PvpState["lastSpec"];
+}
+
 /**
  * Traduce eventos FX relativos del engine (side player/enemy desde el punto
  * de vista de `actor`) a eventos absolutos con lanePos para la vista HTTP.
@@ -453,8 +505,9 @@ function pushTriggerLogs(state: PvpState, result: TriggerResult, actor: PvpSide)
 function fireStartTurn(state: PvpState, side: PvpSide): FxEvent[] {
   try {
     const board = toEngineBoard(state, side);
-    const res = applyStartTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
+    const res = applyStartTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes, rulesFor(state, side));
     writeBack(state, side, res.board);
+    if (res.rulesOut) writeRules(state, side, res.rulesOut);
     pushTriggerLogs(state, res, side);
     return res.fx;
   } catch (err) {
@@ -467,8 +520,9 @@ function fireStartTurn(state: PvpState, side: PvpSide): FxEvent[] {
 function fireEndTurn(state: PvpState, side: PvpSide): FxEvent[] {
   try {
     const board = toEngineBoard(state, side);
-    const res = applyEndTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes);
+    const res = applyEndTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes, rulesFor(state, side));
     writeBack(state, side, res.board);
+    if (res.rulesOut) writeRules(state, side, res.rulesOut);
     pushTriggerLogs(state, res, side);
     return res.fx;
   } catch (err) {
@@ -521,6 +575,8 @@ export function createPvpState(code: string, input: PvpPlayerInput, now = Date.n
     lastSeen: { a: now, b: 0 },
     createdAt: now,
     endedSaved: false,
+    combo: { a: 0, b: 0 },
+    lastSpec: { a: null, b: null },
   };
   return state;
 }
@@ -572,6 +628,9 @@ export function startPvpMatch(state: PvpState, now = Date.now()): void {
   state.rematch = { a: false, b: false };
   state.endedSaved = false;
   state.logs = [];
+  // REGLAS V3: nueva partida → PC a cero y Resonancia sin historial.
+  state.combo = { a: 0, b: 0 };
+  state.lastSpec = { a: null, b: null };
 
   const a = state.players.a;
   const b = state.players.b;
@@ -624,7 +683,11 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
   if (!isCardCostAllowed(card.cost, bonus)) {
     throw new Error(`"${card.name}" no se puede jugar en ${LANE_META[action.lane].title}: el bono exige coste exacto.`);
   }
-  const effCost = getFinalCost(card.cost, bonus);
+  // V3 — el pre-check replica el coste del engine: MAGO con Resonancia (misma
+  // spec consecutiva de SU turno) paga −1. Sin esto el pre-check rechazaría
+  // jugadas que playCard SÍ aceptaría (atasco del bot mago).
+  const isResonancia = player.gameClass === "mago" && (state.lastSpec?.[side] ?? null) === action.lane;
+  const effCost = Math.max(0, getFinalCost(card.cost, bonus) - (isResonancia ? V3_RESONANCIA_COST_CUT : 0));
   const freePlay = opts?.free === true;
   if (!freePlay && effCost > player.energy) {
     throw new Error(`Sin energía suficiente para "${card.name}" (necesita ${effCost}, tienes ${player.energy}).`);
@@ -634,6 +697,7 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
   }
 
   const preBoard = toEngineBoard(state, side);
+  const rulesIn = rulesFor(state, side);
   let res: PlayResult;
   try {
     res = playCard(
@@ -648,11 +712,13 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
       card,
       bonus,
       null,
-      player.playsThisTurn + 1
+      player.playsThisTurn + 1,
+      rulesIn
     );
   } catch (e) {
     throw new Error((e as Error).message);
   }
+  if (res.rulesOut) writeRules(state, side, res.rulesOut);
 
   writeBack(state, side, res.board);
   player.hand = res.hand;
@@ -663,6 +729,16 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
   }
 
   pushLog(state, state.turn, side, `${player.name} juega "${card.name}" en ${LANE_META[action.lane].title} (Poder ${res.playedCard.currentPower}).`, "play");
+  // REGLAS V3 — log compacto de la regla sistémica si disparó:
+  if (res.resonancia) {
+    pushLog(state, state.turn, side, `🔮 Resonancia de escuela: "${card.name}" entra +${V3_RESONANCIA_POWER} y cuesta −${V3_RESONANCIA_COST_CUT} (misma spec consecutiva).`, "buff");
+  }
+  if ((res.comboConsumed ?? 0) > 0) {
+    pushLog(state, state.turn, side, `🗡️ Marca de ejecución: consume ${res.comboConsumed} PC → +${res.comboConsumed! * V3_COMBO_POWER} a "${card.name}".`, "buff");
+  }
+  if ((res.comboGained ?? 0) > 0) {
+    pushLog(state, state.turn, side, `🗡️ Marca de ejecución: +${res.comboGained} PC (${state.combo?.[side] ?? 0}/${V3_COMBO_CAP}).`, "info");
+  }
   for (const m of res.mutations) {
     const mSide = m.side === "player" ? side : otherSide(side);
     if (m.powerDelta === 0 && m.shieldDelta !== undefined && m.shieldDelta !== 0) {
@@ -685,8 +761,9 @@ function handlePlay(state: PvpState, side: PvpSide, action: { uid: string; lane:
   for (const rc of res.removedCards) {
     const deadCard = preBoard[rc.lane][rc.side].find((c) => c.uid === rc.uid);
     if (!deadCard) continue;
-    const deathRes = applyOnDeathEffects(latest, rc.side, rc.lane, deadCard);
+    const deathRes = applyOnDeathEffects(latest, rc.side, rc.lane, deadCard, rulesFor(state, side));
     latest = deathRes.board;
+    if (deathRes.rulesOut) writeRules(state, side, deathRes.rulesOut);
     pushTriggerLogs(state, deathRes, side);
     pushLog(
       state,
@@ -875,6 +952,8 @@ export function buildClientView(state: PvpState, side: PvpSide, now = Date.now()
       energy: me.energy,
       maxEnergy: me.maxEnergy,
       drawPileCount: me.drawPile.length,
+      comboPoints: state.combo?.[side] ?? 0,
+      lastSpec: state.lastSpec?.[side] ?? null,
     },
     rival: {
       name: rival.name || "Esperando rival…",
@@ -885,6 +964,7 @@ export function buildClientView(state: PvpState, side: PvpSide, now = Date.now()
       energy: rival.energy,
       maxEnergy: rival.maxEnergy,
       drawPileCount: rival.drawPile.length,
+      rivalComboPoints: state.combo?.[other] ?? 0,
       connected: !!rival.name && now - state.lastSeen[other] < PVP_CONNECTED_MS,
     },
     board: toEngineBoard(state, side),

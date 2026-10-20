@@ -497,6 +497,8 @@ export interface BoardCard {
   shieldRemaining?: number;
   /** Sobrecarga [X] — pending one-shot decay applied at end of the owner's turn. */
   powerDecay?: number;
+  /** FORMACIÓN DE COMBATE (Guerrero) — bonus acumulado por esta regla sistémica (tope 3). */
+  formation?: number;
   /** Running total of debuff points taken from the enemy — Purificación restores exactly this. */
   debuffTaken?: number;
   /** Log of all power changes applied to this card (for the Registro button in preview). */

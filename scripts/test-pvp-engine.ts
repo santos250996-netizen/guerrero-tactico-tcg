@@ -371,7 +371,9 @@ section("12. AUDITORÍA IA: energía por turno respetada en 40 partidas (planBot
           const card = player.hand.find((c) => c.uid === action.uid);
           if (!card) { broken = true; violations++; break; }
           const bonus = laneBonusesForSide(state, side)[action.lane] ?? null;
-          const eff = getFinalCost(card.cost, bonus);
+          // V3: el bot MAGO con Resonancia paga −1 (misma spec consecutiva).
+          const reson = player.gameClass === "mago" && (state.lastSpec?.b ?? null) === action.lane;
+          const eff = Math.max(0, getFinalCost(card.cost, bonus) - (reson ? 1 : 0));
           if (!isCardCostAllowed(card.cost, bonus) || eff > energyLeft) {
             violations++;
             broken = true;

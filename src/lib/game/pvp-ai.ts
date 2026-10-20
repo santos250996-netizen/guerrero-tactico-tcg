@@ -9,7 +9,7 @@
 // ============================================================================
 
 import type { PvpAction, PvpState } from "./pvp";
-import { planEnemyTurn, type Board } from "./engine";
+import { planEnemyTurn, type ClassRulesState, type Board } from "./engine";
 import type { LaneBonuses, LaneId } from "./types";
 
 export interface BotPlan {
@@ -41,7 +41,15 @@ export function planBotTurn(state: PvpState): BotPlan {
   const traps: Record<string, null> = {};
   for (const lane of me.lanes) traps[lane] = null;
 
-  const plays = planEnemyTurn(board, me.hand, me.energy, bonuses, traps as never, me.lanes);
+  // REGLAS SISTÉMICAS V3: el bot planifica bajo las MISMAS reglas que el
+  // jugador (línea roja: sin trucos). Board relativo: player = rival (a).
+  const rules: ClassRulesState = {
+    classes: { player: opp.gameClass, enemy: me.gameClass },
+    comboPoints: { player: state.combo?.a ?? 0, enemy: state.combo?.b ?? 0 },
+    lastSpec: { player: state.lastSpec?.a ?? null, enemy: state.lastSpec?.b ?? null },
+  };
+
+  const plays = planEnemyTurn(board, me.hand, me.energy, bonuses, traps as never, me.lanes, rules);
 
   return {
     actions: plays.map((pl) => ({ type: "play" as const, uid: pl.card.uid, lane: pl.lane })),

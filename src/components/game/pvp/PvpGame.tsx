@@ -17,7 +17,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Hand, Zap, Layers, Swords, Wand2, EyeOff, Activity, Skull, Loader2,
+  Hand, Zap, Layers, Swords, Sword, Wand2, EyeOff, Activity, Skull, Loader2,
   WifiOff, Trophy, ScrollText, Star,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -81,7 +81,11 @@ function handPlayOptions(
     .filter((lane: LaneId) => subtypes.includes(lane))
     .map((lane: LaneId) => {
       const bonus = you.laneBonuses[lane] ?? null;
-      const okCost = isCardCostAllowed(c.cost ?? 0, bonus) && getEffectiveCost(c.cost ?? 0, bonus) <= you.energy;
+      // V3: MAGO con Resonancia (misma spec consecutiva) paga −1 — espejo del
+      // pre-check del servidor, si no el botón JUGAR EN se desactivaría para
+      // jugadas que el engine SÍ acepta.
+      const reson = you.gameClass === "mago" && you.lastSpec === lane;
+      const okCost = isCardCostAllowed(c.cost ?? 0, bonus) && Math.max(0, getEffectiveCost(c.cost ?? 0, bonus) - (reson ? 1 : 0)) <= you.energy;
       const okSpace = (view.board[lane]?.player.length ?? 0) < getLaneMaxCards(bonus);
       return { lane, title: LANE_META[lane].title, enabled: okCost && okSpace };
     });
@@ -234,6 +238,16 @@ export function PvpGame() {
             <Zap className="h-3 w-3 text-amber-400" />
             <span className="text-xs font-black tabular-nums text-amber-300">{view.rival.energy}</span>
           </span>
+          {/* REGLAS V3 — PC del rival (Asesino): lee el peligro de su ráfaga */}
+          {view.rival.gameClass === "asesino" && view.rival.rivalComboPoints > 0 && (
+            <span
+              className="flex items-center gap-1 rounded-full border border-fuchsia-700/60 bg-black/40 px-1.5 py-0.5"
+              title="Marca de ejecución del rival: PC acumulados (+2 de poder por PC al jugar en carril con debuff)"
+            >
+              <Sword className="h-3 w-3 text-fuchsia-400" />
+              <span className="text-xs font-black tabular-nums text-fuchsia-300">{view.rival.rivalComboPoints}</span>
+            </span>
+          )}
           <span className="hidden items-center gap-1 rounded-full border border-zinc-700/70 bg-black/40 px-1.5 py-0.5 sm:flex" title="Mazo del rival">
             <Layers className="h-3 w-3 text-zinc-500" />
             <span className="text-[10px] font-black tabular-nums text-zinc-300">{view.rival.drawPileCount}</span>

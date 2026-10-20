@@ -67,19 +67,26 @@ export function PvpLaneImpl({ position, side }: PvpLaneProps) {
   const myTurn = view.yourTurn;
   const selectedCard = selectedCardUid ? view.you.hand.find((c) => c.uid === selectedCardUid) ?? null : null;
 
+  // REGLAS V3 — visibilidad compacta de las reglas sistémicas:
+  //  · RES (Mago): este carril es tu última jugada del turno → otra carta aquí
+  //    entra +2 y cuesta −1.
+  //  · FORM (Guerrero): 2+ cartas propias → al cerrar el turno todas ganan +1.
+  const resonanciaAqui = view.you.gameClass === "mago" && view.you.lastSpec === myLaneId;
+  const formacionAqui = view.you.gameClass === "guerrero" && myCards.length >= 2;
+
   const canDrop =
     side === "me" &&
     myTurn &&
     selectedCard !== null &&
     isCardCostAllowed(selectedCard.cost, bonus) &&
-    getEffectiveCost(selectedCard.cost, bonus) <= view.you.energy &&
+    getEffectiveCost(selectedCard.cost, bonus) - (resonanciaAqui ? 1 : 0) <= view.you.energy &&
     myCards.length < maxCards;
 
   // Coste EFECTIVO de la carta seleccionada EN ESTE carril (bono aplicado).
   // Con el bono "Coste -1" una carta de 4 se juega aquí por 3 — y ahora se VE.
   const selectedEffCost =
     side === "me" && selectedCard !== null && isCardCostAllowed(selectedCard.cost, bonus)
-      ? getEffectiveCost(selectedCard.cost, bonus)
+      ? Math.max(0, getEffectiveCost(selectedCard.cost, bonus) - (resonanciaAqui ? 1 : 0))
       : null;
   const discount = selectedCard !== null && selectedEffCost !== null ? selectedCard.cost - selectedEffCost : 0;
 
@@ -131,8 +138,24 @@ export function PvpLaneImpl({ position, side }: PvpLaneProps) {
         icon={meta.icon}
         hex={hex}
         right={
-          side === "me" && (bonus || selectedEffCost !== null) ? (
+          side === "me" && (bonus || selectedEffCost !== null || resonanciaAqui || formacionAqui) ? (
             <span className="flex shrink-0 items-center gap-1">
+              {resonanciaAqui && (
+                <span
+                  title="Resonancia de escuela: otra carta en este carril entra con +2 de poder y cuesta −1"
+                  className="whitespace-nowrap rounded-full border border-violet-300/70 bg-violet-600/90 px-1 py-0 text-[6.5px] font-black uppercase leading-[11px] text-white"
+                >
+                  RES +2
+                </span>
+              )}
+              {formacionAqui && (
+                <span
+                  title="Formación de combate: al cerrar el turno, todas tus cartas de este carril ganan +1"
+                  className="whitespace-nowrap rounded-full border border-amber-300/70 bg-amber-600/90 px-1 py-0 text-[6.5px] font-black uppercase leading-[11px] text-zinc-950"
+                >
+                  FORM +1
+                </span>
+              )}
               {bonus && (
                 <span
                   title={bonus.description}
@@ -146,7 +169,7 @@ export function PvpLaneImpl({ position, side }: PvpLaneProps) {
               )}
               {selectedEffCost !== null && discount > 0 && (
                 <span
-                  title={`Coste efectivo en este carril: ${selectedEffCost} (bono -${discount})`}
+                  title={`Coste efectivo en este carril: ${selectedEffCost} (ahorro ${discount})`}
                   className="whitespace-nowrap rounded-full border border-amber-300/70 bg-amber-500/90 px-1 py-0 text-[6.5px] font-black uppercase leading-[11px] text-zinc-950"
                 >
                   ⚡ {selectedEffCost}

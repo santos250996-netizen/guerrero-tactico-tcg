@@ -31,7 +31,7 @@ import type {
   PowerLogEntry,
   Keyword,
 } from "./types";
-import { CLASS_META, KEYWORD_META, LANE_BONUS_POOL } from "./types";
+import { CLASS_META, KEYWORD_META, LANE_BONUS_POOL, LANE_META } from "./types";
 import type { FxEvent } from "./fx";
 import { v4 as uuidv4 } from "uuid";
 
@@ -53,6 +53,63 @@ export const MAX_TURNS = 6;
 export const MAX_HAND_SIZE = 7;
 export const MAX_LANE_CARDS = 4;
 export const STARTING_HAND_SIZE = 5;
+
+// ---------------------------------------------------------------------------
+// REGLAS SISTÉMICAS DE CLASE (V3) — UNA regla por clase, ligada a los carriles
+// ---------------------------------------------------------------------------
+// El mismo motor las ejecuta para AMBOS lados (bot y jugador por igual — línea
+// roja del proyecto: nada de mecánicas exclusivas de la IA). Sin `rules`
+// declaradas (tests legacy, solitario sin clase) las reglas están INACTIVAS.
+//
+//  ⚔ GUERRERO — FORMACIÓN DE COMBATE: al final de tu turno, cada carril con
+//    2+ cartas propias activas da +1 permanente a TODAS tus cartas de ese
+//    carril. El bonus de Formación por carta tiene TOPE +1 (anti-bola-de-nieve, calibrado por sim).
+//  🔮 MAGO — RESONANCIA DE ESCUELA: si juegas una carta en el MISMO carril
+//    que tu jugada anterior DE ESTE TURNO, esa carta entra con +2 de poder y
+//    −1 de coste (suelo 0). Cadenas permitidas (Fuego→Fuego→Fuego resuena x2).
+//  🗡 ASESINO — MARCA DE EJECUCIÓN: cada vez que una carta tuya reduce el
+//    poder de una unidad enemiga ganas 1 Punto de Combo (PC, tope 5, persisten
+//    entre turnos). Al jugar en un carril con un enemigo DEBILITADO (poder
+//    actual < base), consumes TODOS tus PC: +V3_COMBO_POWER de poder por PC.
+// ---------------------------------------------------------------------------
+
+/** Valores de balance V3 — únicos números a tocar si el sim pide ajuste. */
+export const V3_FORMACION_CAP = 1;
+export const V3_RESONANCIA_POWER = 2;
+export const V3_RESONANCIA_COST_CUT = 1;
+export const V3_COMBO_CAP = 5;
+export const V3_COMBO_POWER = 4;
+
+export interface ClassRulesState {
+  /** Clase de cada lado RELATIVO (player = quien actúa en la llamada). null = regla inactiva. */
+  classes: { player: GameClass | null; enemy: GameClass | null };
+  /** Puntos de Combo por lado (solo crecen si la clase es asesino). */
+  comboPoints: { player: number; enemy: number };
+  /** Último carril donde jugó cada lado EN SU TURNO ACTUAL (Resonancia). */
+  lastSpec: { player: LaneId | null; enemy: LaneId | null };
+}
+
+export function emptyClassRules(): ClassRulesState {
+  return {
+    classes: { player: null, enemy: null },
+    comboPoints: { player: 0, enemy: 0 },
+    lastSpec: { player: null, enemy: null },
+  };
+}
+
+/** Suma n PC a un lado respetando el tope (muta el objeto de reglas). */
+function grantCombo(rules: ClassRulesState, side: "player" | "enemy", n: number): void {
+  if (rules.classes[side] !== "asesino" || n <= 0) return;
+  rules.comboPoints[side] = Math.min(V3_COMBO_CAP, rules.comboPoints[side] + n);
+}
+
+function cloneRules(rules: ClassRulesState): ClassRulesState {
+  return {
+    classes: { ...rules.classes },
+    comboPoints: { ...rules.comboPoints },
+    lastSpec: { ...rules.lastSpec },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Trap state (plumbing preserved — no current keyword sets traps)
@@ -635,6 +692,14 @@ export interface PlayResult {
   energyNextTurnDelta?: number;
   /** Escudos que absorbieron debuffs honestos (Golpe Certero / Llamarada) — para VFX. */
   shieldAbsorbed: { side: "player" | "enemy"; lane: LaneId; uid: string; absorbed: number }[];
+  /** Reglas sistémicas actualizadas tras la jugada (solo si se pasaron rules). */
+  rulesOut?: ClassRulesState;
+  /** RESONANCIA (Mago): esta carta resonó con la jugada anterior del turno. */
+  resonancia?: boolean;
+  /** MARCA DE EJECUCIÓN (Asesino): PC consumidos por esta jugada (+2 c/u). */
+  comboConsumed?: number;
+  /** PC ganados por reducciones de poder enemigas de ESTA carta. */
+  comboGained?: number;
 }
 
 /**
@@ -654,8 +719,22 @@ export function playCard(
   handCard: HandCard,
   laneBonus: LaneBonus | null,
   activeTrap: TrapState | null,
-  playsThisTurn = 1
+  playsThisTurn = 1,
+  /** REGLAS SISTÉMICAS V3 (opcional — sin esto las reglas de clase están inactivas). */
+  rules?: ClassRulesState
 ): PlayResult {
+  const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
+
+  // ── RESONANCIA DE ESCUELA (Mago): misma spec que tu jugada anterior de este turno
+  const isResonancia =
+    !!rules && rules.classes[side] === "mago" && rules.lastSpec[side] === lane;
+
+  // ── MARCA DE EJECUCIÓN (Asesino): jugar en carril con enemigo DEBILITADO
+  //    consume TODOS los PC → +2 de poder por PC. Se resuelve tras las
+  //    validaciones básicas (una jugada inválida NO consume ni resonancia).
+  let comboConsumed = 0;
+  let comboBonus = 0;
+
   // 1. Cost restriction (solo coste X)
   if (!isCardCostAllowed(handCard.cost, laneBonus)) {
     throw new Error(
@@ -663,8 +742,12 @@ export function playCard(
     );
   }
 
-  // 2. Effective cost
-  const effectiveCost = getFinalCost(handCard.cost, laneBonus);
+  // 2. Effective cost (−1 si Resonancia, suelo 0)
+  const effectiveCost = Math.max(
+    0,
+    getFinalCost(handCard.cost, laneBonus) -
+      (isResonancia ? V3_RESONANCIA_COST_CUT : 0)
+  );
   if (effectiveCost > energy) {
     throw new Error(
       `Sin energía suficiente (necesita ${effectiveCost}, tiene ${energy})` +
@@ -680,6 +763,17 @@ export function playCard(
     throw new Error(`Carril ${lane} lleno (máximo ${maxCards} carta(s) por bando).`);
   }
 
+  // Marca de ejecución: validaciones superadas → consumir PC si procede.
+  if (
+    rules &&
+    rules.classes[side] === "asesino" &&
+    rules.comboPoints[side] > 0 &&
+    board[lane][enemySide].some((c) => (c.debuffTaken ?? 0) > 0)
+  ) {
+    comboConsumed = rules.comboPoints[side];
+    comboBonus = comboConsumed * V3_COMBO_POWER;
+  }
+
   const effect = computeEffect({
     board,
     side,
@@ -693,7 +787,10 @@ export function playCard(
 
   // 3.5. Trap: if active trap exists and is owned by the opposing side, it
   // triggers and reduces the new card's final power.
-  let finalPower = effect.finalPower;
+  let finalPower =
+    effect.finalPower +
+    (isResonancia ? V3_RESONANCIA_POWER : 0) +
+    comboBonus;
   let trapTriggered = false;
   if (activeTrap && activeTrap.owner !== side) {
     finalPower = Math.max(0, finalPower - activeTrap.value);
@@ -707,6 +804,9 @@ export function playCard(
   }
 
   const shieldAbsorbed: PlayResult["shieldAbsorbed"] = [];
+  // MARCA DE EJECUCIÓN: reducciones REALES infligidas por esta carta
+  // (un debuff absorbido por escudo NO reduce poder → no da PC).
+  let comboGained = 0;
   for (const m of effect.mutations) {
     const arr = newBoard[m.lane][m.side];
     const idx = arr.findIndex((c) => c.uid === m.uid);
@@ -718,8 +818,10 @@ export function playCard(
         if (dr.absorbedByShield > 0) {
           shieldAbsorbed.push({ side: m.side, lane: m.lane, uid: m.uid, absorbed: dr.absorbedByShield });
         }
+        if (dr.appliedDelta < 0 && m.side === enemySide) comboGained++;
         continue;
       }
+      if (m.powerDelta < 0 && m.side === enemySide) comboGained++;
       const cur = arr[idx];
       arr[idx] = {
         ...cur,
@@ -794,6 +896,16 @@ export function playCard(
     }));
   }
 
+  // REGLAS V3: escribir el estado de reglas resultante (copia funcional —
+  // el objeto de entrada NUNCA se muta; el caller adopta rulesOut).
+  let rulesOut: ClassRulesState | undefined;
+  if (rules) {
+    rulesOut = cloneRules(rules);
+    if (comboConsumed > 0) rulesOut.comboPoints[side] = 0;
+    grantCombo(rulesOut, side, comboGained);
+    rulesOut.lastSpec[side] = lane;
+  }
+
   return {
     board: newBoard,
     hand: newHand,
@@ -804,6 +916,7 @@ export function playCard(
     trapTriggered,
     newTrap: undefined,
     shieldAbsorbed,
+    ...(rulesOut ? { rulesOut, resonancia: isResonancia, comboConsumed, comboGained } : {}),
   };
 }
 
@@ -833,11 +946,20 @@ export function scoreAIPlay(
   lane: LaneId,
   laneBonus: LaneBonus | null,
   activeTrap: TrapState | null,
-  playsThisTurn = 1
+  playsThisTurn = 1,
+  /** REGLAS V3 (opcional) — el planner simula la jugada con las reglas activas. */
+  rules?: ClassRulesState
 ): number {
   if (!isCardCostAllowed(card.cost, laneBonus)) return -Infinity;
 
-  const effectiveCost = getFinalCost(card.cost, laneBonus);
+  // Coste efectivo real: el planner debe ver el −1 de Resonancia (Mago)
+  // para no descartar jugadas que el engine SÍ aceptaría.
+  const resonancia =
+    !!rules && rules.classes.enemy === "mago" && rules.lastSpec.enemy === lane;
+  const effectiveCost = Math.max(
+    0,
+    getFinalCost(card.cost, laneBonus) - (resonancia ? V3_RESONANCIA_COST_CUT : 0)
+  );
   if (effectiveCost > energy) return -Infinity;
 
   const maxCards = getLaneMaxCards(laneBonus);
@@ -850,7 +972,7 @@ export function scoreAIPlay(
 
   let sim;
   try {
-    sim = playCard(board, hand, energy, "enemy", lane, card, laneBonus, activeTrap, playsThisTurn);
+    sim = playCard(board, hand, energy, "enemy", lane, card, laneBonus, activeTrap, playsThisTurn, rules);
   } catch {
     return -Infinity;
   }
@@ -966,7 +1088,27 @@ export function scoreAIPlay(
     score -= 30;
   }
 
+  // 12. FORMACIÓN (Guerrero): sembrar el 2º/3º cartas de un carril anticipa
+  // el +1 al cierre de turno (el end_turn NO está en la simulación).
+  if (rules?.classes.enemy === "guerrero") {
+    const ownAfter = sim.board[lane].enemy.length;
+    if (ownAfter === 2) score += 4; // activa la formación este mismo turno
+    else if (ownAfter > 2) score += 1.5; // la mantiene viva (crecimiento)
+  }
+
+  // 13. MARCA (Asesino): si esta jugada DEBUFFEA y aún no hay presa debilitada,
+  // prima preparar el carril para consumir PC después.
+  if (rules?.classes.enemy === "asesino" && comboGainedSim(sim) > 0) {
+    const anyWeak = board[lane]["player"].some((c) => (c.debuffTaken ?? 0) > 0);
+    if (!anyWeak) score += 3;
+  }
+
   return score;
+}
+
+/** Reducciones enemigas causadas por una jugada simulada (0 sin rules). */
+function comboGainedSim(sim: PlayResult): number {
+  return sim.comboGained ?? 0;
 }
 
 /**
@@ -979,13 +1121,16 @@ export function planEnemyTurn(
   energy: number,
   laneBonuses: LaneBonuses,
   laneTraps: LaneTraps,
-  lanes: LaneId[] = LANE_IDS
+  lanes: LaneId[] = LANE_IDS,
+  /** REGLAS V3 (opcional) — el bot juega bajo las MISMAS reglas de clase. */
+  rules?: ClassRulesState
 ): AIPlay[] {
   const plays: AIPlay[] = [];
   let workBoard: Board = board;
   let workHand: HandCard[] = hand;
   let workEnergy = energy;
   let workTraps: LaneTraps = { ...laneTraps };
+  let workRules: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
 
   // Try up to 3 plays per turn
   for (let iter = 0; iter < 3; iter++) {
@@ -996,7 +1141,12 @@ export function planEnemyTurn(
       for (const lane of lanes) {
         const laneBonus = laneBonuses[lane];
         if (!isCardCostAllowed(card.cost, laneBonus)) continue;
-        const effectiveCost = getFinalCost(card.cost, laneBonus);
+        const resonancia =
+          !!workRules && workRules.classes.enemy === "mago" && workRules.lastSpec.enemy === lane;
+        const effectiveCost = Math.max(
+          0,
+          getFinalCost(card.cost, laneBonus) - (resonancia ? V3_RESONANCIA_COST_CUT : 0)
+        );
         if (effectiveCost > workEnergy) continue;
         if (workBoard[lane].enemy.length >= getLaneMaxCards(laneBonus)) continue;
         const s = scoreAIPlay(
@@ -1007,7 +1157,8 @@ export function planEnemyTurn(
           lane,
           laneBonus,
           workTraps[lane],
-          plays.length + 1
+          plays.length + 1,
+          workRules
         );
         if (!best || s > best.score) {
           best = { card, lane, score: s };
@@ -1028,11 +1179,13 @@ export function planEnemyTurn(
         best.card,
         laneBonuses[best.lane],
         workTraps[best.lane],
-        plays.length + 1
+        plays.length + 1,
+        workRules
       );
       workBoard = res.board;
       workHand = res.hand;
       workEnergy = res.remainingEnergy;
+      if (res.rulesOut) workRules = res.rulesOut;
 
       if (res.trapTriggered) {
         workTraps = { ...workTraps, [best.lane]: null };
@@ -1113,6 +1266,8 @@ export interface TriggerResult {
   logs: { side: "player" | "enemy" | "system"; text: string }[];
   /** Eventos visuales para FxLayer (solo cliente los pinta). */
   fx: FxEvent[];
+  /** Reglas sistémicas actualizadas (solo si se pasaron rules al disparador). */
+  rulesOut?: ClassRulesState;
 }
 
 /** Crea un TriggerResult vacío con el board dado. */
@@ -1128,11 +1283,14 @@ export function applyStartTurnEffects(
   board: Board,
   side: "player" | "enemy",
   _hand: HandCard[] = [],
-  lanes: LaneId[] = LANE_IDS
+  lanes: LaneId[] = LANE_IDS,
+  /** REGLAS V3 (opcional): los debuffs de las cartas de `side` dan PC (Asesino). */
+  rules?: ClassRulesState
 ): TriggerResult {
   const newBoard = cloneBoard(board);
   const result = triggerResult(newBoard);
   const { logs, fx } = result;
+  const rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
 
   for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
@@ -1212,7 +1370,7 @@ export function applyStartTurnEffects(
           if (x > 0) {
             const target = highestPowerCard(newBoard[lane][enemySideOf(side)]);
             if (target) {
-              applyDebuff(
+              const poisonRes = applyDebuff(
                 newBoard,
                 enemySideOf(side),
                 lane,
@@ -1222,6 +1380,7 @@ export function applyStartTurnEffects(
                 "start_turn",
                 { bypassShield: true }
               );
+              if (rulesOut && poisonRes.appliedDelta < 0) grantCombo(rulesOut, side, 1);
               logs.push({ side, text: `🧪 ${card.name} (Veneno): −${x} a ${target.name} (perfora escudos)` });
               fx.push({ kind: "keyword", keyword: "veneno", lane, side: enemySideOf(side), targetUids: [target.uid], value: x });
             }
@@ -1267,6 +1426,7 @@ export function applyStartTurnEffects(
     }
   }
 
+  if (rulesOut) result.rulesOut = rulesOut;
   return result;
 }
 
@@ -1279,12 +1439,44 @@ export function applyEndTurnEffects(
   board: Board,
   side: "player" | "enemy",
   _hand: HandCard[] = [],
-  lanes: LaneId[] = LANE_IDS
+  lanes: LaneId[] = LANE_IDS,
+  /** REGLAS V3 (opcional): FORMACIÓN (Guerrero) + PC por debuffs (Asesino). */
+  rules?: ClassRulesState
 ): TriggerResult {
   const newBoard = cloneBoard(board);
   const result = triggerResult(newBoard);
   const { logs, fx } = result;
   const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
+  const rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
+
+  // ── FORMACIÓN DE COMBATE (Guerrero): carriles con 2+ cartas propias → +1
+  //    permanente a TODAS tus cartas del carril. Tope +1 acumulado por carta (calibrado por sim).
+  if (rulesOut && rulesOut.classes[side] === "guerrero") {
+    for (const lane of lanes) {
+      const own = newBoard[lane][side];
+      if (own.length < 2) continue;
+      const uplifted: string[] = [];
+      for (const card of [...own]) {
+        if ((card.formation ?? 0) >= V3_FORMACION_CAP) continue;
+        applyPowerDelta(newBoard, side, lane, card.uid, 1, "Formación de combate", "end_turn");
+        const idx = newBoard[lane][side].findIndex((c) => c.uid === card.uid);
+        if (idx >= 0) {
+          newBoard[lane][side][idx] = {
+            ...newBoard[lane][side][idx],
+            formation: (newBoard[lane][side][idx].formation ?? 0) + 1,
+          };
+        }
+        uplifted.push(card.name);
+      }
+      if (uplifted.length > 0) {
+        logs.push({
+          side,
+          text: `⚔️ Formación de combate: +1 a ${uplifted.length} carta(s) de ${LANE_META[lane].title} (${uplifted.join(", ")})`,
+        });
+        fx.push({ kind: "keyword", keyword: "fortaleza", lane, side, targetUids: uplifted.map((_, i) => own[i]?.uid ?? "").filter(Boolean), value: 1 });
+      }
+    }
+  }
 
   for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
@@ -1320,6 +1512,7 @@ export function applyEndTurnEffects(
                 `${card.name} (Crueldad)`,
                 "end_turn"
               );
+              if (rulesOut && res.appliedDelta < 0) grantCombo(rulesOut, side, 1);
               if (res.absorbedByShield > 0 && res.appliedDelta === 0) {
                 logs.push({ side, text: `🎯 ${card.name} (Crueldad): BLOQUEADO por escudo de ${target.name}` });
                 fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
@@ -1347,8 +1540,9 @@ export function applyEndTurnEffects(
       const x = card.keywordValue ?? 0;
       if (x > 0 && newBoard[lane][enemySide].length > 0) {
         const enemyUids: string[] = [];
+        let blizzardHits = 0;
         for (const enemy of [...newBoard[lane][enemySide]]) {
-          applyDebuff(
+          const blizRes = applyDebuff(
             newBoard,
             enemySide,
             lane,
@@ -1357,8 +1551,10 @@ export function applyEndTurnEffects(
             `${card.name} (Ventisca)`,
             "end_turn"
           );
+          if (blizRes.appliedDelta < 0) blizzardHits++;
           enemyUids.push(enemy.uid);
         }
+        if (rulesOut && blizzardHits > 0) grantCombo(rulesOut, side, blizzardHits);
         logs.push({ side, text: `❄️ ${card.name} (Ventisca): −${x} a ${newBoard[lane][enemySide].length} enemigo(s) del carril` });
         fx.push({ kind: "keyword", keyword: "ventisca", lane, side: enemySide, targetUids: enemyUids, value: x });
       }
@@ -1389,6 +1585,7 @@ export function applyEndTurnEffects(
           `${card.name} (Contagio)`,
           "end_turn"
         );
+        if (rulesOut && res.appliedDelta < 0) grantCombo(rulesOut, side, 1);
         const blockedNote = res.absorbedByShield > 0 && res.appliedDelta === 0 ? " (BLOQUEADO por escudo)" : "";
         logs.push({ side, text: `🧪 ${card.name} (Contagio): ${res.appliedDelta} a ${target.name}${blockedNote}` });
         if (res.appliedDelta < 0 || res.absorbedByShield > 0) {
@@ -1417,6 +1614,12 @@ export function applyEndTurnEffects(
     }
   }
 
+  // REGLAS V3: cerrar el turno del lado — Resonancia expira (lastSpec a null).
+  if (rulesOut) {
+    rulesOut.lastSpec[side] = null;
+    result.rulesOut = rulesOut;
+  }
+
   return result;
 }
 
@@ -1434,11 +1637,14 @@ export function applyOnDeathEffects(
   board: Board,
   side: "player" | "enemy",
   lane: LaneId,
-  deadCard: BoardCard
+  deadCard: BoardCard,
+  /** REGLAS V3 (opcional): Combustión/Detonación propias dan PC (Asesino). */
+  rules?: ClassRulesState
 ): TriggerResult {
   const newBoard = cloneBoard(board);
   const result = triggerResult(newBoard);
   const { logs, fx } = result;
+  const rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
 
   if (deadCard.trigger !== "on_death") {
     return result;
@@ -1460,8 +1666,12 @@ export function applyOnDeathEffects(
   if (deadCard.keyword === "combustion" && x > 0) {
     const target = highestPowerCard(newBoard[lane][enemySideOf(side)]);
     if (target) {
+      const before = target.currentPower;
       // Mutación directa: la explosión no pasa por applyDebuff → perfora escudos
       applyPowerDelta(newBoard, enemySideOf(side), lane, target.uid, -2 * x, `${deadCard.name} (Combustión)`, "on_death");
+      if (rulesOut && newBoard[lane][enemySideOf(side)].find((c) => c.uid === target.uid)?.currentPower !== before) {
+        grantCombo(rulesOut, side, 1);
+      }
       logs.push({ side, text: `🔥 ${deadCard.name} (Combustión): −${2 * x} a ${target.name} (explota, perfora escudos)` });
       fx.push({ kind: "keyword", keyword: "combustion", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: [target.uid], value: 2 * x });
     }
@@ -1473,14 +1683,18 @@ export function applyOnDeathEffects(
     const enemies = [...newBoard[lane][enemySideOf(side)]];
     if (enemies.length > 0) {
       const uids: string[] = [];
+      let detonationHits = 0;
       for (const enemy of enemies) {
-        applyDebuff(newBoard, enemySideOf(side), lane, enemy.uid, -x, `${deadCard.name} (Detonación)`, "on_death");
+        const detRes = applyDebuff(newBoard, enemySideOf(side), lane, enemy.uid, -x, `${deadCard.name} (Detonación)`, "on_death");
+        if (detRes.appliedDelta < 0) detonationHits++;
         uids.push(enemy.uid);
       }
+      if (rulesOut && detonationHits > 0) grantCombo(rulesOut, side, detonationHits);
       logs.push({ side, text: `💥 ${deadCard.name} (Detonación): −${x} a ${enemies.length} enemigo(s) del carril` });
       fx.push({ kind: "keyword", keyword: "detonacion", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: uids, value: x });
     }
   }
 
+  if (rulesOut) result.rulesOut = rulesOut;
   return result;
 }

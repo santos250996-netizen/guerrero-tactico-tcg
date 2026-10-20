@@ -7,7 +7,7 @@
 // ============================================================================
 
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Loader2, Zap } from "lucide-react";
+import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Loader2, Zap, Sword } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
 import { HandCardComponent } from "../HandCardComponent";
 import { getEffectiveCost, isCardCostAllowed } from "@/lib/game/engine";
@@ -39,10 +39,15 @@ export function PvpHandBar({
   // existe ALGÚN carril donde el coste efectivo (con el bono, p.ej. "Coste -1")
   // cabe en la energía actual. Antes se comparaba el coste base y una carta
   // de coste 4 con 3 de energía se veía muerta aunque el carril la rebajara a 3.
+  // V3: si eres MAGO, tu último carril del turno (you.lastSpec) rebaja −1 más.
   const cardPlayableAnywhere = (cost: number): boolean =>
     you.lanes.some((lane) => {
       const bonus = you.laneBonuses[lane] ?? null;
-      return isCardCostAllowed(cost, bonus) && getEffectiveCost(cost, bonus) <= you.energy;
+      const reson = you.gameClass === "mago" && you.lastSpec === lane;
+      return (
+        isCardCostAllowed(cost, bonus) &&
+        Math.max(0, getEffectiveCost(cost, bonus) - (reson ? 1 : 0)) <= you.energy
+      );
     });
 
   const handlePlayCard = (cardUid: string, laneId: import("@/lib/game/types").LaneId) => {
@@ -69,17 +74,35 @@ export function PvpHandBar({
         </div>
 
         {/* CENTRO: gran círculo de energía con borde dorado + rayo + número */}
-        <div
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-amber-400 bg-zinc-950 shadow-[0_0_10px_rgba(251,191,36,0.4)]"
-          title="Tu energía"
-        >
-          <Zap className="absolute -top-1 -right-0.5 h-2.5 w-2.5 text-amber-300" aria-hidden />
-          <span
-            className="text-base font-black tabular-nums text-amber-300"
-            style={{ fontFamily: "var(--font-cinzel), serif" }}
+        <div className="flex items-center gap-1.5">
+          {/* REGLAS V3 — MARCA DE EJECUCIÓN (Asesino): contador compacto de PC */}
+          {you.gameClass === "asesino" && (
+            <div
+              className="relative flex h-9 items-center gap-1 rounded-full border border-fuchsia-400/60 bg-fuchsia-950/50 px-2 shadow-[0_0_8px_rgba(217,70,239,0.35)]"
+              title="Marca de ejecución — Puntos de Combo: debuffear enemigos gana PC; jugar en un carril con enemigo debilitado los consume (+2 de poder c/u, tope 5)"
+            >
+              <Sword className="h-3 w-3 text-fuchsia-300" aria-hidden />
+              <span
+                className="text-sm font-black tabular-nums text-fuchsia-200"
+                style={{ fontFamily: "var(--font-cinzel), serif" }}
+              >
+                {you.comboPoints}
+              </span>
+              <span className="text-[8px] font-bold tabular-nums text-fuchsia-400/70">PC</span>
+            </div>
+          )}
+          <div
+            className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-amber-400 bg-zinc-950 shadow-[0_0_10px_rgba(251,191,36,0.4)]"
+            title="Tu energía"
           >
-            {you.energy}
-          </span>
+            <Zap className="absolute -top-1 -right-0.5 h-2.5 w-2.5 text-amber-300" aria-hidden />
+            <span
+              className="text-base font-black tabular-nums text-amber-300"
+              style={{ fontFamily: "var(--font-cinzel), serif" }}
+            >
+              {you.energy}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
