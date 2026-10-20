@@ -18,6 +18,7 @@ import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
 import { CAMPAIGN_STEPS, isBossStep, classUnlocked, classUnlockHint } from "@/lib/game/campaign";
+import { ClassRuleBadge } from "./ClassRuleBadge";
 import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2 } from "lucide-react";
 import type { GameClass } from "@/lib/game/types";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
@@ -302,6 +303,13 @@ export function ClassSelect() {
                     {cls.tagline}
                   </p>
                 </div>
+              </div>
+
+              {/* REGLA SISTÉMICA V3 — chip de una línea que al tap despliega
+                  lore + consejo (el texto vive oculto: la pantalla se queda
+                  minimalista, igual que las keywords en la mano). */}
+              <div className="px-3.5 pb-2">
+                <ClassRuleBadge gameClass={cls.id} />
               </div>
 
               {/* Actions: MAZO (secondary) + JUGAR (único botón de campaña) */}

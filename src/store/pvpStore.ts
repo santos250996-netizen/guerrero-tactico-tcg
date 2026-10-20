@@ -382,6 +382,14 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
           haptic("medium");
         }
         if (la.fx.some((f) => f.kind === "destroy")) sfx.remove();
+        // RITUALES DE CLASE V3 (grupo A): cada regla SUENA distinto al activarse
+        // (independiente de animationsOn, igual que trampa/destrucción).
+        for (const f of la.fx) {
+          if (f.kind !== "class") continue;
+          if (f.recipe === "formation_banner") { sfx.formation(); haptic("medium"); }
+          else if (f.recipe === "resonance_runes") { sfx.resonance(); haptic("light"); }
+          else if (f.recipe === "combo_blades") { sfx.combo(); haptic("medium"); }
+        }
       }
     } catch (err) {
       console.error("[pvp] applyView: sonidos de FX descartados:", err);
@@ -392,6 +400,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         const mapped: FxEvent[] = la.fx.map((f) => ({
           kind: f.kind,
           keyword: f.keyword,
+          recipe: f.recipe,
           lanePos: f.lanePos,
           lane: view.you.lanes[f.lanePos] ?? view.you.lanes[0],
           side: f.side === mine ? "player" : "enemy",

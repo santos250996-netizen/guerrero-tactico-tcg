@@ -57,7 +57,7 @@ import type {
   Keyword,
   Rarity,
 } from "./types";
-import type { FxEvent, FxKind } from "./fx";
+import type { ClassFxRecipe, FxEvent, FxKind } from "./fx";
 import { eventsFromPlayResult } from "./fx";
 import { CLASS_DECKS, buildDrawPileFrom, cardPoolForClass } from "./cards";
 import { materializeCard } from "./balance";
@@ -125,6 +125,8 @@ export interface PvpFloatMutation {
 export interface PvpLastActionFx {
   kind: FxKind;
   keyword?: Keyword;
+  /** Ritual de clase V3 (solo kind: "class"). */
+  recipe?: ClassFxRecipe;
   lanePos: number;
   side: PvpSide;
   sourceUid?: string;
@@ -474,6 +476,7 @@ function fxRelToAbs(fx: FxEvent[], actor: PvpSide, lanes: LaneId[]): PvpLastActi
     out.push({
       kind: f.kind,
       keyword: f.keyword,
+      recipe: f.recipe,
       lanePos,
       side: f.side === "player" ? actor : otherSide(actor),
       sourceUid: f.sourceUid,
@@ -805,6 +808,32 @@ function buildPlayFx(
   lanes: LaneId[]
 ): PvpLastActionFx[] {
   const events = eventsFromPlayResult(res, lane, "player");
+  // RITUALES DE CLASE V3 (grupo A): la jugada que dispara Resonancia o cobra
+  // PC añade SU evento dedicado (el FxLayer lo pinta como momento firma).
+  if (res.resonancia) {
+    events.push({
+      kind: "class",
+      recipe: "resonance_runes",
+      lane,
+      side: "player",
+      sourceUid: res.playedCard.uid,
+      targetUids: [res.playedCard.uid],
+      value: V3_RESONANCIA_POWER,
+      delayMs: 260, // tras la colocación (play_dust a 200ms)
+    });
+  }
+  if ((res.comboConsumed ?? 0) > 0) {
+    events.push({
+      kind: "class",
+      recipe: "combo_blades",
+      lane,
+      side: "player",
+      sourceUid: res.playedCard.uid,
+      targetUids: [res.playedCard.uid],
+      value: res.comboConsumed,
+      delayMs: 260,
+    });
+  }
   const mapped = fxRelToAbs(events, actor, lanes);
   // Las destrucciones con receta propia (Remate/Purga) ya viajan dentro de
   // eventsFromPlayResult; el shatter genérico lo complementa el cliente.
@@ -834,10 +863,18 @@ function handlePass(state: PvpState, side: PvpSide): void {
     };
     return;
   }
-  advanceTurn(state);
+  // FIX RITUAL: el fx de FIN de turno del segundo pasador (Formación del
+  // Guerrero, Fortaleza, Ventisca…) antes se PERDÍA — advanceTurn machacaba
+  // lastAction con solo los fx de inicio. Ahora viaja con el nuevo turno.
+  advanceTurn(state, endFx, side);
 }
 
-function advanceTurn(state: PvpState): void {
+function advanceTurn(
+  state: PvpState,
+  /** fx de FIN de turno del lado que acaba de pasar (rituales/keywords end_turn). */
+  prevEndFx?: FxEvent[],
+  prevSide?: PvpSide
+): void {
   const newTurn = state.turn + 1;
   state.actedThisTurn = { a: false, b: false };
 
@@ -892,7 +929,12 @@ function advanceTurn(state: PvpState): void {
     side: first,
     type: "pass",
     mutations: [],
-    fx: fxRelToAbs(startFx, first, state.players[first].lanes),
+    fx: [
+      ...(prevEndFx && prevSide
+        ? fxRelToAbs(prevEndFx, prevSide, state.players[prevSide].lanes)
+        : []),
+      ...fxRelToAbs(startFx, first, state.players[first].lanes),
+    ],
     bannerFor: first,
   };
 }

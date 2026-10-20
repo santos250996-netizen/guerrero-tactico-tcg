@@ -114,4 +114,23 @@ export const sfx = {
   victory: () => { tone(523, 0.15, "triangle", 0.15); tone(659, 0.15, "triangle", 0.15, 0.13); tone(784, 0.15, "triangle", 0.15, 0.26); tone(1047, 0.45, "triangle", 0.18, 0.39); },
   defeat: () => { tone(392, 0.25, "triangle", 0.12); tone(311, 0.25, "triangle", 0.12, 0.20); tone(262, 0.50, "triangle", 0.15, 0.40); },
   draw: () => tone(1320, 0.06, "sine", 0.06),
+  // ── RITUALES DE CLASE V3 (grupo A): cada regla sistémica SUENA distinto ──
+  /** ⚔ FORMACIÓN (Guerrero): tambor grave + anvil metálico — la línea se asienta. */
+  formation: () => {
+    tone(98, 0.22, "triangle", 0.16, 0, 60);
+    noise(0.14, 0.09, 850, "bandpass", 0.03);
+    tone(392, 0.20, "square", 0.05, 0.08);
+  },
+  /** 🔮 RESONANCIA (Mago): shimmer arcano ascendente — el conjuro cabalga la estela. */
+  resonance: () => {
+    tone(659, 0.10, "sine", 0.08);
+    tone(880, 0.10, "sine", 0.08, 0.07);
+    tone(1175, 0.22, "sine", 0.09, 0.14);
+  },
+  /** 🗡 MARCA DE EJECUCIÓN (Asesino): shing agudo de cuchillas al cobrar los PC. */
+  combo: () => {
+    noise(0.09, 0.10, 5200, "highpass");
+    tone(1568, 0.14, "triangle", 0.07, 0.02, 2093);
+    tone(196, 0.16, "sawtooth", 0.06, 0, 90);
+  },
 };

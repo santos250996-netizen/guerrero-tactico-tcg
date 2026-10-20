@@ -25,6 +25,7 @@ import {
   LANE_AMBIENT,
   subscribeFx,
   type AmbientRecipe,
+  type ClassFxRecipe,
   type FxEvent,
   type FxRecipe,
 } from "@/lib/game/fx";
@@ -656,6 +657,74 @@ export function FxLayer() {
       });
     };
 
+    // ── RITUALES DE CLASE (V3 grupo A): el momento firma de cada regla ──
+    // Mismo lenguaje de partículas que las keywords, paleta propia de clase.
+    const CLASS_RITUAL_COLOR: Record<ClassFxRecipe, RGB> = {
+      formation_banner: [251, 191, 36], // ámbar Guerrero
+      resonance_runes: [167, 139, 250], // violeta Mago
+      combo_blades: [217, 70, 239], // fucsia Asesino
+    };
+
+    const classRitualAt = (ev: FxEvent, laneR: DOMRect | null) => {
+      const recipe = ev.recipe;
+      if (!recipe) return;
+      const color = CLASS_RITUAL_COLOR[recipe];
+
+      if (recipe === "formation_banner") {
+        // ⚔ FORMACIÓN: el estandarte barre el carril y cada carta elevada
+        // recibe su columna de energía + anillo.
+        if (laneR) {
+          const cy = laneR.top + laneR.height * 0.5;
+          push(baseParticle(laneR.left + 6, cy, color, {
+            shape: "slash", size: laneR.width - 12, rot: 0,
+            life: 0.55, maxLife: 0.55, alpha0: 0.8, rotSpeed: 0,
+          }));
+          const center = rectCenter(laneR);
+          label(center.x, laneR.top + laneR.height * 0.16, "FORMACIÓN", color);
+        }
+        atTargets(ev, laneR, (c) => {
+          column(c.x, c.y, color, c.h * 0.9, 0.55);
+          ring(c.x, c.y, color, 7, 60, 0.5);
+          burst(c.x, c.y, color, 7, 50);
+        });
+        return;
+      }
+
+      if (recipe === "resonance_runes") {
+        // 🔮 RESONANCIA: runa hexagonal creciente sobre la carta + maná que
+        // converge en ella (el conjuro cabalga la estela del anterior).
+        atTargets(ev, laneR, (c) => {
+          push(baseParticle(c.x, c.y, color, {
+            shape: "hex", size: c.w * 0.4, life: 0.7, maxLife: 0.7,
+            alpha0: 0.85, growth: 30, rotSpeed: 0.5,
+          }));
+          converge({ x: c.x + rand(-c.w, c.w), y: c.y - c.h * 0.8 }, c, color, 12, 0.6);
+          ring(c.x, c.y, [255, 255, 255], 6, 70, 0.35);
+          burst(c.x, c.y, color, 9, 60);
+        });
+        const anchor = (ev.sourceUid && uidRect(ev.sourceUid)) || laneR;
+        if (anchor) {
+          const center = rectCenter(anchor);
+          label(center.x, anchor.top + anchor.height * 0.18, "RESONANCIA", color);
+        }
+        return;
+      }
+
+      // 🗡 combo_blades — MARCA DE EJECUCIÓN: las cuchillas cobran todos los
+      // PC de golpe — tajes cruzados + estallido fucsia.
+      atTargets(ev, laneR, (c) => {
+        for (let s = 0; s < 3; s++) {
+          slash(c, color, 0.26 + s * 0.08, rand(-0.85, -0.15));
+        }
+        burst(c.x, c.y, color, 12, 85, { gravity: 40 });
+        ring(c.x, c.y, color, 8, 75, 0.45);
+      });
+      if (laneR) {
+        const center = rectCenter(laneR);
+        label(center.x, laneR.top + laneR.height * 0.16, `EJECUCIÓN ×${ev.value ?? 1}`, color);
+      }
+    };
+
     // ── Procesado de eventos ──
 
     const spawnEvent = (ev: FxEvent) => {
@@ -721,6 +790,10 @@ export function FxLayer() {
             const c = rectCenter(anchorRect);
             label(c.x, anchorRect.top + anchorRect.height * 0.22, KEYWORD_META[kw].short, RECIPE_COLOR[recipe]);
           }
+          break;
+        }
+        case "class": {
+          classRitualAt(ev, laneR);
           break;
         }
       }

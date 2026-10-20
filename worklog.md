@@ -913,3 +913,26 @@ Stage Summary:
 - Las 3 clases ahora se JUEGAN distinto (formación estable vs ráfaga arcana vs desgaste-execución) bajo UN solo motor simétrico — bot y player bajo las mismas reglas
 - Balance VERIFICADO por simulación masiva: ninguna clase supera el 52% ni cae bajo 45% en 400 partidas por emparejamiento
 - Pendiente vigente: Rush de Jefes (late game, aprobado en Task 39)
+
+---
+Task ID: 43
+Agent: Z.ai main agent
+Task: GRUPO A — rituales de clase V3 (VFX/SFX/contadores) + tooltip lore+consejo + momento firma de victoria (elección del usuario sobre el menú de opciones)
+
+Work Log:
+- RITUAL FX (canal nuevo en el pipeline fx): fx.ts gana FxKind "class" + ClassFxRecipe (formation_banner/resonance_runes/combo_blades) + FxEvent.recipe; el motor emite el de FORMACIÓN en applyEndTurnEffects (FIX incluido: los uids iban desalineados con own[i] cuando una carta ya estaba al tope del cap — ahora upliftedUids en paralelo); pvp.ts añade resonance_runes y combo_blades en buildPlayFx desde res.resonancia/comboConsumed (delayMs 260, anclados a playedUid), PvpLastActionFx.recipe y copia en fxRelToAbs
+- FIX DE PIPELINE (descubierto montando los tests): advanceTurn MACHACABA lastAction con solo los fx de inicio → el fx de fin del SEGUNDO pasador (Formación del Guerrero, Fortaleza, Ventisca… TODOS los end_turn) nunca llegaba al cliente; ahora handlePass propaga endFx+side a advanceTurn y viajan con el último lastAction del turno
+- SFX DE RITUAL (sound.ts): sfx.formation (tambor+anvil), sfx.resonance (shimmer arcano ascendente), sfx.combo (shing de cuchillas); disparados en pvpStore.applyView por recipe (independientes de animationsOn, igual que trampa/destrucción) + háptica
+- FxLayer pinta los 3 rituales (classRitualAt): FORMACIÓN = estandarte que barre el carril + columna/anillo por carta elevada + etiqueta; RESONANCIA = hex arcano creciente + maná convergente + etiqueta; MARCA = 3 tajes cruzados + estallido fucsia + etiqueta "EJECUCIÓN ×N"; paleta propia por clase (ámbar/violeta/fucsia)
+- CONTADORES TEMÁTICOS (PvpHandBar): chip PC del Asesino ahora con 5 PIPS de cuchilla (llenos=PC) y title corregido a +4/PC; chip "RESONA · <carril>" violeta para el Mago cuando lastSpec está vivo y es tu turno (aviso de cadena lista)
+- A2 LORE+CONSEJO: campaign.ts gana CLASS_RULE_META (rule/sigil/lore/tip por clase, números V3 reales); componente NUEVO ClassRuleBadge (chip de una línea → tap expande lore en cursiva + consejo táctico, AnimatePresence, click sfx) montado en ClassSelect bajo el lema — la pantalla se queda minimalista (el texto vive tras el tap, como las keywords en mano)
+- A3 MOMENTO FIRMA: componente NUEVO ClassVictoryFlourish — guerrero: 3 estandartes ámbar se izan tras el trofeo; mago: anillo de 6 runas violetas gira y se disipa; asesino: 2 cuchillas fucsia barren la tarjeta; DOM puro + framer-motion, una vez por partida, respeta animationsOn, acento sonoro con el sfx de la clase a 620ms; montado en HistoriaEndOverlay Y PvpGameOverModal SOLO en victoria (gate verificado en vivo: 2 derrotas sin flourish)
+- TESTS: test-clases-v3 sección 6 NUEVA (20 asserts → 66): 6a engine (formation_banner con uids correctos y carta al tope excluida), 6b/6c adaptador (resonance_runes/combo_blades con lado absoluto, playedUid, lanePos, value=PC consumidos, logs V3), 6d fx de Formación viaja al pasar (cubre el fix de advanceTurn), 6e sin rules → sin rituales
+- Verificación: tsc 0 · lint 0 · 12 suites (campana 139 · collection-historia 69 · fx 51 · kw-v2 35 · kw-v3 30 · kw-v4 71 · clases-v3 66 · local-pvp 32 · pvp-engine 62 · turn-flow 27 · tanda28 35-37* · tanda29 77) · build estático RC=0 (*tanda28 es flaky por diseño: sorteo del mazo del jefe, verificado con 6 corridas y contra árbol limpio)
+- E2E 390×844 con las 3 clases reales: badge de regla expande lore+consejo (árbol a11y confirma texto exacto); Guerrero: FORMACIÓN pintado en vivo (etiqueta+estandarte+columnas capturados en screenshot, chip FORM +1, +1s aplicados); Mago: RESONANCIA pintado (etiqueta+runa capturados), Cántico entró +2 (9→11) y pagó −1 (energía verificada), chips RES +2 y "RESONA · ARCANA/HIELO"; Asesino: chip 5 pips "0 PC"; PvP local 2 pestañas (self-play): VICTORIA 3-0 con flourish de estandartes capturado a mitad de animación + video 30fps de la revancha completa; 0 errores de consola en ambas pestañas — screenshots scripts/e2e-a1-ritual-0.png, e2e-a1-resonancia-450.png, e2e-a3-flourish-vivo.png, e2e-a1-pips-asesino.png, e2e-a2-lore-expandido.png, video scripts/e2e-ritual-final.webm
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- Las reglas V3 ahora se SIENTEN: cada activación tiene su ritual (sonido+partículas+etiqueta), cada clase tiene su firma de victoria y su lore+consejo a un tap — sin tocar UN número de balance
+- Bonus: arreglado el hueco por el que TODOS los fx de fin de turno del segundo pasador se perdían (pre-existente desde keywords V2)
+- Pendiente vigente: Rush de Jefes (late game, aprobado en Task 39)

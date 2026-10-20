@@ -21,7 +21,16 @@ import type { Keyword, LaneId } from "./types";
 // Eventos
 // ---------------------------------------------------------------------------
 
-export type FxKind = "keyword" | "play" | "destroy" | "shieldBlock" | "trap" | "mutation";
+export type FxKind = "keyword" | "play" | "destroy" | "shieldBlock" | "trap" | "mutation" | "class";
+
+/**
+ * RITUALES DE CLASE (V3 — grupo A): la activación de cada regla sistémica
+ * tiene su propio momento en pantalla (mismo lenguaje visual que los chips).
+ *   - formation_banner: ⚔ Formación — estandarte que barre el carril propio.
+ *   - resonance_runes:  🔮 Resonancia — runas que encadenan la 2ª carta.
+ *   - combo_blades:     🗡 Marca — cuchillas que cobran los PC acumulados.
+ */
+export type ClassFxRecipe = "formation_banner" | "resonance_runes" | "combo_blades";
 
 /**
  * Un efecto visual puntual. `side` = bando dueño de las cartas afectadas
@@ -34,6 +43,8 @@ export interface FxEvent {
   kind: FxKind;
   /** Keyword disparadora (elige la receta en KEYWORD_FX). */
   keyword?: Keyword;
+  /** Ritual de clase (solo kind: "class"). */
+  recipe?: ClassFxRecipe;
   /** Solitario: carril de la partida. */
   lane?: LaneId;
   /** PvP: posición 0-2 (el carril viaja con claves propias por jugador). */

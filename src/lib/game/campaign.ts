@@ -173,6 +173,34 @@ export function stepChipLabel(step: number): string {
   return isBossStep(step) ? `JEFE · Escalón ${step}` : `Escalón ${step}`;
 }
 
+// ── REGLA SISTÉMICA POR CLASE (V3 — grupo A): lore + consejo ───────────────
+// Una regla por clase, ligada a los CARRILES. El tooltip vive OCULTO tras un
+// tap (la selección de clases se queda minimalista: sin texto de más).
+
+export const CLASS_RULE_META: Record<
+  GameClass,
+  { rule: string; sigil: string; lore: string; tip: string }
+> = {
+  guerrero: {
+    rule: "Formación de Combate",
+    sigil: "⚔️",
+    lore: "Las legiones de las Tierras Bajas no ganan con héroes: ganan con filas. Donde dos escudos se apoyan, la línea entera empuja más fuerte.",
+    tip: "Apila 2+ cartas propias en un carril: al cerrar tu turno, TODAS tus cartas de ese carril ganan +1 permanente (hasta +1 extra por carta).",
+  },
+  mago: {
+    rule: "Resonancia de Escuela",
+    sigil: "🔮",
+    lore: "Un conjuro abre el camino; el segundo encuentra la huella y cabalga en su estela. Las escuelas arcanas llaman a esto resonancia.",
+    tip: "Juega 2 cartas de la MISMA spec en un mismo turno: la segunda entra con +2 de poder y cuesta −1 de energía (suelo 0).",
+  },
+  asesino: {
+    rule: "Marca de Ejecución",
+    sigil: "🗡️",
+    lore: "Cada tajo que no mata deja una marca. El asesino cuenta sus marcas en silencio… y cuando cobra, cobra todo de una vez.",
+    tip: "Debilitar enemigos te da 1 PC (tope 5, persisten entre turnos). Juega en un carril con un debilitado y consume TODOS tus PC: +4 de poder por PC.",
+  },
+};
+
 // ── Lore: splash pre-batalla (la escalera se SIENTE escrita) ───────────────
 
 /** Línea de ambiente de cada rival normal — una por tramo de título. */

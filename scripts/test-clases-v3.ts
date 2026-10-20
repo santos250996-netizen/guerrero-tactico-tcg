@@ -18,6 +18,7 @@ import {
   type Board,
   type ClassRulesState,
 } from "../src/lib/game/engine";
+import { applyPvpAction, createPvpState, joinPvpState } from "../src/lib/game/pvp";
 import type { BoardCard, HandCard, LaneId } from "../src/lib/game/types";
 
 // ---------------------------------------------------------------------------
@@ -314,6 +315,102 @@ section("5. Dos clases conviven: cada lado solo cobra SU regla");
   check("guerrero (player) cobra formación", r.board.armas.player.every((c) => c.currentPower === 4));
   check("mago (enemy) NO cobra formación", r.board.armas.enemy.every((c) => c.currentPower === 3));
   check("lastSpec del player expira, enemy intacto", r.rulesOut!.lastSpec.player === null && r.rulesOut!.lastSpec.enemy === null);
+}
+
+// ---------------------------------------------------------------------------
+// 6. RITUALES FX (grupo A) — la activación de cada regla EMITE su evento
+// ---------------------------------------------------------------------------
+
+section("6. Rituales de clase: fx end-to-end (engine + adaptador pvp)");
+{
+  // ── 6a. ENGINE: Formación emite formation_banner con uids CORRECTOS ──
+  // Caso crítico: una carta ya al tope del cap (formation=1) NO recibe el
+  // +1 ni el fx — el mapeo nombre↔uid debe seguir alineado (bug corregido).
+  {
+    const b = emptyBoard();
+    const alTope = bc("Veterano", 3, { formation: V3_FORMACION_CAP });
+    const fresca = bc("Recluta", 3);
+    b.armas.player.push(alTope, fresca);
+    const r = applyEndTurnEffects(b, "player", [], ["armas"], rulesOf({ player: "guerrero" }));
+    const rituals = r.fx.filter((f) => f.kind === "class" && f.recipe === "formation_banner");
+    check("Formación emite kind=class recipe=formation_banner", rituals.length === 1);
+    check("ritual apunta SOLO a la carta elevada (uid alineado)",
+      rituals[0]?.targetUids?.length === 1 && rituals[0]!.targetUids![0] === fresca.uid,
+      JSON.stringify(rituals[0]?.targetUids));
+    // leer del board CLONADO del resultado (el objeto original no muta)
+    const alTopeOut = r.board.armas.player.find((c) => c.uid === alTope.uid);
+    const frescaOut = r.board.armas.player.find((c) => c.uid === fresca.uid);
+    check("la carta al tope no gana +1", alTopeOut?.currentPower === 3);
+    check("la carta fresca gana +1", frescaOut?.currentPower === 4);
+    check("ritual sin value raro", rituals[0]?.value === 1);
+  }
+
+  // ── 6b. ADAPTADOR PvP: Resonancia emite resonance_runes (lado del actor) ──
+  {
+    const state = createPvpState("RIT1", { name: "Ana", gameClass: "mago" });
+    joinPvpState(state, { name: "Beto", gameClass: "guerrero" });
+    state.positionBonuses = [null, null, null]; // determinismo de costes
+    if (state.activeSide !== "a") applyPvpAction(state, "b", { type: "pass" });
+    const c1 = { ...mkHand({ subtypes: ["arcana"], cost: 1, power: 2 }), uid: "res-1" };
+    const c2 = { ...mkHand({ subtypes: ["arcana"], cost: 1, power: 2 }), uid: "res-2" };
+    state.players.a.hand = [c1, c2];
+    applyPvpAction(state, "a", { type: "play", uid: c1.uid, lane: "arcana" });
+    applyPvpAction(state, "a", { type: "play", uid: c2.uid, lane: "arcana" });
+    const fx = state.lastAction?.fx ?? [];
+    const rit = fx.find((f) => f.kind === "class" && f.recipe === "resonance_runes");
+    check("Resonancia emite kind=class recipe=resonance_runes", !!rit);
+    check("ritual de Resonancia con lado ABSOLUTO del actor (a)", rit?.side === "a");
+    // la carta jugada cambia de uid al entrar al tablero: la referencia
+    // correcta del anclaje es lastAction.playedUid
+    check("ritual anclado a la carta que entró", !!rit && rit.targetUids?.[0] === state.lastAction?.playedUid);
+    check("ritual con lanePos del carril", rit?.lanePos === state.players.a.lanes.indexOf("arcana"));
+    check("log V3 de resonancia presente", state.logs.some((l) => l.text.includes("Resonancia")));
+  }
+
+  // ── 6c. ADAPTADOR PvP: Marca de Ejecución emite combo_blades ──
+  {
+    const state = createPvpState("RIT2", { name: "Ana", gameClass: "asesino" });
+    joinPvpState(state, { name: "Beto", gameClass: "mago" });
+    state.positionBonuses = [null, null, null];
+    if (state.activeSide !== "a") applyPvpAction(state, "b", { type: "pass" });
+    // PC forzados + enemigo DEBILITADO en la posición 1 (= COMBATE del
+    // asesino, carril donde se juega la cuchilla; debuffTaken > 0)
+    state.combo = { a: 3, b: 0 };
+    state.positions[1].b.push({ ...bc("Conjuro", 4), debuffTaken: 2, currentPower: 2 });
+    const cuchilla = { ...mkHand({ subtypes: ["combate"], cost: 1, power: 2 }), uid: "combo-1" };
+    state.players.a.hand = [cuchilla];
+    applyPvpAction(state, "a", { type: "play", uid: cuchilla.uid, lane: "combate" });
+    const fx = state.lastAction?.fx ?? [];
+    const rit = fx.find((f) => f.kind === "class" && f.recipe === "combo_blades");
+    check("Marca emite kind=class recipe=combo_blades", !!rit);
+    check("ritual lleva los PC consumidos como value", rit?.value === 3);
+    check("ritual anclado a la carta ejecutora", !!rit && rit.targetUids?.[0] === state.lastAction?.playedUid);
+    check("log V3 de ejecución presente", state.logs.some((l) => l.text.includes("Marca de ejecución: consume")));
+    check("PC a cero tras cobrar", state.combo?.a === 0);
+  }
+
+  // ── 6d. ADAPTADOR PvP: al PASAR, la Formación viaja en lastAction.fx ──
+  {
+    const state = createPvpState("RIT3", { name: "Ana", gameClass: "guerrero" });
+    joinPvpState(state, { name: "Beto", gameClass: "mago" });
+    state.positions[0].a.push(bc("Legionario", 3), bc("Escudero", 3));
+    if (state.activeSide !== "a") applyPvpAction(state, "b", { type: "pass" });
+    applyPvpAction(state, "a", { type: "pass" });
+    const fx = state.lastAction?.fx ?? [];
+    const rit = fx.find((f) => f.kind === "class" && f.recipe === "formation_banner");
+    check("PASAR con 2 cartas en carril → formation_banner viaja al cliente", !!rit);
+    check("ritual de Formación con lado absoluto correcto", rit?.side === state.lastAction?.side || rit?.side === "a");
+    check("ritual ancla las 2 cartas elevadas", rit?.targetUids?.length === 2);
+    check("log V3 de formación presente", state.logs.some((l) => l.text.includes("Formación de combate")));
+  }
+
+  // ── 6e. SIN REGLAS → SIN RITUALES (compatibilidad legacy) ──
+  {
+    const b = emptyBoard();
+    b.armas.player.push(bc("P1", 3), bc("P2", 3));
+    const r = applyEndTurnEffects(b, "player", [], ["armas"]); // sin rules
+    check("sin rules declaradas no hay rituales", !r.fx.some((f) => f.kind === "class"));
+  }
 }
 
 // ---------------------------------------------------------------------------

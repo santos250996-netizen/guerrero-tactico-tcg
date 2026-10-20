@@ -1456,6 +1456,7 @@ export function applyEndTurnEffects(
       const own = newBoard[lane][side];
       if (own.length < 2) continue;
       const uplifted: string[] = [];
+      const upliftedUids: string[] = [];
       for (const card of [...own]) {
         if ((card.formation ?? 0) >= V3_FORMACION_CAP) continue;
         applyPowerDelta(newBoard, side, lane, card.uid, 1, "Formación de combate", "end_turn");
@@ -1467,13 +1468,17 @@ export function applyEndTurnEffects(
           };
         }
         uplifted.push(card.name);
+        upliftedUids.push(card.uid);
       }
       if (uplifted.length > 0) {
         logs.push({
           side,
           text: `⚔️ Formación de combate: +1 a ${uplifted.length} carta(s) de ${LANE_META[lane].title} (${uplifted.join(", ")})`,
         });
-        fx.push({ kind: "keyword", keyword: "fortaleza", lane, side, targetUids: uplifted.map((_, i) => own[i]?.uid ?? "").filter(Boolean), value: 1 });
+        // RITUAL DE CLASE (grupo A): estandarte propio de la Formación —
+        // sustituye al genérico de Fortaleza. uids en paralelo con los nombres
+        // (antes own[i] desalineaba cuando una carta ya estaba al tope del cap).
+        fx.push({ kind: "class", recipe: "formation_banner", lane, side, targetUids: upliftedUids, value: upliftedUids.length });
       }
     }
   }

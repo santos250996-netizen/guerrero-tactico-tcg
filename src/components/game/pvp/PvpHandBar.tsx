@@ -7,10 +7,11 @@
 // ============================================================================
 
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Loader2, Zap, Sword } from "lucide-react";
+import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Loader2, Zap, Wand2 } from "lucide-react";
 import { usePvpStore } from "@/store/pvpStore";
 import { HandCardComponent } from "../HandCardComponent";
 import { getEffectiveCost, isCardCostAllowed } from "@/lib/game/engine";
+import { LANE_META } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
@@ -75,13 +76,26 @@ export function PvpHandBar({
 
         {/* CENTRO: gran círculo de energía con borde dorado + rayo + número */}
         <div className="flex items-center gap-1.5">
-          {/* REGLAS V3 — MARCA DE EJECUCIÓN (Asesino): contador compacto de PC */}
+          {/* REGLAS V3 — MARCA DE EJECUCIÓN (Asesino): contador ritual de PC —
+              5 pips de cuchilla (llenos = PC). Persisten entre turnos. */}
           {you.gameClass === "asesino" && (
             <div
-              className="relative flex h-9 items-center gap-1 rounded-full border border-fuchsia-400/60 bg-fuchsia-950/50 px-2 shadow-[0_0_8px_rgba(217,70,239,0.35)]"
-              title="Marca de ejecución — Puntos de Combo: debuffear enemigos gana PC; jugar en un carril con enemigo debilitado los consume (+2 de poder c/u, tope 5)"
+              className="relative flex h-9 items-center gap-1.5 rounded-full border border-fuchsia-400/60 bg-fuchsia-950/50 px-2 shadow-[0_0_8px_rgba(217,70,239,0.35)]"
+              title="Marca de ejecución — Puntos de Combo: debuffear enemigos gana PC (tope 5, persisten); jugar en un carril con enemigo debilitado los consume TODOS (+4 de poder c/u)"
             >
-              <Sword className="h-3 w-3 text-fuchsia-300" aria-hidden />
+              <div className="flex items-center gap-[3px]" aria-hidden>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      "h-2.5 w-[3px] rounded-full transition-colors",
+                      i < you.comboPoints
+                        ? "bg-fuchsia-300 shadow-[0_0_4px_rgba(240,171,252,0.9)]"
+                        : "bg-fuchsia-900/80"
+                    )}
+                  />
+                ))}
+              </div>
               <span
                 className="text-sm font-black tabular-nums text-fuchsia-200"
                 style={{ fontFamily: "var(--font-cinzel), serif" }}
@@ -89,6 +103,19 @@ export function PvpHandBar({
                 {you.comboPoints}
               </span>
               <span className="text-[8px] font-bold tabular-nums text-fuchsia-400/70">PC</span>
+            </div>
+          )}
+          {/* REGLAS V3 — RESONANCIA (Mago): aviso de cadena LISTA — otra carta
+              en ese mismo carril entra +2 y cuesta −1 (solo en tu turno). */}
+          {you.gameClass === "mago" && myTurn && you.lastSpec && (
+            <div
+              className="flex h-9 items-center gap-1 rounded-full border border-violet-400/60 bg-violet-950/50 px-2 shadow-[0_0_8px_rgba(139,92,246,0.35)]"
+              title="Resonancia de escuela: juega otra carta de este carril y entra con +2 de poder pagando −1 de energía"
+            >
+              <Wand2 className="h-3 w-3 text-violet-300" aria-hidden />
+              <span className="text-[9px] font-black uppercase tracking-wider text-violet-200">
+                Resona · {LANE_META[you.lastSpec].title}
+              </span>
             </div>
           )}
           <div

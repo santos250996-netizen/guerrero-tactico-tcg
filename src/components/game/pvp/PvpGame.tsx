@@ -48,6 +48,7 @@ import { FxLayer } from "../FxLayer";
 import { CardJuiceLayer } from "../CardJuiceLayer";
 import { CornerOrnaments } from "../CardFrame";
 import { Confetti } from "../Confetti";
+import { ClassVictoryFlourish } from "../ClassVictoryFlourish";
 import { SettingsModal } from "../SettingsModal";
 import { MissionToast } from "../MainMenu";
 import { sfx } from "@/lib/sound";
@@ -551,6 +552,8 @@ function HistoriaEndOverlay({
   const bossActive = usePvpStore.getState().bossActive;
   const playedStep = usePvpStore.getState().campaignStep ?? 1;
   const campaignClosed = usePvpStore.getState().campaignCompleted;
+  // MOMENTO FIRMA (V3 grupo A): la victoria de TU clase tiene su gesto
+  const myClass = usePvpStore.getState().view?.you.gameClass ?? "guerrero";
   const { step: nextStep, prestige } = useCampaignStore.getState();
   // Botín del JEFE a ELEGIR (3 épicas, 2 tuyas) — suscripción reactiva: al
   // confirmar las 2 el picker desaparece y el botín completo aparece.
@@ -578,10 +581,12 @@ function HistoriaEndOverlay({
             animate={{ scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 200, damping: 20 }}
             className={cn(
-              "mx-4 w-full max-w-sm rounded-2xl border-2 bg-gradient-to-b to-black p-5 text-center shadow-2xl",
+              "relative mx-4 w-full max-w-sm overflow-hidden rounded-2xl border-2 bg-gradient-to-b to-black p-5 text-center shadow-2xl",
               won ? "border-amber-500/60 from-amber-950" : "border-rose-800/60 from-rose-950"
             )}
           >
+            {/* MOMENTO FIRMA — gesto de victoria de la clase (una vez) */}
+            {won && <ClassVictoryFlourish gameClass={myClass} />}
             {won && campaignClosed ? (
               <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
             ) : won && bossActive ? (
@@ -947,7 +952,9 @@ function PvpGameOverModal({ open, rewards, onRematch, onExit }: {
 
   return (
     <Dialog open={open}>
-      <DialogContent className="border-amber-800/40 bg-zinc-950 text-zinc-100 sm:max-w-sm">
+      <DialogContent className="relative overflow-hidden border-amber-800/40 bg-zinc-950 text-zinc-100 sm:max-w-sm">
+        {/* MOMENTO FIRMA — gesto de victoria de la clase (una vez) */}
+        {win && <ClassVictoryFlourish gameClass={view.you.gameClass} />}
         <DialogHeader>
           <DialogTitle className="flex items-center justify-center gap-2 text-2xl font-black uppercase tracking-widest" style={{ fontFamily: "var(--font-cinzel), serif" }}>
             <Skull className={cn("h-6 w-6", win ? "hidden" : "text-rose-400")} />
