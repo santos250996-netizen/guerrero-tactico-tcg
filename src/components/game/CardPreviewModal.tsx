@@ -39,7 +39,21 @@ const KIND_META: Record<NonNullable<PowerLogEntry["kind"]>, { icon: LucideIcon; 
   hand:       { icon: Hand,         label: "En mano",        text: "text-emerald-300",bg: "bg-emerald-950/70",border: "border-emerald-500/40" },
 };
 
-export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef | null; open: boolean; onOpenChange: (o: boolean) => void }) {
+export function CardPreviewModal({
+  card,
+  open,
+  onOpenChange,
+  playOptions,
+  onPlayLane,
+}: {
+  card: CardDef | null;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  /** RUTA ALTERNATIVA AL DRAG (móvil): carriles donde la carta de mano es
+   *  jugable ahora mismo. Solo llega en tu turno desde la partida. */
+  playOptions?: { lane: string; title: string; enabled: boolean }[] | null;
+  onPlayLane?: (lane: string) => void;
+}) {
   if (!card) return null;
   const cat = CATEGORY_META[card.category];
   const trigger = card.trigger ?? "on_play";
@@ -78,7 +92,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
           can't tap on underlying hand cards / lanes while the preview is open.
           Tapping anywhere on the overlay (i.e. outside the card) closes the modal. */}
       <DialogOverlay
-        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+        className="fixed inset-0 z-50 bg-black/85"
         onClick={close}
       />
       <DialogContent
@@ -146,7 +160,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             <div className="flex items-center justify-between gap-1">
               <span
                 className={cn(
-                  "rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                  "rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
                   cat.bgClass,
                   cat.textClass,
                   cat.borderClass
@@ -159,7 +173,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                   <span
                     key={lm.title}
                     title={lm.title}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-sm leading-none backdrop-blur-sm"
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-sm leading-none"
                   >
                     <lm.icon className="h-3.5 w-3.5" />
                   </span>
@@ -174,7 +188,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               <span
                 title={triggerMeta.description}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                  "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider",
                   triggerMeta.color
                 )}
               >
@@ -185,7 +199,7 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
                 <span
                   title={keywordMeta.description + (keywordMeta.hasValue && card.keywordValue ? ` (X=${card.keywordValue})` : "")}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm",
+                    "inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider",
                     keywordMeta.color
                   )}
                 >
@@ -215,6 +229,34 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
               {card.text && (
                 <div className="italic">{card.text}</div>
               )}
+
+            {/* ══ JUGAR DESDE EL PREVIEW (ruta alternativa al drag) ══
+                En tu turno, una carta de mano muestra los carriles donde es
+                jugable ahora mismo: tap = juega. A prueba de dedos torpes. */}
+            {playOptions && playOptions.length > 0 && onPlayLane && (
+              <div className="mt-2 flex items-center justify-center gap-1.5 px-0.5">
+                <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-zinc-500">Jugar en</span>
+                {playOptions.map((opt) => (
+                  <button
+                    key={opt.lane}
+                    disabled={!opt.enabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPlayLane(opt.lane);
+                      onOpenChange(false);
+                    }}
+                    className={cn(
+                      "rounded-md border px-1.5 py-1 text-[9px] font-black uppercase tracking-wider transition-colors",
+                      opt.enabled
+                        ? "border-emerald-400/60 bg-gradient-to-b from-emerald-600 to-emerald-800 text-white active:scale-95"
+                        : "cursor-not-allowed border-zinc-800 bg-zinc-900/80 text-zinc-600"
+                    )}
+                  >
+                    {opt.title}
+                  </button>
+                ))}
+              </div>
+            )}
             </div>
 
             {/* ====== REGISTRO DE MODIFICADORES ====== */}
@@ -246,6 +288,8 @@ export function CardPreviewModal({ card, open, onOpenChange }: { card: CardDef |
             )}
 
           </div>
+
+
           </CardShell>
         </motion.div>
       </DialogContent>

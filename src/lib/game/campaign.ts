@@ -140,6 +140,32 @@ export function effectiveDropLevel(level: number, step: number): number {
   return Math.max(level, step + 2);
 }
 
+// ── Desbloqueo de clases (tanda 40) ────────────────────────────────────────
+// El jugador decide: MAGO se abre al vencer el PRIMER jefe (escalón 5) y
+// ASESINO al vencer el SEGUNDO (escalón 10). La cuenta usada es stepsCleared
+// del campaignStore (total histórico de escalones superados — nunca retrocede
+// ni se reinicia con el prestigio).
+
+/** Escalones superados necesarios para jugar cada clase (0 = libre). */
+export const CLASS_UNLOCK_STEP: Record<GameClass, number> = {
+  guerrero: 0,
+  mago: 5,
+  asesino: 10,
+};
+
+/** ¿Está jugable esta clase con X escalones superados? */
+export function classUnlocked(cls: GameClass, stepsCleared: number): boolean {
+  return stepsCleared >= CLASS_UNLOCK_STEP[cls];
+}
+
+/** Pista de desbloqueo ("Vence a Korgath · JEFE · Escalón 5") o null si libre. */
+export function classUnlockHint(cls: GameClass): string | null {
+  const need = CLASS_UNLOCK_STEP[cls];
+  if (!need) return null;
+  const boss = bossClassForStep(need);
+  return boss ? `Vence a ${CAMPAIGN_BOSS_NAMES[boss].split(",")[0]} · ${stepChipLabel(need)}` : null;
+}
+
 // ── Etiquetas de UI ────────────────────────────────────────────────────────
 
 /** Texto corto del escalón para chips/botones ("Escalón 7", "JEFE · Escalón 5"). */

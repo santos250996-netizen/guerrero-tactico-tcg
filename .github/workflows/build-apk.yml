@@ -79,13 +79,17 @@ jobs:
       - name: Sync Capacitor
         run: bunx @capacitor/cli sync android
 
-      - name: Build Debug APK
+      - name: Build Signed Release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          # FIRMA ESTABLE + versionCode monótono (run number): las versiones
+          # nuevas se instalan ENCIMA de la instalada SIN desinstalar → el
+          # progreso (localStorage del WebView) se conserva siempre.
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: guerrero-tactico-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 90

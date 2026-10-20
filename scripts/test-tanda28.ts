@@ -216,18 +216,19 @@ section("3. MISIONES DIARIAS — determinismo, rotación y recompensa");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("4. Colección — botín del JEFE a ELEGIR (3 RARAS, nada de legendarias)");
+section("4. Colección — botín del JEFE a ELEGIR (3 ÉPICAS, elige 2 — tanda 40)");
 {
   const col = useCollectionStore.getState();
   const before = col.totalCopies();
-  const opts = col.rollPickOptions(3, "rare");
+  const opts = col.rollPickOptions(3, "epic");
   check("el jefe ofrece 3 opciones", opts.length === 3);
-  check("todas las opciones son RARAS", opts.every((o) => o.rarity === "rare"));
+  check("todas las opciones son ÉPICAS", opts.every((o) => o.rarity === "epic"));
   check("las 3 opciones son cartas distintas", new Set(opts.map((o) => o.id)).size === 3);
   const granted = col.grantPick(opts[0]);
-  check("la elegida quedó en la colección (tier raro)", useCollectionStore.getState().countOf(granted.id, "rare") >= 1);
-  check("total de copias creció en 1", useCollectionStore.getState().totalCopies() === before + 1);
-  const again = col.grantPick({ id: granted.id, rarity: "rare", isNew: true });
+  check("la elegida quedó en la colección (tier épico)", useCollectionStore.getState().countOf(granted.id, "epic") >= 1);
+  const granted2 = col.grantPick(opts[1]);
+  check("el pick de 2 creció exactamente 2 copias", useCollectionStore.getState().totalCopies() === before + 2);
+  const again = col.grantPick({ id: granted.id, rarity: "epic", isNew: true });
   check("2ª copia de la misma carta ya no marca NUEVA", again.isNew === false);
 }
 

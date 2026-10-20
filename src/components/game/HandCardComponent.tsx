@@ -51,7 +51,10 @@ export function HandCardComponent({
 
   // ====== Custom drag state (direction-aware) ======
   const [isDragging, setIsDragging] = useState(false);
-  const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
+  // El GHOST se mueve por transform directo (ref) — sin setState en cada
+  // pointermove: a 60-120 Hz de eventos táctiles, un re-render por movimiento
+  // ahoga el WebView del móvil y el arrastre se siente roto/lagging.
+  const ghostRef = useRef<HTMLDivElement | null>(null);
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const modeRef = useRef<DragMode>("none");
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -102,10 +105,14 @@ export function HandCardComponent({
           // (no abre preview al soltar) pero nunca arrastra ni selecciona.
           modeRef.current = "vertical";
           if (phase === "playing") {
+            // REGRESIÓN T39 cazada: al gatear por fase se perdió el
+            // setIsDragging(true) — el fantasma nunca montaba, la carta no
+            // seguía al dedo y el drag "no hacía nada" visualmente.
+            setIsDragging(true);
             // Now that a real drag is starting, capture the pointer so we keep
             // receiving pointermove/pointerup events even if the pointer leaves the card.
             try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-            setGhostPos({ x: e.clientX, y: e.clientY });
+            if (ghostRef.current) ghostRef.current.style.transform = `translate(${e.clientX - 56}px, ${e.clientY - 88}px)`;
             onDragStart?.(card.uid);
           }
         } else {
@@ -118,7 +125,7 @@ export function HandCardComponent({
     }
 
     if (modeRef.current === "vertical") {
-      setGhostPos({ x: e.clientX, y: e.clientY });
+      if (ghostRef.current) ghostRef.current.style.transform = `translate(${e.clientX - 56}px, ${e.clientY - 88}px)`;
     } else if (modeRef.current === "horizontal") {
       // Manual horizontal scroll for mouse drag (touch already handled natively)
       const container = buttonRef.current?.closest(
@@ -272,7 +279,12 @@ export function HandCardComponent({
               )}
             >
               <keywordMeta.icon className="h-2 w-2" />
-              {keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
+              {/* Keyword abreviada a 4 letras + VALOR visible (el preview
+                  muestra el nombre completo y la explicación). */}
+              {keywordMeta.short}
+              {keywordMeta.hasValue && card.keywordValue ? (
+                <b className="text-white tabular-nums">{card.keywordValue}</b>
+              ) : ""}
             </span>
           ) : (
             <span className="h-1 w-1" />
@@ -299,7 +311,11 @@ export function HandCardComponent({
         onPointerCancel={handlePointerCancel}
         data-hand-card-uid={card.uid}
         className={cn(
-          "relative flex h-44 w-28 shrink-0 touch-pan-x select-none rounded-xl shadow-2xl shadow-black/80",
+          // touch-none: el JS posee TODO el gesto sobre la carta (drag vertical
+          // al tablero Y scroll horizontal manual). Con pan-x el navegador
+          // interrumpía arrastres diagonales con pointercancel y el drag
+          // "no funcionaba" en pantallas táctiles.
+          "relative flex h-44 w-28 shrink-0 touch-none select-none rounded-xl shadow-2xl shadow-black/80",
           selected && "z-10 ring-2 ring-amber-400 ring-offset-1 ring-offset-zinc-950",
           !affordable && "opacity-65 grayscale",
           // While dragging the in-place card is dimmed (ghost takes over)
@@ -317,20 +333,22 @@ export function HandCardComponent({
         </CardShell>
       </motion.button>
 
-      {/* Drag ghost: follows the pointer while the card is being dragged */}
+      {/* Drag ghost: sigue el puntero por transform directo (sin re-renders) */}
       {isDragging &&
         typeof document !== "undefined" &&
         createFixedPortal(
           <div
+            ref={ghostRef}
             style={{
               position: "fixed",
-              left: ghostPos.x - 56,
-              top: ghostPos.y - 88,
+              left: 0,
+              top: 0,
               width: 112,
               height: 176,
               pointerEvents: "none",
               zIndex: 9999,
-              transform: "scale(1.18)",
+              transform: "translate(-200px, -200px)",
+              willChange: "transform",
               transformOrigin: "center",
               filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.7))",
             }}

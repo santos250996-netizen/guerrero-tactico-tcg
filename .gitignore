@@ -64,6 +64,10 @@ android/app/release/
 *.aab
 *.keystore
 !debug.keystore
+# FIRMA ESTABLE (tanda 40): el keystore del juego SÍ viaja en el repo —
+# sin él cada build tendría firma distinta y las actualizaciones exigirían
+# desinstalar (perdiendo el progreso del jugador).
+!pacto-guerra.keystore
 
 # Capacitor
 android/app/src/main/assets/public/_next/static/chunks/*.js.map

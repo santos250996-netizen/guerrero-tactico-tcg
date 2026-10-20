@@ -90,7 +90,42 @@ zones in shadows, exaggerated heroic proportions, no text, no borders, no
 watermark.
 ```
 
-## 5. Sonoridad de clase (vocabulario del nombre)
+## 8. Composición EXCLUSIVA por carta (anti-plantilla — tanda 40)
+
+> Feedback del jugador: "muchas cards tienen la misma postura en el arte y se
+> siente repetitivo, es como si solo cambiaras la raza y el fondo". La regla
+> nombre × tipo × spec dice QUÉ se pinta, no CÓMO se encuadra: eso es libre
+> y DEBE variar carta a carta.
+
+**Regla: cada imagen es una composición EXCLUSIVA.** Antes de generar una
+carta se decide (y se escribe en el prompt) su tríada de encuadre:
+
+1. **PLANO** — primerísimo plano del impacto · retrato · cuerpo entero ·
+   plano general · paisaje con figura mínima.
+2. **ÁNGULO** — contrapicado extremo · picado aéreo · nivel del suelo ·
+   frontal · 3/4 · contraluz.
+3. **MOMENTO** — preparación (arma en alto) · impacto (contacto/esquirlas) ·
+   consecuencia (bloque roto, caído, polvo asentándose).
+
+Dos cartas de la misma spec NUNCA comparten silueta ni encuadre: si la
+nueva sale parecida a una existente, se regenera cambiando la tríada
+(ej.: "Tajo Quebrantamuros" impacto en primerísimo plano vs
+"Quebrantador de Filas" barrido lateral a nivel del suelo vs
+"Justicia de la Legión" general aéreo desde atrás — los tres de ARMAS,
+ninguno se parece a otro).
+
+El arte debe reflejar la ACCIÓN/ATAQUE/ÍTEM del nombre — da igual si el
+sujeto queda en primer plano, tercer plano o es paisaje: lo que se lee es
+el momento que el nombre describe. Los sujetos pueden quedar RECORTADOS
+por el borde del lienzo (garantiza full-bleed y mata los marcos dibujados).
+
+**Anti-marco**: el modelo tiende a dibujar marcos dorados/oscuros dentro de
+la imagen. El prompt SIEMPRE abre con "RAW FULL-BLEED PAINTING with NO card
+frame, NO border, NO gold trim, NO rounded corners" y la composición recorta
+algo por el borde. Si a pesar de eso sale marco → regenerar (ocurrió en
+Hacha de Ejecución y Fiera Ensangrentada).
+
+## 9. Sonoridad de clase (vocabulario del nombre)
 
 El nombre debe **sonar a su clase** — el jugador debe adivinar la clase por el
 vocabulario antes de ver el sello. Ejemplos de correcciones por sonoridad:
@@ -149,7 +184,22 @@ Regla derivada: **cuando se renombra una carta se regenera su arte** (nuevo id �
 `public/cards/{nuevo-id}.png`); el arte del nombre antiguo queda huérfano y no
 se borra (seguridad con CustomCards del editor).
 
-## 7. Checklist para cartas nuevas
+### Ronda V3.3 — tanda 40: composición exclusiva + anti-marco
+
+Reporte del usuario: posturas repetidas ("solo cambias raza y fondo") y un
+marco dibujado DENTRO del arte del Hacha de Ejecución. Regeneradas con la
+tríada exclusiva de §8 (script `gen-card-art-v8.mjs`):
+
+| Carta | Problema | Corrección (nueva tríada) |
+|-------|----------|---------------------------|
+| Hacha de Ejecución | marco dorado dibujado dentro del arte | Regenerado: bodegón contrapicado a contraluz, full-bleed real (§8 anti-marco) |
+| Colmillo del Verdugo | pose "posando sobre el caído" (gemela con Fiera) | Regenerado: contrapicado extremo, el tajo CAE hacia cámara |
+| Fiera Ensangrentada | humano en pose agachada (y sin ser fiera) | Regenerado: worgen saltando HACIA cámara, garras recortadas por el borde |
+| Tajo Quebrantamuros | pose estática con mandoble en alto | Regenerado: primerísimo plano del IMPACTO, mampostería hacia cámara |
+| Justicia de la Legión | héroe posando sobre vencidos (marco oscuro en 1er intento) | Regenerado: general aéreo desde atrás, la legión entera baja la ladera |
+| Quebrantador de Filas | gigante posando con martillo | Regenerado: nivel del suelo lateral, la fila se rompe en pleno barrido |
+
+## 10. Checklist para cartas nuevas
 
 - [ ] ¿El nombre evoca la categoría correcta? (litmus test §1)
 - [ ] ¿El nombre usa la imaginería de su spec? (§3)
@@ -160,4 +210,6 @@ se borra (seguridad con CustomCards del editor).
 - [ ] Ataque: ¿el golpe está en plena ejecución por el portador de la spec? (§4.3)
 - [ ] ¿El arte no mezcla clases (sin guerreros en cartas de mago, etc.)? (§4.4)
 - [ ] ¿Anatomía correcta (brazos, manos)? (§4.5)
+- [ ] ¿Composición EXCLUSIVA: plano+ángulo+momento distintos de las demás cartas de su spec? (§8)
+- [ ] ¿SIN marco dibujado dentro del arte (full-bleed real, algo recortado por el borde)? (§8)
 - [ ] ¿El id es el slug del nombre (`snake_case`, sin acentos) y existe `public/cards/{id}.png`?

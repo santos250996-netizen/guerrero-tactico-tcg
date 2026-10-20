@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// ═══════════════════════════════════════════════════════════════════════
+// FIRMA ESTABLE (tanda 40): antes el CI generaba un debug.keystore NUEVO en
+// cada runner → cada APK tenía firma distinta → Android exigía DESINSTALAR
+// para instalar la siguiente → se perdía el progreso (localStorage) y el
+// jugador empezaba de 0. Este keystore COMMITTEADO firma SIEMPRE igual:
+// las nuevas versiones se instalan ENCIMA de la vieja conservando datos.
+// ═══════════════════════════════════════════════════════════════════════
+def pactoKeystore = file('pacto-guerra.keystore')
+
 android {
     namespace = "com.guerrero.tactico"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +16,10 @@ android {
         applicationId "com.guerrero.tactico"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // versionCode MONÓTONO: el CI pasa -PversionCode=N (run number de
+        // GitHub Actions). Siempre creciente → Android admite la actualización.
+        versionCode project.hasProperty('versionCode') ? project.property('versionCode').toInteger() : 1
+        versionName "2.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +27,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        pacto {
+            storeFile pactoKeystore
+            storePassword 'PactoGuerra2026'
+            keyAlias 'pactoguerra'
+            keyPassword 'PactoGuerra2026'
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.pacto
+        }
+        debug {
+            // El debug TAMBIÉN usa la firma estable (por si se distribuye una APK de prueba).
+            signingConfig signingConfigs.pacto
         }
     }
 }

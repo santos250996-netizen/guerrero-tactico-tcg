@@ -697,7 +697,7 @@ function FullArtCardMini({ card, onClick, onPreview, selected, showSlotNumber, d
             </span>
             {keyword !== "none" && (
               <span title={keywordMeta.description} className={cn("inline-flex items-center gap-0.5 rounded border border-white/20 bg-black/70 px-0.5 py-0 text-[5px] font-bold uppercase tracking-wider backdrop-blur-sm", keywordMeta.color)}>
-                <keywordMeta.icon className="h-1.5 w-1.5" />{keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? `[${card.keywordValue}]` : ""}
+                <keywordMeta.icon className="h-1.5 w-1.5" />{keywordMeta.short}{keywordMeta.hasValue && card.keywordValue ? <b className="text-white tabular-nums">{card.keywordValue}</b> : ""}
               </span>
             )}
           </div>

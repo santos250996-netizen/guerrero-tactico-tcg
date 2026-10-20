@@ -37,6 +37,8 @@ import { useSettings } from "@/lib/settings";
 import { music } from "@/lib/music";
 import { haptic } from "@/lib/haptics";
 import { CLASS_META, LANE_META, RARITY_META } from "@/lib/game/types";
+import type { LaneId } from "@/lib/game/types";
+import { getEffectiveCost, isCardCostAllowed, getLaneMaxCards } from "@/lib/game/engine";
 import { RARITY_LABEL } from "@/lib/game/balance";
 import { cardById } from "@/lib/game/cards";
 import { PvpLane } from "./PvpLane";
@@ -46,7 +48,6 @@ import { FxLayer } from "../FxLayer";
 import { CardJuiceLayer } from "../CardJuiceLayer";
 import { CornerOrnaments } from "../CardFrame";
 import { Confetti } from "../Confetti";
-import { LegendaryBurst } from "../LegendaryBurst";
 import { SettingsModal } from "../SettingsModal";
 import { MissionToast } from "../MainMenu";
 import { sfx } from "@/lib/sound";
@@ -57,11 +58,39 @@ import { Button } from "@/components/ui/button";
 
 const CLASS_ICON: Record<string, LucideIcon> = { guerrero: Swords, mago: Wand2, asesino: EyeOff };
 
+// ──────────────────────────────────────────────────────────────
+// handPlayOptions — carriles donde una carta de MANO es jugable AHORA
+// (espejo exacto de la validación del servidor: spec del carril, coste
+// con bono, energía y hueco). null si el preview NO es de mano o no es
+// tu turno → el preview queda solo lectura.
+// ──────────────────────────────────────────────────────────────
+function handPlayOptions(
+  card: unknown,
+  view: NonNullable<ReturnType<typeof usePvpStore.getState>["view"]>,
+): { lane: string; title: string; enabled: boolean }[] | null {
+  if (!card || typeof card !== "object") return null;
+  const c = card as { handBonus?: unknown; basePower?: unknown; cost?: number; subtypes?: string[] };
+  // Cartas de TABLERO (basePower) nunca: solo mano (handBonus presente).
+  if (!("handBonus" in c) || "basePower" in c) return null;
+  if (!view.yourTurn || view.phase !== "playing") return null;
+  const you = view.you;
+  const subtypes = c.subtypes ?? [];
+  // SOLO carriles de SU spec (una carta ATAQUE no ofrece PROTECCIÓN/FURIA);
+  // enabled marca si además hay coste/energía/hueco en ese carril.
+  const options = you.lanes
+    .filter((lane: LaneId) => subtypes.includes(lane))
+    .map((lane: LaneId) => {
+      const bonus = you.laneBonuses[lane] ?? null;
+      const okCost = isCardCostAllowed(c.cost ?? 0, bonus) && getEffectiveCost(c.cost ?? 0, bonus) <= you.energy;
+      const okSpace = (view.board[lane]?.player.length ?? 0) < getLaneMaxCards(bonus);
+      return { lane, title: LANE_META[lane].title, enabled: okCost && okSpace };
+    });
+  return options.length > 0 ? options : null;
+}
+
 export function PvpGame() {
   const view = usePvpStore((s) => s.view);
   const floatingNumbers = usePvpStore((s) => s.floatingNumbers);
-  const turnBanner = usePvpStore((s) => s.turnBanner);
-  const legendaryBurst = usePvpStore((s) => s.legendaryBurst);
   const rivalPlay = usePvpStore((s) => s.rivalPlay);
   const connectionLost = usePvpStore((s) => s.connectionLost);
   const previewCard = usePvpStore((s) => s.previewCard);
@@ -295,15 +324,18 @@ export function PvpGame() {
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      {/* ══ Overlays ══ */}
-      <PvpTurnBanner banner={turnBanner} />
+      {/* ══ Overlays ══
+          SIN cartel de turno full-screen (era el jank del cambio de turno:
+          dim de 1.6s + spring + rotación infinita tapando el tablero). El
+          separador central ya dice "Turno N · Te toca / Rival juega…" y los
+          sonidos de pase se mantienen. SIN burst de legendaria (se quedaba
+          clavado en pantalla con el polling). */}
       <RivalPlayAnnouncer announce={rivalPlay} rivalName={view.rival.name} />
       <MissionToast />
       <PvpFloatingNumbersLayer floats={floatingNumbers} />
       <FxLayer />
       <CardJuiceLayer />
       <Confetti trigger={view.phase === "ended" && view.finalResult?.result === "WIN"} />
-      <LegendaryBurst trigger={legendaryBurst} onDone={() => usePvpStore.setState({ legendaryBurst: false })} />
 
       {/* ══ SPLASH PRE-BATALLA — lore del rival (solo LA CAMPAÑA) ══ */}
       {mode === "historia" && campaignStep != null && (
@@ -331,11 +363,19 @@ export function PvpGame() {
         />
       )}
 
-      {/* Preview de carta (reutilizado del solitario) */}
+      {/* Preview de carta — con botones "Jugar en <carril>" cuando es una
+          carta de MANO en TU turno: ruta alternativa al drag (a prueba de
+          dedos torpes en pantallas táctiles). */}
       <CardPreviewModal
         card={previewCard}
         open={previewCard !== null}
         onOpenChange={(o) => { if (!o) setPreviewCard(null); }}
+        playOptions={handPlayOptions(previewCard, view)}
+        onPlayLane={(lane) => {
+          const c = previewCard as { uid?: string } | null;
+          setPreviewCard(null);
+          if (c?.uid) void usePvpStore.getState().sendPlay(c.uid, lane);
+        }}
       />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
 
@@ -498,9 +538,10 @@ function HistoriaEndOverlay({
   const playedStep = usePvpStore.getState().campaignStep ?? 1;
   const campaignClosed = usePvpStore.getState().campaignCompleted;
   const { step: nextStep, prestige } = useCampaignStore.getState();
-  // Botín del JEFE a ELEGIR (3 raras) — suscripción reactiva: al confirmar
-  // una carta el picker desaparece y la elegida aparece como botín.
+  // Botín del JEFE a ELEGIR (3 épicas, 2 tuyas) — suscripción reactiva: al
+  // confirmar las 2 el picker desaparece y el botín completo aparece.
   const bossPick = usePvpStore((s) => s.bossPickOptions);
+  const bossPickSelected = usePvpStore((s) => s.bossPickSelected);
   const picking = result === "WIN" && !!bossPick?.length;
   const won = result === "WIN";
   const loot = rewards ?? [];
@@ -577,15 +618,19 @@ function HistoriaEndOverlay({
               {won && <span className="text-amber-300/90"> · +{xpBonusForStep(playedStep, prestige)} XP de escalón</span>}
             </p>
 
-            {/* ELIGE TU BOTÍN (jefe vencido): 3 raras, tomas 1 — decisión > azar */}
+            {/* ELIGE TU BOTÍN (jefe vencido): 3 ÉPICAS, te llevas 2 —
+                decisión > azar. El jefe TAMBIÉN paga el botín del escalón
+                (se ve al confirmar). */}
             {picking && bossPick && (
               <>
                 <p className="mt-3 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">
                   <Skull className="h-3.5 w-3.5 shrink-0" />
-                  Elige tu botín · 3 raras, 1 tuya
+                  Elige 2 de 3 épicas
                 </p>
                 <div className="mt-3 flex justify-center gap-3">
-                  {bossPick.map((opt, i) => (
+                  {bossPick.map((opt, i) => {
+                    const chosen = bossPickSelected.includes(i);
+                    return (
                     <motion.button
                       key={`${opt.id}-${i}`}
                       initial={{ rotateY: 90, opacity: 0 }}
@@ -595,12 +640,18 @@ function HistoriaEndOverlay({
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         sfx.click();
-                        haptic("success");
-                        usePvpStore.getState().pickBossReward(i);
+                        haptic("light");
+                        usePvpStore.getState().toggleBossPick(i);
                       }}
-                      className="w-24 overflow-hidden rounded-lg border-2 bg-zinc-950 shadow-lg"
-                      style={{ borderColor: rarityBorderColor(opt.rarity) }}
+                      className={cn(
+                        "relative w-24 overflow-hidden rounded-lg border-2 bg-zinc-950 shadow-lg transition-transform",
+                        chosen && "-translate-y-1.5 scale-[1.04]"
+                      )}
+                      style={{ borderColor: chosen ? "rgb(217 70 239 / 0.95)" : rarityBorderColor(opt.rarity) }}
                     >
+                      {chosen && (
+                        <span className="absolute left-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-fuchsia-600 text-[9px] font-black text-white shadow-md">✓</span>
+                      )}
                       <div
                         className="aspect-[3/4] w-full bg-cover bg-center"
                         style={{ backgroundImage: `url(/cards/${opt.id}.webp)` }}
@@ -613,11 +664,29 @@ function HistoriaEndOverlay({
                         </div>
                       </div>
                     </motion.button>
-                  ))}
+                    );
+                  })}
                 </div>
                 <p className="mt-2 text-[8px] uppercase tracking-widest text-zinc-500">
-                  Toca la carta que quieras llevarte
+                  {bossPickSelected.length === 2
+                    ? "Toca CONFIRMAR para llevártelas"
+                    : `Marcadas ${bossPickSelected.length}/2 — toca 2 cartas`}
                 </p>
+                <Button
+                  disabled={bossPickSelected.length !== 2}
+                  onClick={() => {
+                    haptic("success");
+                    usePvpStore.getState().confirmBossPick();
+                  }}
+                  className={cn(
+                    "mt-1.5 w-full border",
+                    bossPickSelected.length === 2
+                      ? "border-fuchsia-300/60 bg-gradient-to-b from-fuchsia-600 to-fuchsia-800 text-white hover:from-fuchsia-500 hover:to-fuchsia-700"
+                      : "cursor-not-allowed border-zinc-800 bg-zinc-900 text-zinc-600"
+                  )}
+                >
+                  Confirmar botín
+                </Button>
               </>
             )}
 
@@ -625,7 +694,7 @@ function HistoriaEndOverlay({
               <>
                 <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-200/80">
                   {bossActive && won
-                    ? "Botín del JEFE · tu elección"
+                    ? "Botín del JEFE · escalón + tus 2 épicas"
                     : `Botín · ${loot.length} ${loot.length === 1 ? "carta" : "cartas"} para tu colección`}
                 </p>
                 <div className="mt-3 flex justify-center gap-3">
@@ -729,55 +798,6 @@ function HistoriaEndOverlay({
   );
 }
 
-// Banner de turno (TU TURNO / TURNO DEL RIVAL)
-// ──────────────────────────────────────────────────────────────
-const PvpTurnBanner = memo(function PvpTurnBanner({ banner }: { banner: { text: string; mine: boolean } | null }) {
-  return (
-    <AnimatePresence>
-      {banner && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-        >
-          {/* SIN backdrop-blur: un filtro full-screen sobre el tablero animándose
-              (choque + floats + anuncio) re-blurea CADA FRAME en WebView Android
-              = el jank del cambio de turno. El dim plano es GPU-gratis. */}
-          <motion.div
-            initial={{ scale: 0.6, rotate: -4 }}
-            animate={{ scale: 1, rotate: 0 }}
-            exit={{ scale: 0.7, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 220, damping: 18 }}
-            className={cn(
-              "flex flex-col items-center gap-2 rounded-2xl border-2 px-8 py-5 shadow-2xl",
-              banner.mine
-                ? "border-emerald-500/60 bg-gradient-to-b from-emerald-950 to-black"
-                : "border-rose-700/60 bg-gradient-to-b from-rose-950 to-black"
-            )}
-          >
-            <motion.div animate={{ rotate: [0, -8, 8, 0] }} transition={{ duration: 1.2, repeat: Infinity }}>
-              {banner.mine
-                ? <Trophy className="h-10 w-10 text-emerald-400" />
-                : <ScrollText className="h-10 w-10 text-rose-400" />}
-            </motion.div>
-            <div
-              className={cn(
-                "text-xl font-black uppercase tracking-widest",
-                banner.mine ? "text-emerald-300" : "text-rose-300"
-              )}
-              style={{ fontFamily: "var(--font-cinzel), serif" }}
-            >
-              {banner.text}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-});
-
-// ──────────────────────────────────────────────────────────────
 // Anuncio de la jugada del rival: tarjeta compacta con el ARTE de la carta
 // jugada + nombre + coste/poder + carril. Hace el turno de la IA legible —
 // antes solo aparecía el cartel "TURNO DEL RIVAL" y las cartas aparecían
@@ -799,7 +819,9 @@ function RivalPlayAnnouncerImpl({
             initial={{ opacity: 0, y: -16, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
-            transition={{ type: "spring", stiffness: 320, damping: 24 }}
+            // Tween simple (150ms): los springs re-disparan layout en WebView
+            // low-end; el anuncio debe costar casi nada en el turno rival.
+            transition={{ duration: 0.15, ease: "easeOut" }}
             className="relative flex items-center gap-2 rounded-xl border-2 border-rose-600/70 bg-gradient-to-b from-rose-950/95 to-black/95 py-1.5 pl-1.5 pr-3 shadow-2xl shadow-black/60"
             data-testid="rival-play-announce"
           >

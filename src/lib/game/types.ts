@@ -221,32 +221,32 @@ export const KEYWORD_META: Record<
   // NEUTRALES (cualquier clase) — set A "Fundamentos"
   // ------------------------------------------------------------------
   fervor: {
-    label: "Fervor", short: "FERVOR", icon: TrendingUp, color: "text-zinc-300",
+    label: "Fervor", short: "FERV", icon: TrendingUp, color: "text-zinc-300",
     description: "Al inicio de cada uno de tus turnos, gana +X de poder permanente.",
     trigger: "start_turn", hasValue: true, scope: "PROPIO",
   },
   coraza: {
-    label: "Coraza", short: "CORAZA", icon: Shield, color: "text-zinc-300",
+    label: "Coraza", short: "CORA", icon: Shield, color: "text-zinc-300",
     description: "Al Jugar: gana un escudo que absorbe las próximas X reducciones de poder que reciba (se agota).",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
   },
   insignia: {
-    label: "Insignia", short: "INSIGNIA", icon: Award, color: "text-zinc-300",
+    label: "Insignia", short: "INSI", icon: Award, color: "text-zinc-300",
     description: "Al Jugar: otorga +X de poder permanente al aliado más débil de este carril.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
   },
   remate: {
-    label: "Remate", short: "REMATE", icon: Axe, color: "text-zinc-300",
+    label: "Remate", short: "REMA", icon: Axe, color: "text-zinc-300",
     description: "Al Jugar: resta X de poder al enemigo más débil de este carril; si tiene X o menos, lo destruye.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
   },
   legado: {
-    label: "Legado", short: "LEGADO", icon: Sprout, color: "text-zinc-300",
+    label: "Legado", short: "LEGA", icon: Sprout, color: "text-zinc-300",
     description: "Último Aliento: al morir, el aliado más débil de este carril gana +X de poder permanente.",
     trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
   },
   fortaleza: {
-    label: "Fortaleza", short: "FORTALEZA", icon: Castle, color: "text-zinc-300",
+    label: "Fortaleza", short: "FORT", icon: Castle, color: "text-zinc-300",
     description: "Fin de Turno: todas tus cartas de este carril ganan +X.",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
   },
@@ -255,37 +255,37 @@ export const KEYWORD_META: Record<
   // DE CLASE GUERRERO — exclusivas por spec
   // ------------------------------------------------------------------
   hender_armadura: {
-    label: "Hender Armadura", short: "HENDER", icon: ShieldOff, color: "text-amber-300",
+    label: "Hender Armadura", short: "HEND", icon: ShieldOff, color: "text-amber-300",
     description: "Al Jugar: reduce en X el poder del enemigo más fuerte de este carril. Los escudos no lo impiden.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "armas",
   },
   duelista: {
-    label: "Duelista", short: "DUELISTA", icon: Swords, color: "text-amber-300",
+    label: "Duelista", short: "DUEL", icon: Swords, color: "text-amber-300",
     description: "Inicio de Turno: gana +X mientras sea tu única carta en este carril.",
     trigger: "start_turn", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "armas",
   },
   amparo: {
-    label: "Amparo", short: "AMPARO", icon: ShieldPlus, color: "text-sky-300",
+    label: "Amparo", short: "AMPA", icon: ShieldPlus, color: "text-sky-300",
     description: "Al Jugar: tus demás cartas de este carril ganan un escudo de X puntos (se agota).",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "proteccion",
   },
   purificacion: {
-    label: "Purificación", short: "PURIF.", icon: Sparkles, color: "text-sky-300",
+    label: "Purificación", short: "PURI", icon: Sparkles, color: "text-sky-300",
     description: "Inicio de Turno: elimina las reducciones de poder acumuladas de tus cartas en este carril.",
     trigger: "start_turn", hasValue: false, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "proteccion",
   },
   impetu: {
-    label: "Ímpetu", short: "ÍMPETU", icon: ChevronsUp, color: "text-rose-300",
+    label: "Ímpetu", short: "ÍMPE", icon: ChevronsUp, color: "text-rose-300",
     description: "Al Jugar: gana +X por cada carta que hayas jugado este turno (incluida esta).",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "furia",
   },
   crueldad: {
-    label: "Crueldad", short: "CRUELDAD", icon: Target, color: "text-rose-300",
+    label: "Crueldad", short: "CRUE", icon: Target, color: "text-rose-300",
     description: "Fin de Turno: reduce en X el poder del enemigo más débil de este carril.",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "furia",
@@ -295,37 +295,37 @@ export const KEYWORD_META: Record<
   // DE CLASE MAGO — exclusivas por spec (V3, Burst)
   // ------------------------------------------------------------------
   convergencia: {
-    label: "Convergencia", short: "CONVERG.", icon: Sparkles, color: "text-violet-300",
+    label: "Convergencia", short: "CONV", icon: Sparkles, color: "text-violet-300",
     description: "Al Jugar: gana +X por cada carta tuya que ya esté en este carril.",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "arcana",
   },
   sobrecarga: {
-    label: "Sobrecarga", short: "SOBREC.", icon: Zap, color: "text-violet-300",
+    label: "Sobrecarga", short: "SOBR", icon: Zap, color: "text-violet-300",
     description: "Al Jugar: gana +2X de poder. Fin de Turno: pierde X (la energía se disipa).",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "arcana",
   },
   llamarada: {
-    label: "Llamarada", short: "LLAMARADA", icon: FlameKindling, color: "text-orange-300",
+    label: "Llamarada", short: "LLAM", icon: FlameKindling, color: "text-orange-300",
     description: "Al Jugar: reduce en X el poder de TODAS las cartas enemigas de este carril.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "fuego",
   },
   combustion: {
-    label: "Combustión", short: "COMBUST.", icon: Flame, color: "text-orange-300",
+    label: "Combustión", short: "COMB", icon: Flame, color: "text-orange-300",
     description: "Último Aliento: reduce en 2X el poder del enemigo más fuerte del carril. Los escudos no lo impiden.",
     trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "fuego",
   },
   escarcha: {
-    label: "Escarcha", short: "ESCARCHA", icon: Snowflake, color: "text-cyan-300",
+    label: "Escarcha", short: "ESCA", icon: Snowflake, color: "text-cyan-300",
     description: "Inicio de Turno: tu escudo se restaura hasta X puntos (renovable, a diferencia de Coraza).",
     trigger: "start_turn", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "hielo",
   },
   ventisca: {
-    label: "Ventisca", short: "VENTISCA", icon: Wind, color: "text-cyan-300",
+    label: "Ventisca", short: "VENT", icon: Wind, color: "text-cyan-300",
     description: "Fin de Turno: reduce en X el poder de TODAS las cartas enemigas de este carril.",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "hielo",
@@ -335,37 +335,37 @@ export const KEYWORD_META: Record<
   // DE CLASE ASESINO — exclusivas por spec (V3, Precisión condicional)
   // ------------------------------------------------------------------
   veneno: {
-    label: "Veneno", short: "VENENO", icon: FlaskConical, color: "text-lime-300",
+    label: "Veneno", short: "VENE", icon: FlaskConical, color: "text-lime-300",
     description: "Inicio de Turno: reduce en X el poder del enemigo más fuerte. El veneno ignora los escudos.",
     trigger: "start_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "veneno",
   },
   contagio: {
-    label: "Contagio", short: "CONTAGIO", icon: Bug, color: "text-lime-300",
+    label: "Contagio", short: "CONT", icon: Bug, color: "text-lime-300",
     description: "Fin de Turno: reduce en X el poder del enemigo con más reducciones acumuladas (si ninguna tiene, no hace nada).",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "veneno",
   },
   refriega: {
-    label: "Refriega", short: "REFRIEGA", icon: Sword, color: "text-red-300",
+    label: "Refriega", short: "REFR", icon: Sword, color: "text-red-300",
     description: "Al Jugar: gana +X por cada carta enemiga que ya esté en este carril.",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "combate",
   },
   golpe_certero: {
-    label: "Golpe Certero", short: "CERTERO", icon: Crosshair, color: "text-red-300",
+    label: "Golpe Certero", short: "CERT", icon: Crosshair, color: "text-red-300",
     description: "Al Jugar: reduce en X el poder del enemigo más fuerte de este carril. Los escudos lo absorben (golpe honesto).",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "combate",
   },
   emboscada: {
-    label: "Emboscada", short: "EMBOSCAD.", icon: EyeOff, color: "text-indigo-300",
+    label: "Emboscada", short: "EMBO", icon: EyeOff, color: "text-indigo-300",
     description: "Al Jugar: gana +2X si es tu primera carta del turno; si no, gana +X.",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "sigilo",
   },
   purga: {
-    label: "Purga", short: "PURGA", icon: Skull, color: "text-indigo-300",
+    label: "Purga", short: "PURG", icon: Skull, color: "text-indigo-300",
     description: "Al Jugar: destruye la carta enemiga más débil de este carril con poder ≤ X.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "sigilo",
@@ -375,55 +375,55 @@ export const KEYWORD_META: Record<
   // 3ª TANDA — 1 keyword nueva por spec (mazos segundos)
   // ------------------------------------------------------------------
   orden_batalla: {
-    label: "Orden de Batalla", short: "ORDEN", icon: Flag, color: "text-amber-300",
+    label: "Orden de Batalla", short: "ORDE", icon: Flag, color: "text-amber-300",
     description: "Al Jugar: esta carta y tus demás cartas de este carril ganan +X de poder permanente.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "armas",
   },
   custodia: {
-    label: "Custodia", short: "CUSTODIA", icon: ShieldCheck, color: "text-sky-300",
+    label: "Custodia", short: "CUST", icon: ShieldCheck, color: "text-sky-300",
     description: "Inicio de Turno: el escudo del aliado más débil de este carril (puede ser ella misma) se restaura hasta X puntos.",
     trigger: "start_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "proteccion",
   },
   desafio: {
-    label: "Desafío", short: "DESAFÍO", icon: Flame, color: "text-rose-300",
+    label: "Desafío", short: "DESA", icon: Flame, color: "text-rose-300",
     description: "Inicio de Turno: gana +X mientras el poder total enemigo de este carril supere al tuyo.",
     trigger: "start_turn", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "furia",
   },
   drenar_poder: {
-    label: "Drenar Poder", short: "DRENAJE", icon: Droplets, color: "text-violet-300",
+    label: "Drenar Poder", short: "DREN", icon: Droplets, color: "text-violet-300",
     description: "Al Jugar: gana +X de poder y reduce en X el poder del enemigo más fuerte de este carril. Los escudos absorben la reducción.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "arcana",
   },
   detonacion: {
-    label: "Detonación", short: "DETONACIÓN", icon: Bomb, color: "text-orange-300",
+    label: "Detonación", short: "DETO", icon: Bomb, color: "text-orange-300",
     description: "Último Aliento: reduce en X el poder de TODAS las cartas enemigas de este carril.",
     trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "fuego",
   },
   ruptura_glacial: {
-    label: "Ruptura Glacial", short: "RUPTURA", icon: Hammer, color: "text-cyan-300",
+    label: "Ruptura Glacial", short: "RUPT", icon: Hammer, color: "text-cyan-300",
     description: "Al Jugar: reduce en X el poder del enemigo con MÁS reducciones acumuladas de este carril. Los escudos no lo impiden.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "hielo",
   },
   miasma: {
-    label: "Miasma", short: "MIASMA", icon: CloudFog, color: "text-lime-300",
+    label: "Miasma", short: "MIAS", icon: CloudFog, color: "text-lime-300",
     description: "Al Jugar: reduce en X el poder de TODAS las cartas enemigas de este carril. El gas ignora los escudos.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "veneno",
   },
   caza_mayor: {
-    label: "Caza Mayor", short: "CAZA MAYOR", icon: Telescope, color: "text-red-300",
+    label: "Caza Mayor", short: "CAZA", icon: Telescope, color: "text-red-300",
     description: "Al Jugar: gana +2X si la carta enemiga más fuerte de este carril supera el poder base de esta carta; si no, gana +X.",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "combate",
   },
   conspiracion: {
-    label: "Conspiración", short: "CONSPIR.", icon: Handshake, color: "text-indigo-300",
+    label: "Conspiración", short: "CONS", icon: Handshake, color: "text-indigo-300",
     description: "Al Jugar: el resto de cartas de tu mano gana +X de poder permanente.",
     trigger: "on_play", hasValue: true, scope: "MANO",
     exclusiveSubtype: "sigilo",

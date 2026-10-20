@@ -23,6 +23,9 @@ import {
   stepChipLabel,
   biomeForStep,
   loreForStep,
+  classUnlocked,
+  classUnlockHint,
+  CLASS_UNLOCK_STEP,
   CAMPAIGN_BOT_LORE,
   CAMPAIGN_BOSS_LORE,
 } from "../src/lib/game/campaign";
@@ -259,21 +262,32 @@ section("7. Lore + biomas + botín del JEFE a ELEGIR (3 raras)");
     "bioma correcto por tramo y por muro de jefe"
   );
   assert(biomeForStep(3).tint.includes("radial-gradient") && biomeForStep(3).hex.length > 0, "bioma lleva tinte CSS + color de acento");
-  // Botín del JEFE: 3 opciones RARAS distintas, se confirma 1 con isNew real
+  // DESBLOQUEO de clases (tanda 40): mago al vencer el jefe 5 · asesino el 10
+  assert(CLASS_UNLOCK_STEP.guerrero === 0 && CLASS_UNLOCK_STEP.mago === 5 && CLASS_UNLOCK_STEP.asesino === 10, "umbrales de desbloqueo correctos (0/5/10)");
+  assert(classUnlocked("guerrero", 0) && !classUnlocked("mago", 0) && !classUnlocked("asesino", 4), "solo guerrero está abierta al empezar");
+  assert(classUnlocked("mago", 5) && !classUnlocked("asesino", 5), "vencer Korgath abre MAGO (y solo mago)");
+  assert(classUnlocked("mago", 9) && !classUnlocked("asesino", 9), "9 escalones NO abren al asesino");
+  assert(classUnlocked("asesino", 10), "vencer Nyx abre ASESINO");
+  assert(classUnlockHint("guerrero") === null, "guerrero no necesita pista de desbloqueo");
+  assert((classUnlockHint("mago") ?? "").includes("Korgath") && (classUnlockHint("mago") ?? "").includes("5"), "pista de mago apunta a Korgath · Escalón 5");
+  assert((classUnlockHint("asesino") ?? "").includes("Nyx") && (classUnlockHint("asesino") ?? "").includes("10"), "pista de asesino apunta a Nyx · Escalón 10");
+  // Botín del JEFE (tanda 40): 3 opciones ÉPICAS distintas y se llevan 2 (isNew real)
   useCollectionStore.getState().resetAll();
   const col = useCollectionStore.getState();
   const before = col.totalCopies();
-  const opts = col.rollPickOptions(3, "rare");
+  const opts = col.rollPickOptions(3, "epic");
   assert(opts.length === 3, "el jefe ofrece 3 opciones");
-  assert(opts.every((o) => o.rarity === "rare"), "todas las opciones son RARAS (nada de legendarias)");
+  assert(opts.every((o) => o.rarity === "epic"), "todas las opciones son ÉPICAS (nada de legendarias)");
   assert(new Set(opts.map((o) => o.id)).size === 3, "las 3 opciones son cartas distintas");
   const granted = col.grantPick(opts[0]);
-  assert(useCollectionStore.getState().countOf(granted.id, "rare") >= 1, "la carta elegida quedó en la colección (tier raro)");
+  assert(useCollectionStore.getState().countOf(granted.id, "epic") >= 1, "la carta elegida quedó en la colección (tier épico)");
   assert(useCollectionStore.getState().totalCopies() === before + 1, "grantPick añade EXACTAMENTE 1 copia");
-  const again = col.grantPick({ id: granted.id, rarity: "rare", isNew: true });
+  const granted2 = col.grantPick(opts[1]);
+  assert(useCollectionStore.getState().totalCopies() === before + 2, "el pick de 2 añade EXACTAMENTE 2 copias");
+  const again = col.grantPick({ id: granted.id, rarity: "epic", isNew: true });
   assert(again.isNew === false, "segunda copia de la misma carta ya NO es NUEVA");
-  const once = col.grantPick({ id: opts[1].id, rarity: "rare", isNew: true });
-  assert(once.isNew === true || opts[1].id === granted.id, "1ª copia de una carta nueva SÍ marca NUEVA");
+  const once = col.grantPick({ id: opts[2].id, rarity: "epic", isNew: true });
+  assert(once.isNew === true || opts[2].id === granted.id || opts[2].id === granted2.id, "1ª copia de una carta nueva SÍ marca NUEVA");
 }
 
 // ===========================================================================

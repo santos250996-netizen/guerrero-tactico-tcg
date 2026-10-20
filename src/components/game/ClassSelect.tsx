@@ -17,8 +17,8 @@ import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
-import { CAMPAIGN_STEPS, isBossStep } from "@/lib/game/campaign";
-import { ArrowLeft, ChevronRight, EyeOff, Library, Skull, Star, Swords, Wand2 } from "lucide-react";
+import { CAMPAIGN_STEPS, isBossStep, classUnlocked, classUnlockHint } from "@/lib/game/campaign";
+import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2 } from "lucide-react";
 import type { GameClass } from "@/lib/game/types";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { cn } from "@/lib/utils";
@@ -185,6 +185,8 @@ export function ClassSelect() {
   // LA CAMPAÑA — escalera persistente (global entre clases)
   const campaignStep = useCampaignStore((s) => s.step);
   const prestige = useCampaignStore((s) => s.prestige);
+  // DESBLOQUEO: mago = vencer el jefe del escalón 5 · asesino = el del 10.
+  const stepsCleared = useCampaignStore((s) => s.stepsCleared);
 
   useEffect(() => {
     hydrateCollection();
@@ -198,6 +200,7 @@ export function ClassSelect() {
   // JUGAR → LA CAMPAÑA en el ESCALÓN PENDIENTE (jefes incluidos: emergen
   // solos de la escalera — sin botón aparte).
   const startCampaign = async (cls: GameClass) => {
+    if (!classUnlocked(cls, stepsCleared)) return;
     selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
     const profileName = loadStoredProfileBrief()?.username ?? "";
@@ -210,6 +213,7 @@ export function ClassSelect() {
 
   // Open deck editor — remember we came from class-select
   const openDeckEditor = async (cls: GameClass) => {
+    if (!classUnlocked(cls, stepsCleared)) return;
     selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
     setDeckEditorReturn("class-select");
@@ -257,6 +261,8 @@ export function ClassSelect() {
 
         {CLASSES.map((cls, i) => {
           const c = COLOR_MAP[cls.color];
+          const unlocked = classUnlocked(cls.id, stepsCleared);
+          const unlockHint = classUnlockHint(cls.id);
           return (
             <motion.div
               key={cls.id}
@@ -264,7 +270,10 @@ export function ClassSelect() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.08 + i * 0.1, duration: 0.4, ease: "easeOut" }}
               whileHover={{ scale: 1.01 }}
-              className={`relative overflow-hidden rounded-2xl border-2 ${c.border} ${c.bg} ${c.glow}`}
+              className={cn(
+                "relative overflow-hidden rounded-2xl border-2",
+                unlocked ? `${c.border} ${c.bg} ${c.glow}` : "border-zinc-800 bg-zinc-950/60 opacity-80"
+              )}
             >
               {/* Top accent line — color band matching the class */}
               <div
@@ -297,6 +306,14 @@ export function ClassSelect() {
 
               {/* Actions: MAZO (secondary) + JUGAR (único botón de campaña) */}
               <div className="border-t border-zinc-800/60 bg-black/30 p-2.5">
+                {!unlocked ? (
+                  /* CLASE BLOQUEADA — candado + qué jefe la abre. Sin trampas:
+                     ni MAZO ni JUGAR responden hasta vencer al muro. */
+                  <div className="flex items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/70 py-2.5 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-500">
+                    <Lock className="h-3.5 w-3.5 text-zinc-500" />
+                    <span>{unlockHint}</span>
+                  </div>
+                ) : (
                 <div className="grid grid-cols-5 gap-1.5">
                   <button
                     onClick={() => openDeckEditor(cls.id)}
@@ -325,6 +342,7 @@ export function ClassSelect() {
                     <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
                   </motion.button>
                 </div>
+                )}
               </div>
             </motion.div>
           );

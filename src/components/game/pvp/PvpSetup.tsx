@@ -7,13 +7,15 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Swords, Wand2, EyeOff, Radio, LogIn, Loader2, User, Wifi } from "lucide-react";
+import { ArrowLeft, Swords, Wand2, EyeOff, Radio, LogIn, Loader2, Lock, User, Wifi } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { usePvpStore } from "@/store/pvpStore";
+import { useCampaignStore } from "@/store/campaignStore";
 import { useStatsStore, leagueOf, nextLeagueOf } from "@/store/statsStore";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
+import { classUnlocked, classUnlockHint } from "@/lib/game/campaign";
 import { LOCAL_PVP_PORT } from "@/lib/pvp/local-server";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { sfx } from "@/lib/sound";
@@ -39,6 +41,16 @@ export function PvpSetup() {
   const createRoom = usePvpStore((s) => s.createRoom);
   const joinRoom = usePvpStore((s) => s.joinRoom);
   const exitToMenu = usePvpStore((s) => s.exitToMenu);
+  // DESBLOQUEO de clases: la misma campaña manda en el PvP (progresión única).
+  const stepsCleared = useCampaignStore((s) => s.stepsCleared);
+  useEffect(() => {
+    useCampaignStore.getState().hydrate();
+    // Si la clase recordada quedó bloqueada (progreso nuevo), cae a Guerrero.
+    const st = useCampaignStore.getState();
+    if (!classUnlocked(usePvpStore.getState().gameClass, st.stepsCleared)) {
+      usePvpStore.getState().setGameClass("guerrero");
+    }
+  }, []);
 
   // Solo en la APK existe modo sin internet (servidor dentro de la app).
   const isNative = Capacitor.isNativePlatform();
@@ -117,6 +129,20 @@ export function PvpSetup() {
             {CLASS_PICKS.map((pick) => {
               const meta = CLASS_META[pick.id];
               const selected = gameClass === pick.id;
+              const unlocked = classUnlocked(pick.id, stepsCleared);
+              if (!unlocked) {
+                return (
+                  <div
+                    key={pick.id}
+                    title={classUnlockHint(pick.id) ?? "Bloqueada"}
+                    className="flex flex-col items-center gap-1 rounded-lg border border-zinc-900 bg-zinc-950/80 px-2 py-2.5 opacity-70"
+                  >
+                    <Lock className="h-6 w-6 text-zinc-700" strokeWidth={2.2} />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-600">{meta.label}</span>
+                    <span className="text-center text-[7px] leading-tight text-zinc-700">{classUnlockHint(pick.id)}</span>
+                  </div>
+                );
+              }
               return (
                 <motion.button
                   key={pick.id}

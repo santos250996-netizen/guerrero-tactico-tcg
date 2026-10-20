@@ -94,8 +94,10 @@ interface PvpStoreState {
   campaignStep: number | null;
   /** Splash pre-batalla de LA CAMPAÑA (lore del rival) pendiente de confirmar. */
   battleIntro: boolean;
-  /** Botín del JEFE a ELEGIR: 3 raras — toma 1 (null fuera del caso). */
+  /** Botín del JEFE a ELEGIR: 3 ÉPICAS — toma 2 (null fuera del caso). */
   bossPickOptions: CardReward[] | null;
+  /** Opciones ya marcadas del pick del jefe (índices, máx 2). */
+  bossPickSelected: number[];
   /** La victoria acaba de CERRAR la campaña (escalón 15) → celebración ★. */
   campaignCompleted: boolean;
   /** seq de la última acción "pass" — dispara el choque de carriles en UI. */
@@ -128,8 +130,6 @@ interface PvpStoreState {
   // UI
   selectedCardUid: string | null;
   floatingNumbers: PvpFloatingNumber[];
-  turnBanner: { text: string; mine: boolean } | null;
-  legendaryBurst: boolean;
   invalidPlayMsg: string | null;
   previewCard: CardDef | null;
   rivalPlay: RivalPlayAnnounce | null;
@@ -150,8 +150,10 @@ interface PvpStoreState {
   exitToMenu: () => void;
   /** Cierra el splash de lore y deja ver el tablero (tap en «¡A LUCHAR!»). */
   dismissBattleIntro: () => void;
-  /** Confirma la opción elegida del botín del JEFE → pasa a pendingRewards. */
-  pickBossReward: (index: number) => void;
+  /** Marca/desmarca una opción del botín del JEFE (máximo 2). */
+  toggleBossPick: (index: number) => void;
+  /** Confirma el pick: concede las marcadas y las añade al botín mostrado. */
+  confirmBossPick: () => void;
 
   /** Modo historia — LA CAMPAÑA: juega el ESCALÓN dado de la escalera de
    *  guerra (5/10/15 son JEFES). Rival determinista, tier que escala. */
@@ -219,8 +221,6 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
     // Efectos de la última acción (solo si es nueva)
     const newFloats: PvpFloatingNumber[] = [];
-    let turnBanner = st.turnBanner;
-    let legendaryBurst = st.legendaryBurst;
     let rivalPlay: RivalPlayAnnounce | null = null;
     let highlightUid: string | null = null;
     let clashSeq = st.clashSeq;
@@ -242,18 +242,13 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
           if (m.powerDelta === 0) continue;
           newFloats.push({ id: `pf-${++floatId}`, uid: m.uid, value: m.powerDelta });
         }
-        if (la.playedRarity === "legendary") {
-          legendaryBurst = true;
-          setTimeout(() => set({ legendaryBurst: false }), 1900);
-        }
-        if (la.bannerFor && la.bannerFor !== mine && view.phase === "playing") {
-          // El banner de MI turno lo dispara el flip de activeSide (abajo)
-        }
+        // SONIDOS de cambio de turno (sin cartel: el full-screen de 1.6s era
+        // el jank del cambio de turno y el burst de legendaria se quedaba
+        // clavado en pantalla — el anillo ámbar de la carta + el separador
+        // ya comunican lo que pasa).
         if (la.bannerFor && la.bannerFor === mine && view.phase === "playing") {
-          turnBanner = { text: "TU TURNO", mine: true };
           if (useSettings.getState().soundOn) sfx.turnPass();
         } else if (la.bannerFor && view.phase === "playing") {
-          turnBanner = { text: "TURNO DEL RIVAL", mine: false };
           if (useSettings.getState().soundOn) sfx.enemyTurn();
         }
 
@@ -300,26 +295,12 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const screen: PvpScreen =
       view.phase === "playing" || view.phase === "ended" ? "game" : st.screen === "lobby" ? "lobby" : st.screen;
 
-    // Auto-limpieza del banner
-    if (turnBanner && turnBanner !== st.turnBanner) {
-      setTimeout(() => {
-        try {
-          const cur = get().turnBanner;
-          if (cur && cur.text === turnBanner!.text) set({ turnBanner: null });
-        } catch {
-          // noop
-        }
-      }, 1600);
-    }
-
     set({
       view,
       lastActionSeq: view.lastAction?.seq ?? prevSeq,
       code: view.code,
       mySide: view.you.side,
       screen,
-      turnBanner,
-      legendaryBurst,
       rivalPlay,
       highlightUid,
       clashSeq,
@@ -611,8 +592,18 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     if (won) {
       col.registerWin();
       if (st.bossActive) {
-        // ELIGE TU BOTÍN: 3 raras distintas, te llevas 1.
-        set({ bossPickOptions: col.rollPickOptions(3, "rare") });
+        // EL JEFE PAGA DE VERDAD (se sentía pobre junto a las normales):
+        // el botín COMPLETO del escalón + ELIGE 2 de 3 ÉPICAS (decisión >
+        // azar; sin legendarias que aplanen la progresión).
+        const rewards = col.addRewards(rewardCountForStep(step), {
+          bonusForLevel: true, // +1 carta extra en N5/N10
+          floorLevel: effectiveDropLevel(useStatsStore.getState().level, step),
+        });
+        set({
+          pendingRewards: rewards,
+          bossPickOptions: col.rollPickOptions(3, "epic"),
+          bossPickSelected: [],
+        });
       } else {
         const rewards = col.addRewards(rewardCountForStep(step), {
           bonusForLevel: true, // +1 carta extra en N5/N10
@@ -664,6 +655,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     pendingRewards: null,
     battleIntro: false,
     bossPickOptions: null,
+    bossPickSelected: [],
     bossActive: false,
     campaignStep: null,
     campaignCompleted: false,
@@ -686,8 +678,6 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     resumed: false,
     selectedCardUid: null,
     floatingNumbers: [],
-    turnBanner: null,
-    legendaryBurst: false,
     invalidPlayMsg: null,
     passing: false,
     previewCard: null,
@@ -726,6 +716,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         pendingRewards: null,
         battleIntro: false,
         bossPickOptions: null,
+        bossPickSelected: [],
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -757,6 +748,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         pendingRewards: null,
         battleIntro: false,
         bossPickOptions: null,
+        bossPickSelected: [],
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -781,11 +773,26 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
     dismissBattleIntro: () => set({ battleIntro: false }),
 
-    pickBossReward: (index) => {
-      const opts = get().bossPickOptions;
-      if (!opts || !opts[index]) return;
-      const granted = useCollectionStore.getState().grantPick(opts[index]);
-      set({ pendingRewards: [granted], bossPickOptions: null });
+    toggleBossPick: (index) => {
+      const sel = get().bossPickSelected;
+      if (sel.includes(index)) {
+        set({ bossPickSelected: sel.filter((i) => i !== index) });
+        return;
+      }
+      if (sel.length >= 2) return; // 2 de 3 — ni una más
+      set({ bossPickSelected: [...sel, index] });
+    },
+
+    confirmBossPick: () => {
+      const { bossPickOptions, bossPickSelected, pendingRewards } = get();
+      if (!bossPickOptions || bossPickSelected.length === 0) return;
+      const col = useCollectionStore.getState();
+      const granted = bossPickSelected.map((i) => col.grantPick(bossPickOptions[i]));
+      set({
+        pendingRewards: [...(pendingRewards ?? []), ...granted],
+        bossPickOptions: null,
+        bossPickSelected: [],
+      });
     },
 
     startHistoria: ({ playerClass, playerName, step }) => {
@@ -836,6 +843,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         pendingRewards: null,
         battleIntro: true, // splash de lore — se cierra con «¡A LUCHAR!»
         bossPickOptions: null,
+        bossPickSelected: [],
         mySide: "a",
         code: "HIST",
         token: null,

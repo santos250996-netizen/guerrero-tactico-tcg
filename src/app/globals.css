@@ -338,3 +338,11 @@
   .fx-clash-board { animation: none; }
   .clash-spark { animation: none; opacity: 0; }
 }
+
+/* ── AUDITORÍA MÓVIL (tanda 40): en pantallas táctiles el foil NUNCA
+      anima — un gradiente barriendo en bucle por cada legendaria/mítica
+      en mesa es trabajo de GPU constante en WebView y el juego "se pega".
+      La iridiscencia queda ESTÁTICA (mismo look, coste cero por frame). */
+@media (pointer: coarse) {
+  .foil-holo-full { animation: none; }
+}
