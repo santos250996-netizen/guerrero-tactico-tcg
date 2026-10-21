@@ -36,12 +36,36 @@ jobs:
           sudo apt-get install -y unzip curl
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
           cd /tmp
-          curl -fSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o commandlinetools.zip
-          unzip -q commandlinetools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          # ═══════════════════════════════════════════════════════════════
+          # DESCARGA BLINDADA: el CI recibió una vez un archivo que NO era
+          # un ZIP ("Archive is not a ZIP archive" → step muerto → build
+          # perdido). Defensa en 3 capas: (1) cadena de versiones — si la
+          # CDN sirve corrupto un build number exacto, cae al siguiente;
+          # (2) firma ZIP (magic bytes PK) ANTES de confiar; (3) unzip -t
+          # valida la integridad completa. Reintentos por versión.
+          # ═══════════════════════════════════════════════════════════════
+          ok=0
+          for ver in 15859902 13114758 9477386; do
+            for intento in 1 2; do
+              URL="https://dl.google.com/android/repository/commandlinetools-linux-${ver}_latest.zip"
+              echo "→ descargando cmdline-tools ${ver} (intento ${intento})…"
+              curl -fSL --connect-timeout 20 --max-time 600 -o cmdtools.zip "$URL" || { echo "   curl falló"; sleep 5; continue; }
+              if ! head -c 2 cmdtools.zip | grep -q PK; then echo "   NO es un ZIP (firma inválida), reintentando…"; sleep 5; continue; fi
+              if ! unzip -tq cmdtools.zip >/dev/null 2>&1; then echo "   ZIP corrupto (unzip -t falló), reintentando…"; sleep 5; continue; fi
+              echo "   OK — ${ver} ($(du -h cmdtools.zip | cut -f1)) integridad verificada"
+              ok=1; break 2
+            done
+          done
+          [ "$ok" = "1" ] || { echo "✗ ninguna descarga produjo un ZIP válido"; exit 1; }
+          unzip -q cmdtools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
           mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
-          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "cmdline-tools;latest"
+          # sdkmanager también es red → un intento de gracia si falla.
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "cmdline-tools;latest" || {
+            echo "   sdkmanager falló — reintento único…"; sleep 10
+            yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "cmdline-tools;latest"
+          }
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
