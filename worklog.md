@@ -1133,3 +1133,24 @@ Work Log:
 Stage Summary:
 - El pipeline del APK es autoreparable ante fallos transitorios de descarga: no vuelve a morir por un ZIP corrupto puntual
 - Cadena de versiones = también immune a que Google retire un build number concreto del repo
+
+---
+Task ID: 53
+Agent: Z (principal)
+Task: PLANIFICACIÓN EXPANSIÓN V3.0 — «lo siguiente va a ser una expansión: corregir/mejorar lo pendiente + 3 clases nuevas (Pirata, Tinker, Botánico) + ampliar las cartas de las clases hechas; antes de codear cualquier cosa me preguntas»
+
+Work Log:
+- ESTADO PREVIO VERIFICADO: el fix del CI SDK ya estaba hecho y pusheado (Task 52, commit ae03572 — descarga blindada 3 capas). Sin bloqueos técnicos.
+- ALCANCE NEGOCIADO CON EL JUGADOR (AskUserQuestion, 8 preguntas): mecánicas = propuesta de Z aprobable · 28 cartas estándar por clase nueva · +8 cartas por clase existente (pool 28→36, mazo jugable sigue 12) · mejoras = Rush de Jefes + V3.1 (B6/E13) · UI selector = compacta+detalle · mega-release V3.0 · arte IA por carta · orden Botánico→Pirata→Tinker.
+- ARQUITECTURA MAPEADA: GameClass en 18 archivos · el board usa LaneId POR CLASE (9 hoy, cada clase juega en sus 3 carriles propios) · distribución por carril 8/8/12 con el carril del jefe en 12 (Protección/Hielo/Sigilo = CAMPAIGN_BOSS_THEMES) · campana = UNA escalera global de 15 con jefes en 5/10/15 · balance PTP=coste×4+1.5, Mod_Once 0.8 recurrentes, SCOPE_MODS hasta 1.5 (CARRIL_LOCAL_ADYACENTE existe y NADIE lo usa — oportunidad de diseño) · mazo jugable = 12 ids del pool (deck-storage).
+- KITS DISEÑADOS (docs/plan-expansion-v3.md §2): 18 keywords nuevos (6 por clase) con ejes mecánicos INÉDITOS vs las 33 existentes — contador de turnos (estacion), ranking de poder entre propias (simbiosis), robo con botín por destrucción (saqueo), SWAP de poder (motin), buff aleatorio de mano (contrabando), AoE adyacente on_play/on_death (canonazo/andanada), doble escudo (micelio), devorar que alimenta (carnivora), espejo de Contagio (polen), muerte que buffa carril entero (floracion), escudo al carril completo (remache), reciclaje con escudo (chatarra), condición por Ítem (engranaje/sobrecalentar), francotirar al más fuerte recurrente (torreta), multi-objetivo doble (descarga).
+- CLASES NUEVAS: Botánico 🌿 (RAÍZ/FLOR/ESPORAS, jefe Yggra) · Pirata 🏴‍☠️ (PUENTE/BODEGA/ARTILLERÍA, jefe Kaela) · Tinker 🔧 (TALLER/MAQUINARIA/CHISPA, jefe Dorvik). Ampliación existentes: 9 keywords nuevos más (1 por carril, patrón tanda 3) con ejes propuestos sujetos a auditoría Regla A/B.
+- ESPEC DE RUSH DE JEFES escrita (§3.2): gauntlet 3 jefes del ciclo con XP×2 y botín escalonado (raro→épico→legendaria 50%), primera recompensa completa por ciclo/prestigio, mejor run por clase en statsStore.
+- V3.1 B6/E13: la spec NO está en el repo (se perdió con el reset de contexto) — marcado como dato a re-pedir al jugador o re-derivar del audit de balance (§3.3, riesgo 6).
+- DESPLIEGUE: mega-release con constant V3_CLASSES_UNLOCKED — tandas T-A…T-F se commitean en main (CI verde, suites crecen) SIN exponer las clases nuevas en UI; T-G enciende todo + versionName 3.0 (§5).
+- DOC COMPLETO en docs/plan-expansion-v3.md (alcance numérico, kits, campana, UI, tandas, arte, riesgos). CERO código nuevo — el plan espera aprobación.
+
+Stage Summary:
+- La expansión V3.0 queda cuantificada: +3 clases, +108 cartas, +27 keywords, +108 arte, +3 jefes, Rush de Jefes, V3.1 — en 7 tandas verificadas (T-A a T-G)
+- Lo que espera aprobación del jugador: los 3 kits de keywords (§2 del doc), los ejes de la ampliación (§2.4), la rotación de jefes por prestigio (§3.1) y la spec de Rush de Jefes (§3.2)
+- Bloqueante de datos: re-pedir B6/E13 (solo afecta T-F)
