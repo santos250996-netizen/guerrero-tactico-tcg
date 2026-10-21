@@ -5,8 +5,10 @@ import { useGameStore } from "@/store/gameStore";
 import { sfx } from "@/lib/sound";
 import { music } from "@/lib/music";
 import { useState, useEffect } from "react";
-import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X } from "lucide-react";
+import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X, ClipboardPaste } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
+import { isFreshInstall, applyProgressCode, readClipboardText } from "@/lib/progress-backup";
+import { haptic } from "@/lib/haptics";
 import { CollectionMenuButton } from "./CollectionScreen";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { useMissionStore, type Mission } from "@/store/missionStore";
@@ -59,6 +61,15 @@ export function MainMenu() {
   const [ready, setReady] = useState(false);
   const [avatarCardId, setAvatarCardId] = useState<string | null>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
+  // RESTAURACIÓN DE UN TOQUE (Task 50 — «no hay forma de hacerlo sin que el
+  // usuario intervenga»): instalación fresca + código de respaldo copiado →
+  // UN botón lee el portapapeles y restaura. La migración queda en: copiar
+  // (app vieja) → reinstalar → PEGAR Y RESTAURAR. El banner solo aparece si
+  // NO hay perfil ni campaña ni colección (nunca molesta si hay progreso) y se
+  // puede cerrar; tras restaurar, el perfil existe y desaparece solo.
+  const [restoreBanner, setRestoreBanner] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState<string | null>(null);
+  const [restoreBusy, setRestoreBusy] = useState(false);
   const missions = useMissionStore((s) => s.missions);
   const ensureToday = useMissionStore((s) => s.ensureToday);
 
@@ -74,6 +85,10 @@ export function MainMenu() {
       setAvatarCardId(brief?.avatarCardId ?? null);
       setAvatarBroken(false);
       ensureToday();
+      // Banner de rescate SOLO en instalación sin progreso (y una vez por sesión).
+      if (!sessionStorage.getItem("pacto-restore-dismissed") && isFreshInstall()) {
+        setRestoreBanner(true);
+      }
     });
     // Música de campamento (latido lento): idempotente — si ya suena (vuelta de
     // partida) solo asegura el modo menú; si el autoplay bloquea, difiere al
@@ -103,6 +118,33 @@ export function MainMenu() {
     setView("pvp");
   };
 
+  const dismissRestore = () => {
+    click();
+    sessionStorage.setItem("pacto-restore-dismissed", "1");
+    setRestoreBanner(false);
+  };
+
+  const restoreFromClipboard = async () => {
+    if (restoreBusy) return;
+    setRestoreBusy(true);
+    setRestoreMsg(null);
+    const text = await readClipboardText();
+    if (text === null) {
+      setRestoreMsg("No se pudo leer el portapapeles — usa Ajustes → Importar progreso.");
+      setRestoreBusy(false);
+      return;
+    }
+    const res = applyProgressCode(text);
+    if (!res.ok) {
+      setRestoreMsg(res.error);
+      setRestoreBusy(false);
+      return;
+    }
+    haptic("success");
+    // El perfil restaurado hace desaparecer el banner tras el reload.
+    setTimeout(() => { location.reload(); }, 600);
+  };
+
   return (
     <div className="app-frame relative overflow-hidden text-zinc-100">
       {/* Background image — title + emblem baked in (matches launcher icon) */}
@@ -116,6 +158,45 @@ export function MainMenu() {
       <div className="pointer-events-none absolute -bottom-20 -right-16 z-0 h-64 w-64 rounded-full bg-rose-600/10 blur-3xl" />
       {/* Bottom darkening overlay for button legibility */}
       <div className="absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-b from-transparent via-black/55 to-black/95" />
+
+      {/* ── TOP-CENTER: BANNER DE RESCATE (solo instalación fresca) ── */}
+      <AnimatePresence>
+        {restoreBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -14 }}
+            animate={{ opacity: 1, y: 0, transition: { delay: 0.9 } }}
+            exit={{ opacity: 0, y: -14 }}
+            className="absolute inset-x-4 top-14 z-30"
+          >
+            <div className="relative rounded-xl border border-emerald-500/40 bg-gradient-to-b from-zinc-950/95 to-black/95 p-3 shadow-[0_0_18px_rgba(16,185,129,0.2)]">
+              <button
+                onClick={dismissRestore}
+                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 hover:text-zinc-200"
+                aria-label="Cerrar rescate"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <p className="pr-6 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-300">
+                ¿Vienes de otra instalación?
+              </p>
+              <p className="mt-0.5 text-[9px] leading-snug text-zinc-400">
+                Si copiaste tu código de respaldo (Ajustes → Exportar progreso en la app vieja), recupera tu avance con un toque.
+              </p>
+              <button
+                onClick={restoreFromClipboard}
+                disabled={restoreBusy}
+                className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-400/60 bg-emerald-900/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100 transition-colors hover:bg-emerald-800/70 disabled:opacity-50"
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+                {restoreBusy ? "Leyendo…" : "Pegar y restaurar"}
+              </button>
+              {restoreMsg && (
+                <p className="mt-1.5 text-[9px] leading-snug text-amber-300">{restoreMsg}</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── TOP-LEFT: PERFIL (small icon button) ── */}
       <motion.button
@@ -221,7 +302,7 @@ export function MainMenu() {
         className="absolute inset-x-0 bottom-2.5 z-20 flex justify-center px-8"
       >
         <p className="text-center text-[7px] font-bold uppercase tracking-[0.35em] text-amber-700/60">
-          v2.6 · niveles · mítica · jefes temáticos
+          v2.7 · niveles · mítica · jefes temáticos
         </p>
       </motion.div>
 

@@ -2,16 +2,23 @@
 <!--
   RESPALDO AUTOMÁTICO (Android 11 y anteriores — fullBackupContent).
   El progreso del juego vive en el localStorage del WebView, que Android
-  guarda dentro de app_webview/. Con esta regla, Google Auto Backup lleva
-  el estado a la nube del jugador: al reinstalar (o cambiar de móvil con
-  la misma cuenta) el progreso vuelve. Complemento de «Exportar progreso»
-  en Ajustes (respaldo manual). PETICIÓN DEL JUGADOR: una actualización
-  no puede costar la partida.
+  guarda en app_webview/ — un HERMANO de files/, NO dentro. La versión
+  anterior de estas reglas solo incluía domain="file" (files/) y el
+  comentario prometía una cobertura que NO existía: el localStorage no
+  viajaba al backup. Con domain="root" path="app_webview" el estado del
+  juego SÍ va a Google Auto Backup: al reinstalar (mismo dispositivo con
+  Auto-restaurar activo o cambio de móvil con la misma cuenta) el progreso
+  vuelve SOLO. Complemento de «Exportar/Importar» en Ajustes (manual) y
+  del banner de restauración de un toque (Task 50). PETICIÓN DEL JUGADOR:
+  una actualización no puede costar la partida.
 -->
 <full-backup-content>
+    <include domain="root" path="app_webview" />
     <include domain="file" path="." />
     <include domain="database" path="." />
     <include domain="sharedpref" path="." />
     <include domain="external" path="." />
     <exclude domain="file" path="cache" />
+    <exclude domain="root" path="cache" />
+    <exclude domain="root" path="code_cache" />
 </full-backup-content>

@@ -1075,3 +1075,28 @@ Stage Summary:
 - La cadena de actualización está verificada extremo a extremo: desde tanda 40 todas las APK comparten firma y versionCode monótono → se instalan encima conservando progreso
 - El caso «no se instala» ya es diagnosticable desde el propio juego: Ajustes muestra la versión/build instalada y el procedimiento de rescate (exportar → desinstalar → importar), sin adb ni suposiciones
 - Pendiente vigente: Rush de Jefes, menú de mejoras a elección
+
+---
+Task ID: 50
+Agent: Z (principal)
+Task: «eso está feo para el usuario, ¿no hay forma de hacerlo sin que él tenga que intervenir?» — eliminar TODA la fricción posible de la migración del APK (lo único innegociable del SO: una desinstalación única)
+
+Work Log:
+- RESPUESTA TÉCNICA HONESTA: la desinstalación de los APK previos a tanda 40 NO es evitable (Android bloquea cruces de firma a nivel de PackageInstaller — ni Google puede instalar una firma distinta sobre otra). Pero era el ÚNICO paso que exigía intervención; todo lo demás se automatiza y eso es lo que se hizo.
+- FIX CRÍTICO DE BACKUP NATIVO: backup_rules.xml y data_extraction_rules.xml incluían domain="file" — files/ — pero el localStorage del WebView vive en app_webview/, un HERMANO de files/. El comentario prometía cobertura que NO existía: el progreso nunca viajó a Google Auto Backup. Ahora domain="root" path="app_webview" (+ excludes de cache/code_cache) hace REAL el respaldo en la nube: con Auto-restaurar activo, reinstalar recupera el progreso SOLO, sin importar nada.
+- RESTAURACIÓN DE UN TOQUE (src/lib/progress-backup.ts NUEVO): PROGRESS_KEYS + collectProgress + parseProgressCode (valida SIN escribir, 4 mensajes de error distintos según la causa) + applyProgressCode + isFreshInstall (perfil+campana+coleccion ausentes) + readClipboardText (@capacitor/clipboard nativo → fallback navigator.clipboard). Storage inyectable para tests sin DOM.
+- BANNER DE RESCATE en MainMenu: instalación fresca → «¿Vienes de otra instalación?» con botón PEGAR Y RESTAURAR que lee el portapapeles y restaura TODO (progreso + mazos) con UN toque → reload. Con progreso NO aparece (nunca molesta), se cierra con X (sessionStorage, una vez por sesión), errores amables sin crash. La migración queda en: copiar código (app vieja) → reinstalar → 1 toque.
+- SettingsModal refactorizado a la lib compartida (doImport usa applyProgressCode; guía actualizada: «toca Pegar y restaurar — aparece solo en el menú»).
+- @capacitor/clipboard@7.0.4 instalado (auto-registro nativo vía cap sync en CI).
+- LECCIÓN FRAMER: transition={{delay:0.9}} también retrasa la SALIDA de AnimatePresence → el banner seguía en DOM 0.9s tras cerrarlo (E2E lo cazó). Delay movido al animate → exit inmediato.
+- versionName 2.6 → 2.7 (build.gradle) + pie de menú sincronizado.
+- SUITE NUEVA scripts/test-progress-backup.ts (31 asserts): fresh-install ×5, collect ×9, parse sin escribir ×8 (incluye spy de setItem), apply/round-trip ×6, export vacío válido.
+- scripts/e2e-t50.sh NUEVO (Galaxy S25): fresca → banner+botón · click sin código → mensaje amable · X → cierra y no vuelve en la sesión · con progreso → oculto. Hallazgo: el accessible name hereda el uppercase CSS → grep case-insensitive en snapshots.
+- Verificación: tsc 0 · lint 0 · 15 suites = 815 asserts 0 fallos · build estático RC=0 · E2E 7/7 OK (scripts/e2e-t50-banner.png, e2e-t50-final.png)
+- Commit + push a main (CI genera APK v2.7 · build run_number)
+
+Stage Summary:
+- La migración pasó de «copiar, desinstalar, instalar y pegar un código a mano» a «copiar → reinstalar → UN toque», y en dispositivos con Auto-restaurar ni siquiera el toque: Google devuelve el localStorage solo
+- El backup nativo ahora cubre lo que su comentario llevaba meses prometiendo (app_webview en domain root) — bug real cazado en la auditoría
+- La desinstalación única sigue siendo inevitable para los APK pre-tanda 40 (firma = seguridad del SO), pero después NUNCA más: firma estable + versionCode monótono verificados en Task 49
+- Pendiente vigente: Rush de Jefes, menú de mejoras a elección

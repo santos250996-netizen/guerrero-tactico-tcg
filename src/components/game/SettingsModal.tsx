@@ -15,6 +15,7 @@ import { useState, useRef, useEffect } from "react";
 import { useCollectionStore } from "@/store/collectionStore";
 import { music } from "@/lib/music";
 import { haptic } from "@/lib/haptics";
+import { collectProgress, applyProgressCode } from "@/lib/progress-backup";
 
 interface SettingsModalProps {
   open: boolean;
@@ -23,38 +24,10 @@ interface SettingsModalProps {
 }
 
 // ─────────────────────────────────────────────────────────────
-// RESPALDO DE PROGRESO (petición del jugador: una actualización que no
-// instala no puede costar la partida). Todo el progreso vive en
-// localStorage bajo estas claves: exportarlas en un solo bloque de texto
-// permite mudar de dispositivo / reinstalar SIN perder nada.
+// RESPALDO DE PROGRESO: la lógica (claves, serialización, validación, lectura
+// de portapapeles) vive en src/lib/progress-backup.ts — compartida con el
+// banner de restauración de un toque del menú (Task 50).
 // ─────────────────────────────────────────────────────────────
-const PROGRESS_KEYS = [
-  "pacto-de-guerra-profile",
-  "pacto-de-guerra-campana",
-  "pacto-de-guerra-stats",
-  "pacto-de-guerra-misiones",
-  "guerrero-tactico-coleccion",
-  "guerrero-tactico-settings",
-];
-
-const DECK_KEY_PREFIX = "guerrero-tactico-deck";
-
-function collectProgress(): string {
-  const keys: Record<string, string> = {};
-  for (const k of PROGRESS_KEYS) {
-    const v = localStorage.getItem(k);
-    if (v !== null) keys[k] = v;
-  }
-  // Mazos editados por clase (prefijo): deck + deck-mago + deck-asesino…
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith(DECK_KEY_PREFIX)) {
-      const v = localStorage.getItem(k);
-      if (v !== null) keys[k] = v;
-    }
-  }
-  return JSON.stringify({ game: "pacto-de-guerra", version: 1, keys });
-}
 
 const LANGUAGES: { value: Language; label: string; flag: string }[] = [
   { value: "es", label: "Español", flag: "🇪🇸" },
@@ -126,28 +99,14 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
   };
 
   const doImport = () => {
-    try {
-      const parsed = JSON.parse(importText.trim()) as { game?: string; keys?: Record<string, string> };
-      if (parsed.game !== "pacto-de-guerra" || !parsed.keys || typeof parsed.keys !== "object") {
-        setImportMsg("Código no válido — revisa que sea el bloque completo.");
-        return;
-      }
-      let written = 0;
-      for (const [k, v] of Object.entries(parsed.keys)) {
-        if (typeof v !== "string") continue;
-        localStorage.setItem(k, v);
-        written++;
-      }
-      if (written === 0) {
-        setImportMsg("El código no contiene datos.");
-        return;
-      }
-      setImportMsg(`Restaurado (${written} claves). Recargando…`);
-      haptic("success");
-      setTimeout(() => { location.reload(); }, 700);
-    } catch {
-      setImportMsg("No se pudo leer el código — cópialo completo.");
+    const res = applyProgressCode(importText);
+    if (!res.ok) {
+      setImportMsg(res.error);
+      return;
     }
+    setImportMsg(`Restaurado (${res.written} claves). Recargando…`);
+    haptic("success");
+    setTimeout(() => { location.reload(); }, 700);
   };
 
   const exitToMenu = () => {
@@ -427,7 +386,7 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
                 </div>
                 {appVer?.native && (
                   <p className="text-[9px] leading-snug text-zinc-600">
-                    Si el APK nuevo NO se instala: exporta tu progreso → desinstala → instala el nuevo → importa el código. Solo hace falta UNA vez (APKs antiguas tenían firma distinta); después todas se actualizan encima.
+                    Si el APK nuevo NO se instala: exporta tu progreso → desinstala → instala el nuevo → toca «Pegar y restaurar» (aparece solo en el menú). Solo hace falta UNA vez (APKs antiguas tenían firma distinta); después todas se actualizan encima sin que hagas nada.
                   </p>
                 )}
               </div>
