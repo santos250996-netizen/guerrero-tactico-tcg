@@ -262,7 +262,7 @@ export const KEYWORD_META: Record<
   },
   duelista: {
     label: "Duelista", short: "DUEL", icon: Swords, color: "text-amber-300",
-    description: "Inicio de Turno: gana +X mientras sea tu única carta en este carril.",
+    description: "Al Jugar: gana +X garantizado. Inicio de Turno: gana +X más mientras sea tu única carta en este carril.",
     trigger: "start_turn", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "armas",
   },
@@ -342,7 +342,7 @@ export const KEYWORD_META: Record<
   },
   contagio: {
     label: "Contagio", short: "CONT", icon: Bug, color: "text-lime-300",
-    description: "Fin de Turno: reduce en X el poder del enemigo con más reducciones acumuladas (si ninguna tiene, no hace nada).",
+    description: "Fin de Turno: reduce en X el poder de TODAS las cartas enemigas de este carril con reducciones acumuladas. La plaga se extiende.",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "veneno",
   },
@@ -366,7 +366,7 @@ export const KEYWORD_META: Record<
   },
   purga: {
     label: "Purga", short: "PURG", icon: Skull, color: "text-indigo-300",
-    description: "Al Jugar: destruye la carta enemiga más débil de este carril con poder ≤ X.",
+    description: "Al Jugar: destruye la carta enemiga más débil de este carril con poder ≤ X. Si no hay ninguna, hiere en X a la más fuerte (los escudos no la detienen).",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "sigilo",
   },
@@ -382,7 +382,7 @@ export const KEYWORD_META: Record<
   },
   custodia: {
     label: "Custodia", short: "CUST", icon: ShieldCheck, color: "text-sky-300",
-    description: "Inicio de Turno: el escudo del aliado más débil de este carril (puede ser ella misma) se restaura hasta X puntos.",
+    description: "Inicio de Turno: sube el escudo MÁS DAÑADO de este carril hasta X puntos (primero protege a los demás; se escuda a sí misma solo si está sola).",
     trigger: "start_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "proteccion",
   },
@@ -406,7 +406,7 @@ export const KEYWORD_META: Record<
   },
   ruptura_glacial: {
     label: "Ruptura Glacial", short: "RUPT", icon: Hammer, color: "text-cyan-300",
-    description: "Al Jugar: reduce en X el poder del enemigo con MÁS reducciones acumuladas de este carril. Los escudos no lo impiden.",
+    description: "Al Jugar: reduce en X el poder del enemigo con MÁS reducciones acumuladas de este carril (si ninguna la tiene, golpea al más fuerte). Los escudos no lo impiden.",
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "hielo",
   },

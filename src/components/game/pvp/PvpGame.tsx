@@ -14,7 +14,7 @@
 // pidió el diseño. Datos: pvpStore (polling del servidor autoritativo).
 // ============================================================================
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Hand, Zap, Layers, Swords, Sword, Wand2, EyeOff, Activity, Skull, Loader2,
@@ -856,13 +856,41 @@ const PvpRivalStrip = memo(function PvpRivalStrip({
 // render forzaba layout repetido (layout thrash) justo cuando más anima.
 // ──────────────────────────────────────────────────────────────
 const PvpFloat = memo(function PvpFloat({ uid, value, id }: { uid: string; value: number; id: string }) {
-  const [pos] = useState(() => {
+  // El ancla se resuelve DESPUÉS del commit: la carta recién jugada entra al
+  // DOM en el MISMO render que este float (el initializer de useState corría
+  // ANTES del commit → querySelector daba null → el float se descartaba en
+  // silencio: el buff de entrada —p. ej. Duelista «Al Jugar: +X»— no se veía).
+  // useLayoutEffect corre tras pintar el DOM del commit → encuentra la carta;
+  // el reintento por rAF cubre portales/montajes diferidos. Ventana ≪ 1600ms
+  // de vida del float en el store.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(() => {
     if (typeof document === "undefined") return null;
     const el = document.querySelector(`[data-card-uid="${uid}"]`);
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     return { x: rect.left + rect.width / 2, y: rect.top };
   });
+  useLayoutEffect(() => {
+    if (pos) return;
+    let raf = 0;
+    let cancelled = false;
+    const attempt = (n: number) => {
+      if (cancelled) return;
+      const el = document.querySelector(`[data-card-uid="${uid}"]`);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        setPos({ x: rect.left + rect.width / 2, y: rect.top });
+        return;
+      }
+      if (n <= 0) return;
+      raf = requestAnimationFrame(() => attempt(n - 1));
+    };
+    attempt(8);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [uid, pos]);
   if (!pos) return null;
   return (
     <motion.div

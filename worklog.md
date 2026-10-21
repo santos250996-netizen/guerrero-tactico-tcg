@@ -1010,3 +1010,23 @@ Stage Summary:
 - Ninguna keyword muerta queda: las 7 inservibles rediseñadas con datos de 420 partidas y balance de clases intacto
 - Bot=player intacto: reconcileView y las suscripciones son client-side y simétricas; los rediseños de keywords viven en el engine compartido por ambos lados
 - Pendiente vigente: Rush de Jefes (Task 39) y menú de mejoras a elección
+
+---
+Task ID: 47
+Agent: Z (principal)
+Task: «arreglaste las keyword? y actualizaste su interpretacion? es q veo q duelista sigue haciendo lo mismo» — diagnóstico y cierre del hueco de visibilidad del rediseño Task 46
+
+Work Log:
+- DIAGNÓSTICO: el rediseño Task 46 SÍ estaba en el engine (todas las ramas nuevas verificadas: purga fallback, ruptura fallback, crueldad enfurece con cuerpos a 0, purificación escudo de consuelo, custodia escudo más dañado, contagio multi, duelista +X al jugar). El problema era de PERCEPCIÓN: (1) el +X de «Al Jugar» de Duelista viaja dentro de finalPower SIN mutación → sin float, sin log, sin fx, sin powerLog → el jugador no distinguía nada nuevo; (2) 5 descripciones de KEYWORD_META (tooltips = «la interpretación») seguían con el texto VIEJO: duelista, purga, custodia, contagio, ruptura_glacial.
+- FIX 1 (types.ts): las 5 META descriptions ahora describen el comportamiento nuevo (duelista «Al Jugar: gana +X garantizado…», purga «…o hiere en X a la más fuerte», custodia «escudo MÁS DAÑADO», contagio «TODAS las infectadas», ruptura «si ninguna la tiene, golpea al más fuerte»).
+- FIX 2 (engine.ts playCard): mutación COSMÉTICA + powerLog para el +X de Duelista al entrar (source «Duelista», kind buff). NUNCA re-aplica poder (nace DESPUÉS del bucle de mutaciones; writeBack usa solo res.board; IA ignora buffs propios en su scoring). Con esto: float verde, sonido de buff, log «Buff +1 en ARMAS», y eventsFromPlayResult agrupa la mutación en el evento sword_glint.
+- FIX 3 (PvpGame.tsx PvpFloat): el ancla se resolvía en el initializer de useState — ANTES del commit de React → una carta RECÍEN jugada no estaba en el DOM → su float se descartaba en silencio (pos=null → return null). Ahora useLayoutEffect resuelve tras el commit + reintento rAF (8 frames, ventana ≪ 1600ms de vida del float). Afecta a TODO float sobre carta recién entrada, no solo Duelista.
+- SUITE NUEVA scripts/test-keywords-t47.ts (39 asserts): las 7 keywords rediseñadas rama por rama + Duelista visible (mutación presente, powerLog, NO doble-cuenta, legendaria +2 con texto sincronizado) + guardas de interpretación (las 7 META describen el rediseño + 6 textos de carta).
+- E2E scripts/e2e-t47.sh (Galaxy S25 emulado, build producción): colección sembrada 12× duelista_errante → preview muestra chip con interpretación NUEVA y texto nuevo → PASAR ×2 → drag a carril válido (elige carril saltando bonos «SOLO COSTE N≠3») → FLOAT «+1» VISIBLE sobre la carta recién jugada → mini 14 poder (11 base + 2 sinergia + 1 Duelista) → Registro del preview lista «Duelista +1  11→14». Hallazgos del camino: los floats solo anclan a [data-card-uid], el texto de las minis del tablero NO incluye el nombre (solo coste/poder/badge), close --all del navegador borra localStorage y el persist del memory-state pisa semillas si no se reabre la página.
+- Verificación: tsc 0 · lint 0 · 13 suites = 717 asserts 0 fallos · build estático RC=0 · E2E 7/7 OK (scripts/e2e-t47-{preview,float,registro}.png)
+
+Stage Summary:
+- «Duelista sigue haciendo lo mismo» era real: el rediseño funcionaba pero era INVISIBLE. Ahora el +X al jugar se ve (float + sonido + log + Registro), la interpretación de los 7 tooltips coincide con el comportamiento y una carta legendaria Duelista dice +2 en todos los sitios
+- PvpFloat ya no descarta floats de cartas recién jugadas — bug de pipeline preexistente que afectaba a cualquier buff de entrada
+- 717 asserts verdes; línea roja bot=player intacta (la mutación cosmética es client-neutral: el server reconstruye la misma jugada determinista)
+- Pendiente vigente: Rush de Jefes (Task 39), menú de mejoras a elección, APK overwrite (investigación pendiente del lote de pulido)

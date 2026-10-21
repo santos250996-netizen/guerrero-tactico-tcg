@@ -1000,6 +1000,25 @@ export function playCard(
   }
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
 
+  // ── DUELISTA VISIBLE (Task 47) ──────────────────────────────────────────
+  // El +X de «Al Jugar» ya viaja dentro de finalPower (accum.bonusPower),
+  // pero era IMPERCEPTIBLE: sin float, sin log, sin fx y sin entrada en el
+  // Registro (reporte del jugador: «duelista sigue haciendo lo mismo»).
+  // Mutación COSMÉTICA + powerLog: el store pinta el float verde sobre la
+  // carta, suena buff, pvp.ts escribe el log «Buff +X» y
+  // eventsFromPlayResult agrupa la mutación en el evento sword_glint.
+  // NUNCA re-aplica poder: la mutación nace DESPUÉS del bucle que aplica
+  // mutaciones y el writeBack de los wrappers usa solo res.board.
+  if (
+    keyword === "duelista" &&
+    (handCard.keywordValue ?? 0) > 0 &&
+    (handCard.trigger ?? KEYWORD_META[keyword].trigger) !== "on_play"
+  ) {
+    const dx = handCard.keywordValue ?? 0;
+    newCard.powerLog = [{ source: KEYWORD_META.duelista.label, delta: dx, kind: "buff" }];
+    effect.mutations.push({ side, lane, uid: newCard.uid, powerDelta: dx });
+  }
+
   // Build a NEW hand (without the played card) — Conspiración buffa el resto.
   let newHand: HandCard[] = hand
     .filter((c) => c.uid !== handCard.uid)
