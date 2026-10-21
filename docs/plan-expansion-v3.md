@@ -1,12 +1,13 @@
 # PLAN EXPANSIÓN V3.0 — Pacto de Guerra
 
-> Estado: **PROPUESTA — pendiente de aprobación del jugador.** Nada del contenido
-> de este doc se codea hasta que los kits estén aprobados.
-> Decisiones ya tomadas con el jugador (2026-10-22):
-> 1. Mecánicas de las 3 clases nuevas: **propuesta de Z** (este doc) → aprobar → codear.
+> Estado: **APROBADO — en construcción.** Los kits de este doc quedaron aprobados
+> por el jugador tras su revisión (única corrección: descartar B6/E13).
+> Decisiones tomadas con el jugador (2026-10-22):
+> 1. Mecánicas de las 3 clases nuevas: **propuesta de Z** (este doc) → aprobada.
 > 2. Tamaño clases nuevas: **28 cartas estándar** (curva 1×2/2×3/3×5/4×1/5×1, PTP 84, 6 keywords propias).
 > 3. Clases existentes: **+8 cartas por clase** (pool 28→36; el mazo jugable sigue siendo 12).
-> 4. Mejoras incluidas: **Rush de Jefes + V3.1 (B6/E13)**.
+> 4. Mejoras incluidas: **Rush de Jefes** (V3.1/B6/E13 descartado por el jugador:
+>    «no sé qué es B6/E13, olvida eso»).
 > 5. UI del selector: **compacta+detalle** (chips arriba, panel abajo).
 > 6. Despliegue: **mega-release V3.0** (todo junto en un solo release visible).
 > 7. Arte: **IA por carta** (mismo flujo/style chain que las 84 actuales).
@@ -146,11 +147,9 @@ propuestos (se concretan y auditan con `audit-dupes.ts` + `test-no-gemelas` en T
 - Primera recompensa completa: 1 vez por ciclo/prestigio; repeticiones dan XP ×2 y drop común.
 - Registro persistente: mejor run por clase (statsStore) + contador de runs.
 
-### 3.3 V3.1 (B6/E13)
-⚠️ La spec B6/E13 quedó en el tramo de conversación perdido (reset de contexto).
-**Necesito que me vuelvas a pasar qué eran B6 y E13**, o me das el OK para
-re-derivarlos del último audit de balance (scripts/audit-balance.ts) y te los
-presento antes de codearlos en T-F.
+### 3.3 V3.1 (B6/E13) — DESCARTADO
+El jugador confirmó (2026-10-22) que no sabe qué eran B6/E13 y que se olvide:
+quedan fuera de alcance. Las mejoras de V3.0 se limitan a **Rush de Jefes** (§3.2).
 
 ---
 
@@ -178,7 +177,7 @@ en la UI** hasta T-G. El release V3.0 enciende todo de golpe:
 | **T-C** Pirata | ídem 28 | ídem |
 | **T-D** Tinker | ídem 28 | ídem |
 | **T-E** Ampliación | +8×3 (24 cartas) + 9 keywords + audit-dupes/no-gemelas a pools de 36 | ídem |
-| **T-F** Modos/UI | Rush de Jefes + V3.1 (B6/E13) + ClassSelect 6-clases + rotación campana | ídem + E2E nuevos |
+| **T-F** Modos/UI | Rush de Jefes + ClassSelect 6-clases + rotación campana | ídem + E2E nuevos |
 | **T-G** Release V3.0 | flag ON, sims full 6×6 emparejamientos, E2E completo, versionName 3.0, banner expansión | CI verde → APK v3.0 |
 
 Guardianes existentes a extender: `test-no-gemelas` (pool 28→36 paramétrico),
@@ -207,4 +206,3 @@ en los decks nuevos), `test-backup-rules` intacto. Suite nueva por clase:
 5. **Guardianes de curva asumen curva exacta 1×2/2×3/3×5/4×1/5×1** → los pools de 36
    mantienen esa curva como DECK II; el pool extra usa la misma bolsa de costes
    (el editor elige 12, la curva del mazo la decide el jugador).
-6. **B6/E13 spec perdida** → bloqueante solo de T-F; pedir al jugador o re-derivar.
