@@ -180,7 +180,9 @@ export function classUnlockHint(cls: GameClass): string | null {
   const need = CLASS_UNLOCK_STEP[cls];
   if (!need) return null;
   const boss = bossClassForStep(need);
-  return boss ? `Vence a ${CAMPAIGN_BOSS_NAMES[boss].split(",")[0]} · ${stepChipLabel(need)}` : null;
+  return boss
+    ? `Vence a ${CAMPAIGN_BOSS_NAMES[boss].split(",")[0]} · ${stepChipLabel(need)}`
+    : `Alcanza el ${stepChipLabel(need)}`;
 }
 
 // ── Etiquetas de UI ────────────────────────────────────────────────────────

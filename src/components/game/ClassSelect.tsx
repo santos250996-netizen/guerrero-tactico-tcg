@@ -2,26 +2,27 @@
 
 // ============================================================================
 // Entrada del MODO HISTORIA — LA CAMPAÑA (escalera de guerra).
-// Diseño MINIMALISTA (feedback del jugador: "mucho texto para elegir clase"):
-//  • Una tira visual delgada con el progreso de la escalera (15 segmentos,
-//    cráneos en los muros 5/10/15, chip del escalón y ★ prestigio).
-//  • 3 tarjetas compactas: icono, nombre, lema y dos botones (MAZO / JUGAR).
-// Sin descripciones, keywords ni chips de catálogo: ese detalle vive en el
-// editor de mazos y la colección. Un solo botón arranca la campaña en el
-// escalón pendiente — los JEFES emergen solos como muros (sin botón
-// "Desafiar al Jefe"). Victoria → siguiente escalón; derrota → repites.
+// Diseño COMPACTA + DETALLE (aprobado para V3.0 — plan-expansion-v3 §4):
+//  • Tira de progreso de la escalera (15 segmentos, cráneos en 5/10/15).
+//  • 6 CHIPS compactos en cuadrícula 2×3 — toda la oferta visible de un
+//    vistazo, sin scroll. Tap = selecciona; los bloqueados enseñan candado.
+//  • UN panel de detalle de la clase seleccionada: icono, lema, sus 3
+//    carriles, regla sistémica (lore tras tap) y acciones MAZO / JUGAR.
+// La selección recuerda la última clase usada (localStorage). Un solo botón
+// arranca la campaña en el escalón pendiente — los JEFES emergen solos.
 // ============================================================================
-import { useEffect } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
 import { CAMPAIGN_STEPS, isBossStep, classUnlocked, classUnlockHint } from "@/lib/game/campaign";
+import { CLASS_META, LANE_META } from "@/lib/game/types";
+import type { GameClass } from "@/lib/game/types";
 import { ClassRuleBadge } from "./ClassRuleBadge";
 import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2, Sprout, Ship, Wrench } from "lucide-react";
-import type { GameClass } from "@/lib/game/types";
-import { V3_CLASSES_UNLOCKED, visibleClasses } from "@/lib/game/v3";
+import { visibleClasses } from "@/lib/game/v3";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +31,7 @@ interface ClassDef {
   name: string;
   /** Lema corto (una línea — Cinzel, bajo el nombre). */
   tagline: string;
-  icon: React.ReactNode;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   color: "amber" | "violet" | "emerald" | "green" | "blue" | "yellow";
 }
 
@@ -39,49 +40,44 @@ const CLASSES: ClassDef[] = [
     id: "guerrero",
     name: "GUERRERO",
     tagline: "Fuerza · Disciplina · Sangre",
-    icon: <Swords className="h-6 w-6" strokeWidth={2.2} />,
+    icon: Swords,
     color: "amber",
   },
   {
     id: "mago",
     name: "MAGO",
     tagline: "Maná · Elementos · Impulso",
-    icon: <Wand2 className="h-6 w-6" strokeWidth={2.2} />,
+    icon: Wand2,
     color: "violet",
   },
   {
     id: "asesino",
     name: "ASESINO",
     tagline: "Sigilo · Veneno · Precisión",
-    icon: <EyeOff className="h-6 w-6" strokeWidth={2.2} />,
+    icon: EyeOff,
     color: "emerald",
   },
-  // V3.0 — visibles solo con la bandera del mega-release (lib/game/v3.ts).
-  ...(V3_CLASSES_UNLOCKED
-    ? [
-        {
-          id: "botanico" as GameClass,
-          name: "BOTÁNICO",
-          tagline: "Crecimiento · Enjambre · Esporas",
-          icon: <Sprout className="h-6 w-6" strokeWidth={2.2} />,
-          color: "green" as const,
-        },
-        {
-          id: "pirata" as GameClass,
-          name: "PIRATA",
-          tagline: "Saqueo · Abordaje · Pólvora",
-          icon: <Ship className="h-6 w-6" strokeWidth={2.2} />,
-          color: "blue" as const,
-        },
-        {
-          id: "tinker" as GameClass,
-          name: "TINKER",
-          tagline: "Artefactos · Engranajes · Chispa",
-          icon: <Wrench className="h-6 w-6" strokeWidth={2.2} />,
-          color: "yellow" as const,
-        },
-      ]
-    : []),
+  {
+    id: "botanico",
+    name: "BOTÁNICO",
+    tagline: "Crecimiento · Enjambre · Esporas",
+    icon: Sprout,
+    color: "green",
+  },
+  {
+    id: "pirata",
+    name: "PIRATA",
+    tagline: "Saqueo · Abordaje · Pólvora",
+    icon: Ship,
+    color: "blue",
+  },
+  {
+    id: "tinker",
+    name: "TINKER",
+    tagline: "Artefactos · Engranajes · Chispa",
+    icon: Wrench,
+    color: "yellow",
+  },
 ];
 
 const COLOR_MAP: Record<ClassDef["color"], {
@@ -155,6 +151,8 @@ const COLOR_MAP: Record<ClassDef["color"], {
     hex: "250,204,21",
   },
 };
+
+const LAST_CLASS_KEY = "pacto:cls-select:last";
 
 // ─────────────────────────────────────────────────────────────
 // LA CAMPAÑA — tira VISUAL de una línea: 15 segmentos (cráneos en los
@@ -243,19 +241,39 @@ export function ClassSelect() {
   // LA CAMPAÑA — escalera persistente (global entre clases)
   const campaignStep = useCampaignStore((s) => s.step);
   const prestige = useCampaignStore((s) => s.prestige);
-  // DESBLOQUEO: mago = vencer el jefe del escalón 5 · asesino = el del 10.
+  // DESBLOQUEO: mago = jefe del escalón 5 · asesino = el del 10 · V3: 3/8/13.
   const stepsCleared = useCampaignStore((s) => s.stepsCleared);
+
+  // Clase seleccionada (chips) — recuerda la última usada; cae a GUERRERO.
+  const [selected, setSelected] = useState<GameClass>(() => {
+    if (typeof window === "undefined") return "guerrero";
+    const last = window.localStorage.getItem(LAST_CLASS_KEY) as GameClass | null;
+    return last && visibleClasses().includes(last) ? last : "guerrero";
+  });
 
   useEffect(() => {
     hydrateCollection();
     useCampaignStore.getState().hydrate();
     // Mazo inicial de CADA clase VISIBLE (una vez): las neutrales + relleno
-    // barato. Las clases V3.0 se añaden solas cuando la bandera se encienda
-    // (sus pools llegan en T-B/C/D — grantStarterDeck con pool vacío es no-op).
+    // barato. grantStarterDeck es idempotente y no-op si ya tiene mazo.
     visibleClasses().forEach((c) =>
       useCollectionStore.getState().grantStarterDeck(c as GameClass)
     );
   }, []);
+
+  const sel = CLASSES.find((c) => c.id === selected) ?? CLASSES[0];
+  const c = COLOR_MAP[sel.color];
+  const selUnlocked = classUnlocked(sel.id, stepsCleared);
+  const selHint = classUnlockHint(sel.id);
+
+  const pick = (cls: GameClass) => {
+    setSelected(cls);
+    try {
+      window.localStorage.setItem(LAST_CLASS_KEY, cls);
+    } catch {
+      /* almacenamiento no disponible — la selección no persiste y listo */
+    }
+  };
 
   // JUGAR → LA CAMPAÑA en el ESCALÓN PENDIENTE (jefes incluidos: emergen
   // solos de la escalera — sin botón aparte).
@@ -314,76 +332,148 @@ export function ClassSelect() {
         Elige tu Héroe
       </motion.h2>
 
-      {/* ── Class cards (compact — icon + name + tagline + actions) ── */}
       <main className="app-main relative z-10 mx-auto flex w-full max-w-md flex-col justify-center gap-2.5 px-3 pb-4 pt-16">
         {/* LA CAMPAÑA — una tira, cero párrafos */}
         <CampaignStrip step={campaignStep} prestige={prestige} />
 
-        {CLASSES.map((cls, i) => {
-          const c = COLOR_MAP[cls.color];
-          const unlocked = classUnlocked(cls.id, stepsCleared);
-          const unlockHint = classUnlockHint(cls.id);
-          return (
-            <motion.div
-              key={cls.id}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08 + i * 0.1, duration: 0.4, ease: "easeOut" }}
-              whileHover={{ scale: 1.01 }}
-              className={cn(
-                "relative overflow-hidden rounded-2xl border-2",
-                unlocked ? `${c.border} ${c.bg} ${c.glow}` : "border-zinc-800 bg-zinc-950/60 opacity-80"
-              )}
-            >
-              {/* Top accent line — color band matching the class */}
-              <div
-                className="absolute inset-x-0 top-0 h-0.5"
-                style={{
-                  background: `linear-gradient(to right, transparent, rgba(${c.hex},0.6), transparent)`,
-                }}
-              />
+        {/* ── CHIPS COMPACTOS (2×3): toda la oferta sin scroll. ── */}
+        <div className="grid grid-cols-3 gap-1.5">
+          {CLASSES.map((cls, i) => {
+            const cc = COLOR_MAP[cls.color];
+            const isSel = cls.id === selected;
+            const unlocked = classUnlocked(cls.id, stepsCleared);
+            const Icon = cls.icon;
+            return (
+              <motion.button
+                key={cls.id}
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.05 + i * 0.05, duration: 0.3, ease: "easeOut" }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => pick(cls.id)}
+                aria-pressed={isSel}
+                className={cn(
+                  "relative flex flex-col items-center gap-1 rounded-xl border py-2 transition-all duration-150",
+                  isSel
+                    ? `border-2 ${cc.border} ${cc.bg} ${cc.glow}`
+                    : "border-zinc-800 bg-zinc-950/50 hover:border-zinc-600 hover:bg-zinc-900/60",
+                  !unlocked && !isSel && "opacity-60"
+                )}
+              >
+                {/* Marcadores esquina: V3 = novedad (arriba-izq) · candado (arriba-der) */}
+                <span
+                  className="absolute left-1 top-1 rounded-full bg-zinc-200 px-1 text-[6px] font-black leading-[1.4] text-zinc-950"
+                  title="Nuevo en V3.0"
+                >
+                  V3
+                </span>
+                {!unlocked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-zinc-500" />}
+                <Icon
+                  className={cn("h-5 w-5", isSel ? cc.accent : "text-zinc-400")}
+                  strokeWidth={2.2}
+                />
+                <span
+                  className={cn(
+                    "text-[8px] font-black uppercase tracking-wider",
+                    isSel ? "text-zinc-50" : "text-zinc-400"
+                  )}
+                >
+                  {cls.name}
+                </span>
+                {/* Indicador inferior del chip seleccionado */}
+                <span
+                  className={cn(
+                    "absolute inset-x-3 bottom-0 h-[2px] rounded-full transition-opacity",
+                    isSel ? "opacity-100" : "opacity-0"
+                  )}
+                  style={{ background: `rgba(${cc.hex},0.8)` }}
+                />
+              </motion.button>
+            );
+          })}
+        </div>
 
-              {/* Header: icon disc + name + tagline */}
-              <div className="flex items-center gap-3 p-3.5">
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${c.iconBg} ring-2 ${c.iconRing}`}>
-                  {cls.icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3
-                    className="truncate text-base font-black uppercase tracking-[0.12em] text-zinc-50"
-                    style={{ fontFamily: 'var(--font-cinzel), serif' }}
-                  >
-                    {cls.name}
-                  </h3>
-                  <p
-                    className={`truncate text-[9px] font-black uppercase tracking-[0.2em] ${c.accent}`}
-                    style={{ fontFamily: 'var(--font-cinzel), serif' }}
-                  >
-                    {cls.tagline}
-                  </p>
-                </div>
+        {/* ── PANEL DE DETALLE — una sola tarjeta para la clase elegida ── */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={sel.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className={cn("relative overflow-hidden rounded-2xl border-2", c.border, c.bg, c.glow)}
+          >
+            {/* Top accent line — color band matching the class */}
+            <div
+              className="absolute inset-x-0 top-0 h-0.5"
+              style={{
+                background: `linear-gradient(to right, transparent, rgba(${c.hex},0.6), transparent)`,
+              }}
+            />
+
+            {/* Header: icon disc + name + tagline */}
+            <div className="flex items-center gap-3 p-3.5">
+              <motion.div
+                key={`${sel.id}-icon`}
+                initial={{ scale: 0.85, rotate: -6 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${c.iconBg} ring-2 ${c.iconRing}`}
+              >
+                <sel.icon className="h-6 w-6 text-zinc-100" strokeWidth={2.2} />
+              </motion.div>
+              <div className="min-w-0 flex-1">
+                <h3
+                  className="truncate text-base font-black uppercase tracking-[0.12em] text-zinc-50"
+                  style={{ fontFamily: 'var(--font-cinzel), serif' }}
+                >
+                  {sel.name}
+                </h3>
+                <p
+                  className={`truncate text-[9px] font-black uppercase tracking-[0.2em] ${c.accent}`}
+                  style={{ fontFamily: 'var(--font-cinzel), serif' }}
+                >
+                  {sel.tagline}
+                </p>
               </div>
+            </div>
 
-              {/* REGLA SISTÉMICA V3 — chip de una línea que al tap despliega
-                  lore + consejo (el texto vive oculto: la pantalla se queda
-                  minimalista, igual que las keywords en la mano). */}
-              <div className="px-3.5 pb-2">
-                <ClassRuleBadge gameClass={cls.id} />
-              </div>
+            {/* CARRILES PROPIOS — los 3 del estilo de juego de la clase */}
+            <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-2">
+              {CLASS_META[sel.id].lanes.map((lane) => {
+                const L = LANE_META[lane];
+                const LIcon = L.icon;
+                return (
+                  <span
+                    key={lane}
+                    className="flex items-center gap-1 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.15em] text-zinc-300"
+                  >
+                    <LIcon className="h-2.5 w-2.5" />
+                    {L.title}
+                  </span>
+                );
+              })}
+            </div>
 
-              {/* Actions: MAZO (secondary) + JUGAR (único botón de campaña) */}
-              <div className="border-t border-zinc-800/60 bg-black/30 p-2.5">
-                {!unlocked ? (
-                  /* CLASE BLOQUEADA — candado + qué jefe la abre. Sin trampas:
-                     ni MAZO ni JUGAR responden hasta vencer al muro. */
-                  <div className="flex items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/70 py-2.5 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-500">
-                    <Lock className="h-3.5 w-3.5 text-zinc-500" />
-                    <span>{unlockHint}</span>
-                  </div>
-                ) : (
+            {/* REGLA SISTÉMICA — chip de una línea que al tap despliega
+                lore + consejo (texto oculto: pantalla minimalista). */}
+            <div className="px-3.5 pb-2">
+              <ClassRuleBadge gameClass={sel.id} />
+            </div>
+
+            {/* Actions: MAZO (secondary) + JUGAR (único botón de campaña) */}
+            <div className="border-t border-zinc-800/60 bg-black/30 p-2.5">
+              {!selUnlocked ? (
+                /* CLASE BLOQUEADA — candado + qué jefe la abre. Sin trampas:
+                   ni MAZO ni JUGAR responden hasta vencer al muro. */
+                <div className="flex items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/70 py-2.5 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-500">
+                  <Lock className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>{selHint}</span>
+                </div>
+              ) : (
                 <div className="grid grid-cols-5 gap-1.5">
                   <button
-                    onClick={() => openDeckEditor(cls.id)}
+                    onClick={() => openDeckEditor(sel.id)}
                     className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/70 py-2.5 text-[9px] font-black uppercase tracking-wider text-zinc-200 transition-colors hover:bg-zinc-800 hover:text-white"
                     title="Personalizar mazo"
                   >
@@ -395,7 +485,7 @@ export function ClassSelect() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => startCampaign(cls.id)}
+                    onClick={() => startCampaign(sel.id)}
                     className={cn(
                       "col-span-3 flex items-center justify-center gap-2 rounded-lg border bg-gradient-to-r py-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md transition-all",
                       nextIsBoss
@@ -409,11 +499,10 @@ export function ClassSelect() {
                     <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
                   </motion.button>
                 </div>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );
