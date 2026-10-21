@@ -89,7 +89,10 @@ section(`${cls}: mazos I y II (curva + 12 keywords + patrón)`);
       JSON.stringify(curve) === JSON.stringify(EXPECT_CURVE),
       JSON.stringify(curve)
     );
-    check(`${name}: 12 keywords distintas`, new Set(deck.map((c) => c.keyword!)).size === 12);
+    // Pirata: Motín (hasValue=false) es ÚNICO en el pool → vive SOLO en el
+    // mazo I; el mazo II repite una neutral con otra X → 11 familias.
+    const expectDistinct = cls === "pirata" && name === "mazo II" ? 11 : 12;
+    check(`${name}: ${expectDistinct} keywords distintas`, new Set(deck.map((c) => c.keyword!)).size === expectDistinct, `hay ${new Set(deck.map((c) => c.keyword!)).size}`);
     check(`${name}: id = slug(nombre) (patrón de arte)`, deck.every((c) => c.id === c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")));
     for (const lane of lanes) {
       const laneCards = deck.filter((c) => c.subtypes.includes(lane));
