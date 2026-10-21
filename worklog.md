@@ -1214,3 +1214,21 @@ Stage Summary:
 - T-C COMPLETE: Pirata jugable a nivel de datos (decks Jolly Roger/Baluarte, jefe Kaela con 12 ARTILLERÍA). OCULTO (flag V3 off).
 - Pendiente T-D: Tinker (remache/chatarra/engranaje/sobrecalentar/torreta/descarga, jefe Dorvik MAQUINARIA). OJO: chatarra es on_death (factor 1.0 en PTP).
 - Próximo: T-D Tinker + 28 webp, luego T-E (ampliación +8×3 + 9 keywords), T-F (Rush de Jefes + UI 6 clases), T-G (release).
+
+---
+Task ID: 53-f (T-D cierre + bandera) + 53-g (selector UI)
+Agent: Z.ai main agent
+Task: Cerrar T-D Tinker (artes faltantes), ENCENDER V3_CLASSES_UNLOCKED (petición del jugador) y rediseñar el selector de clases (compacta+detalle)
+
+Work Log:
+- Rescatado el trabajo T-D huérfano del corte de sesión: cards.ts ya tenía las 28 Tinker (33/33 asserts en test-v3-clase tinker), faltaban 5 artes (temblor, heredero, motor, guillotina, marcha) → generadas con gen-card-art-v11 ONLY=…, pipeline fix-card-art-resolution.py + png-to-webp.py → catálogo 168 webp, 0 PNG sueltos. Verificación visual: motor_de_campana / fauces_de_dorvik / guillotina_portatil full-bleed sin marco, regla Ítem respetada (objeto único).
+- BANDERA ENCENDIDA: el jugador pidió ver las 6 clases («solo me salen las clases antiguas… arreglalo para q me salgan todas») → V3_CLASSES_UNLOCKED=true en lib/game/v3.ts (documentado: lo restante T-F/T-G llega sin re-apagar). test-v3-fundamentos actualizado (6 visibles). Contenido en commit ab45661 (auto-commit del gateway).
+- SELECTOR COMPACTA+DETALLE (spec aprobada del plan §4, «esa seleccion de clase hay q mejorarla»): ClassSelect reescrito — 6 CHIPS en cuadrícula 2×3 (todo visible sin scroll; seleccionado = borde 2 + glow de color; bloqueados = candado + opacidad; V3 = pill «V3» esquina), UN panel de detalle con AnimatePresence (icono animado, nombre Cinzel, lema, chips de los 3 CARRILES propios vía CLASS_META/LANE_META, ClassRuleBadge, MAZO/JUGAR o candado+hint). Selección recuerda la última clase (localStorage pacto:cls-select:last). Iconos ahora son componentes LucideIcon.
+- BUG arreglado de paso: classUnlockHint devolvía null en pasos sin jefe (3/8/13) → candado sin texto. Fallback «Alcanza el Escalón N».
+- E2E con agent-browser (390×844): 6 chips visibles, tap cambia panel (Guerrero ámbar → Botánico verde con RAÍZ/FLOR/ESPORAS), hints de bloqueo correctos, 0 errores JS.
+- Verificación: tsc ✓ · eslint ✓ · next build ✓ · test-campana 139✓ · v3-clase botanico/pirata/tinker 33✓×3 · no-gemelas 52 · keywords-v4 71 · fundamentos 58 · tanda29 84 · pvp-engine 62.
+- Commit 876c1b6 push a main.
+
+Stage Summary:
+- T-D COMPLETE (Tinker jugable, 168 artes) y las 6 clases VISIBLES en UI con selector compacta+detalle.
+- Pendiente del plan V3.0: T-E (ampliación +8 cartas ×3 clases base + 9 keywords), T-F restante (Rush de Jefes), T-G (versionName 3.0 + banner + APK).
