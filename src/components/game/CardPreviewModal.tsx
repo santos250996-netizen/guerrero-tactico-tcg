@@ -43,16 +43,10 @@ export function CardPreviewModal({
   card,
   open,
   onOpenChange,
-  playOptions,
-  onPlayLane,
 }: {
   card: CardDef | null;
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  /** RUTA ALTERNATIVA AL DRAG (móvil): carriles donde la carta de mano es
-   *  jugable ahora mismo. Solo llega en tu turno desde la partida. */
-  playOptions?: { lane: string; title: string; enabled: boolean }[] | null;
-  onPlayLane?: (lane: string) => void;
 }) {
   if (!card) return null;
   const cat = CATEGORY_META[card.category];
@@ -229,34 +223,6 @@ export function CardPreviewModal({
               {card.text && (
                 <div className="italic">{card.text}</div>
               )}
-
-            {/* ══ JUGAR DESDE EL PREVIEW (ruta alternativa al drag) ══
-                En tu turno, una carta de mano muestra los carriles donde es
-                jugable ahora mismo: tap = juega. A prueba de dedos torpes. */}
-            {playOptions && playOptions.length > 0 && onPlayLane && (
-              <div className="mt-2 flex items-center justify-center gap-1.5 px-0.5">
-                <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-zinc-500">Jugar en</span>
-                {playOptions.map((opt) => (
-                  <button
-                    key={opt.lane}
-                    disabled={!opt.enabled}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPlayLane(opt.lane);
-                      onOpenChange(false);
-                    }}
-                    className={cn(
-                      "rounded-md border px-1.5 py-1 text-[9px] font-black uppercase tracking-wider transition-colors",
-                      opt.enabled
-                        ? "border-emerald-400/60 bg-gradient-to-b from-emerald-600 to-emerald-800 text-white active:scale-95"
-                        : "cursor-not-allowed border-zinc-800 bg-zinc-900/80 text-zinc-600"
-                    )}
-                  >
-                    {opt.title}
-                  </button>
-                ))}
-              </div>
-            )}
             </div>
 
             {/* ====== REGISTRO DE MODIFICADORES ====== */}

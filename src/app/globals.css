@@ -217,63 +217,9 @@
   }
 }
 
-/* ── FX Layer: sacudida de carril (destrucciones / explosiones) ── */
-@keyframes fx-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-3px) rotate(-0.4deg); }
-  40% { transform: translateX(3px) rotate(0.4deg); }
-  60% { transform: translateX(-2px); }
-  80% { transform: translateX(2px); }
-}
-.fx-shake {
-  animation: fx-shake 0.42s ease-in-out;
-}
-
-/* ── FX: sacudida global del tablero (explosiones grandes / multi-baja) ── */
-@keyframes fx-shake-board {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  20% { transform: translate(-3px, 2px) rotate(-0.35deg); }
-  40% { transform: translate(3px, -2px) rotate(0.35deg); }
-  60% { transform: translate(-2px, 1px) rotate(-0.2deg); }
-  80% { transform: translate(2px, -1px) rotate(0.2deg); }
-}
-.fx-shake-board {
-  animation: fx-shake-board 0.36s ease-in-out;
-}
-
-/* ── FX: CHOQUE DE CARRILES (al cerrar medio-turno las filas se embisten) ──
-   Sacudida vertical corta del tablero + chispas en el separador. */
-@keyframes fx-clash-board {
-  0%, 100% { transform: translateY(0); }
-  30% { transform: translateY(2px) scale(0.997); }
-  60% { transform: translateY(-1px); }
-}
-.fx-clash-board {
-  animation: fx-clash-board 0.42s ease-in-out;
-}
-
-/* Chispa del choque: destello radial que crece y muere en el separador. */
-.clash-spark {
-  width: 14px;
-  height: 14px;
-  transform: translate(-50%, -50%);
-  border-radius: 9999px;
-  background: radial-gradient(
-    circle,
-    rgba(254, 243, 199, 0.95) 0%,
-    rgba(251, 191, 36, 0.75) 35%,
-    rgba(244, 63, 94, 0.35) 65%,
-    transparent 100%
-  );
-  filter: blur(0.4px);
-  animation: clash-spark-burst 0.7s ease-out forwards;
-}
-@keyframes clash-spark-burst {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
-  25% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
-  60% { opacity: 0.75; transform: translate(-50%, -50%) scale(1.7); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
-}
+/* ── FX Layer: sacudidas ELIMINADAS (shake de carril, shake de tablero,
+   choque de carriles + chispas) — jank en WebView low-end y lectura nula.
+   El desglose se comunican con partículas/floats, no moviendo layout. */
 
 /* ============================================================
    MARCOS DE CARTA TCG — foil holográfico + grano de pergamino
@@ -334,9 +280,6 @@
 @media (prefers-reduced-motion: reduce) {
   .foil-holo-full { animation: none; }
   .slot-pulse { animation: none; }
-  .fx-shake-board { animation: none; }
-  .fx-clash-board { animation: none; }
-  .clash-spark { animation: none; opacity: 0; }
 }
 
 /* ── AUDITORÍA MÓVIL (tanda 40): en pantallas táctiles el foil NUNCA

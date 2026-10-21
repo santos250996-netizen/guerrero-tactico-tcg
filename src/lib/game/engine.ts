@@ -378,6 +378,63 @@ interface RemovedCard {
   reason: string;
 }
 
+// ---------------------------------------------------------------------------
+// REGLA DEL CAMPO — PODER A CERO = CAE
+// ---------------------------------------------------------------------------
+// Una carta cuyo poder llega a 0 por reducciones enemigas (debuffTaken > 0)
+// se DESTRUYE al cierre del latido (end_turn / start_turn / jugada). Antes un
+// cuerpo a 0 ocupaba carril para siempre y «Último Aliento» (on_death) era
+// casi imposible de disparar: la única destrucción era Remate/Purga. Ahora
+// el desgaste SÍ mata, los on_death cobran vida y martillar cuerpos a 0 deja
+// de ser una estrategia sin función (reporte del jugador).
+// ---------------------------------------------------------------------------
+
+/**
+ * Recolecta las cartas de AMBOS bandos que quedaron a 0 de poder habiendo
+ * sufrido debuffs. Los escudos protegen (si el debuff fue absorbido, el
+ * poder no bajó). Llamar DESPUÉS de aplicar los efectos del latido.
+ */
+function sweepDestroyedAtZero(board: Board, lanes: LaneId[]): RemovedCard[] {
+  const out: RemovedCard[] = [];
+  for (const lane of lanes) {
+    for (const side of ["player", "enemy"] as const) {
+      for (const card of board[lane][side]) {
+        if (card.currentPower === 0 && (card.debuffTaken ?? 0) > 0) {
+          out.push({ side, lane, uid: card.uid, reason: "poder a cero" });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Remueve del board las cartas barridas y enciende su ÚLTIMO ALIENTO
+ * (on_death) en cadena, fusionando logs/fx en el TriggerResult dado.
+ * `rulesRef` es { v: rulesOut } para poder reasignar el rulesOut adoptado.
+ */
+function applySweptDeaths(
+  board: Board,
+  swept: RemovedCard[],
+  result: TriggerResult,
+  rulesRef?: { v: ClassRulesState | undefined }
+): void {
+  for (const rc of swept) {
+    const dead = board[rc.lane][rc.side].find((c) => c.uid === rc.uid);
+    if (!dead) continue;
+    board[rc.lane][rc.side] = board[rc.lane][rc.side].filter((c) => c.uid !== rc.uid);
+    result.logs.push({ side: rc.side, text: `💀 ${dead.name} cae — su poder llegó a cero.` });
+    result.fx.push({ kind: "destroy", lane: rc.lane, side: rc.side, targetUids: [rc.uid] });
+    const deathRes = applyOnDeathEffects(board, rc.side, rc.lane, dead, rulesRef?.v);
+    for (const ln of Object.keys(board) as LaneId[]) {
+      board[ln] = deathRes.board[ln];
+    }
+    result.logs.push(...deathRes.logs);
+    result.fx.push(...deathRes.fx);
+    if (rulesRef && deathRes.rulesOut) rulesRef.v = deathRes.rulesOut;
+  }
+}
+
 interface EffectResult {
   finalPower: number;
   mutations: BoardMutation[];
@@ -855,6 +912,16 @@ export function playCard(
     }
   }
 
+  // REGLA DEL CAMPO: debuffs on_play que dejan a un enemigo a 0 → cae
+  // (Llamarada/Golpe Certero/Hender/Miasma… rematan sin keyword de remate).
+  // La carta recién jugada queda fuera (debuffTaken = 0); la trampa tampoco
+  // la barre (su semántica no cambia en esta tanda).
+  const sweptOnPlay = sweepDestroyedAtZero(newBoard, Object.keys(board) as LaneId[]);
+  for (const rc of sweptOnPlay) {
+    newBoard[rc.lane][rc.side] = newBoard[rc.lane][rc.side].filter((c) => c.uid !== rc.uid);
+  }
+  const allRemoved = [...effect.removedCards, ...sweptOnPlay];
+
   // Place the new card
   const keyword: Keyword = handCard.keyword ?? "none";
   const newCard: BoardCard = {
@@ -912,7 +979,7 @@ export function playCard(
     remainingEnergy: energy - effectiveCost,
     playedCard: newCard,
     mutations: effect.mutations,
-    removedCards: effect.removedCards,
+    removedCards: allRemoved,
     trapTriggered,
     newTrap: undefined,
     shieldAbsorbed,
@@ -1290,7 +1357,7 @@ export function applyStartTurnEffects(
   const newBoard = cloneBoard(board);
   const result = triggerResult(newBoard);
   const { logs, fx } = result;
-  const rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
+  let rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
 
   for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
@@ -1426,6 +1493,15 @@ export function applyStartTurnEffects(
     }
   }
 
+  // REGLA DEL CAMPO: lo dejado a 0 (p.ej. Veneno perforante) cae aquí — sus
+  // on_death se disparan en cadena dentro del mismo latido.
+  {
+    const swept = sweepDestroyedAtZero(newBoard, lanes);
+    const rulesRef = { v: rulesOut };
+    applySweptDeaths(newBoard, swept, result, rules ? rulesRef : undefined);
+    rulesOut = rulesRef.v;
+  }
+
   if (rulesOut) result.rulesOut = rulesOut;
   return result;
 }
@@ -1447,7 +1523,7 @@ export function applyEndTurnEffects(
   const result = triggerResult(newBoard);
   const { logs, fx } = result;
   const enemySide: "player" | "enemy" = side === "player" ? "enemy" : "player";
-  const rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
+  let rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
 
   // ── FORMACIÓN DE COMBATE (Guerrero): carriles con 2+ cartas propias → +1
   //    permanente a TODAS tus cartas del carril. Tope +1 acumulado por carta (calibrado por sim).
@@ -1502,11 +1578,13 @@ export function applyEndTurnEffects(
           break;
         }
 
-        // ---- CRUELDAD [X]: −X al enemigo más débil del carril ----
+        // ---- CRUELDAD [X]: −X al enemigo más débil CON PODER del carril ----
+        // No apunta a cuerpos a 0 (no cumplen función: reporte del jugador).
         // Pasa por applyDebuff: los escudos (Coraza/Amparo) absorben.
         case "crueldad": {
           if (x > 0) {
-            const target = lowestPowerCard(newBoard[lane][enemySide]);
+            const vivos = newBoard[lane][enemySide].filter((c) => c.currentPower > 0);
+            const target = lowestPowerCard(vivos);
             if (target) {
               const res = applyDebuff(
                 newBoard,
@@ -1529,6 +1607,8 @@ export function applyEndTurnEffects(
                   fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
                 }
               }
+            } else {
+              logs.push({ side, text: `🎯 ${card.name} (Crueldad): sin objetivo — el carril no tiene cartas con poder.` });
             }
           }
           break;
@@ -1617,6 +1697,16 @@ export function applyEndTurnEffects(
         fx.push({ kind: "keyword", keyword: "sobrecarga", lane, side, targetUids: [card.uid], value: decay });
       }
     }
+  }
+
+  // REGLA DEL CAMPO: al cerrar el turno, todo lo dejado a 0 por debuffs
+  // (Crueldad, Ventisca, Contagio, venenos acumulados…) CAE y su Último
+  // Aliento (on_death) se dispara. Orden: efectos → decay → muertes.
+  {
+    const swept = sweepDestroyedAtZero(newBoard, lanes);
+    const rulesRef = { v: rulesOut };
+    applySweptDeaths(newBoard, swept, result, rules ? rulesRef : undefined);
+    rulesOut = rulesRef.v;
   }
 
   // REGLAS V3: cerrar el turno del lado — Resonancia expira (lastSpec a null).

@@ -161,7 +161,19 @@ export function materializeCard(card: CardDef, rarity: Rarity): CardDef {
   const out: CardDef = { ...card, power: card.power + bonus.power, rarity };
   const kw = card.keyword;
   if (bonus.keyword > 0 && kw && kw !== "none" && KEYWORD_META[kw]?.hasValue && card.keywordValue !== undefined) {
-    out.keywordValue = card.keywordValue + bonus.keyword;
+    const oldX = card.keywordValue;
+    const newX = oldX + bonus.keyword;
+    out.keywordValue = newX;
+    // SINCRONIZA EL TEXTO CON LA RAREZA: los números del efecto derivan de X
+    // (y de 2X en fórmulas dobles: Sobrecarga +2X, Emboscada +2X/+X,
+    // Combustión −2X). Sin esto, una «Colmillos Curvos» legendaria (X=2)
+    // seguía diciendo «reduce en 1» — reporte del jugador. Determinista:
+    // el servidor reconstruye el mismo texto desde id+tier.
+    if (newX !== oldX) {
+      out.text = out.text
+        .replace(new RegExp(`(?<![0-9])${2 * oldX}(?![0-9])`, "g"), String(2 * newX))
+        .replace(new RegExp(`(?<![0-9])${oldX}(?![0-9])`, "g"), String(newX));
+    }
   }
   return out;
 }

@@ -287,11 +287,12 @@ console.log("\n🔵 FORTALEZA (end_turn)");
 }
 
 // ---------------------------------------------------------------------------
-// 11. CRUELDAD [X] — end_turn: −X al enemigo más débil (respeta escudos)
+// 11. CRUELDAD [X] — end_turn: −X al enemigo más débil CON PODER (ignora
+//     cuerpos a 0) · REGLA DEL CAMPO: a 0 por debuff → la carta CAE.
 // ---------------------------------------------------------------------------
 console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
 {
-  // 11a: sin escudo
+  // 11a: sin escudo — el débil (1 poder) recibe −1, llega a 0 y CAE
   const board = emptyBoard();
   const colmillo = boardCard(cardById("colmillo_del_verdugo")); // crueldad 1
   place(board, "player", "furia", colmillo);
@@ -301,10 +302,11 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
   place(board, "enemy", "furia", strong);
 
   const res = applyEndTurnEffects(board, "player");
-  const w = res.board.furia.enemy.find((c) => c.uid === weak.uid)!;
+  const w = res.board.furia.enemy.find((c) => c.uid === weak.uid);
   const s = res.board.furia.enemy.find((c) => c.uid === strong.uid)!;
-  check("El MÁS DÉBIL enemigo recibe −1", w.currentPower === 0 && s.currentPower === 17, `weak=${w.currentPower} strong=${s.currentPower}`);
-  check("debuffTaken acumulado en el objetivo", w.debuffTaken === 1);
+  check("El débil llegó a 0 y CAE (regla del campo)", !w, w ? `sigue vivo con ${w.currentPower}` : "destruido");
+  check("El fuerte NO fue tocado", s.currentPower === 17, `real ${s.currentPower}`);
+  check("Log de caída presente", res.logs.some((l) => l.text.includes("cae")));
 
   // 11b: con escudo (Coraza absorbe)
   const board2 = emptyBoard();
@@ -315,6 +317,37 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
   const res2 = applyEndTurnEffects(board2, "player");
   const sh = res2.board.furia.enemy.find((c) => c.uid === shielded.uid)!;
   check("El escudo absorbe el debuff (poder intacto, escudo 2→1)", sh.currentPower === 1 && sh.shieldRemaining === 1, `poder=${sh.currentPower} escudo=${sh.shieldRemaining}`);
+
+  // 11c: RETARGET — no apunta a cuerpos a 0: va contra el más débil CON PODER
+  const board3 = emptyBoard();
+  place(board3, "player", "furia", boardCard(cardById("colmillo_del_verdugo"))); // crueldad 1
+  const cuerpo0 = boardCard(cardById("amoladora_de_campamento"), { currentPower: 0, basePower: 3 });
+  cuerpo0.debuffTaken = 3;
+  const vivo = boardCard(cardById("duelista_errante"), { currentPower: 11, basePower: 11 });
+  place(board3, "enemy", "furia", cuerpo0);
+  place(board3, "enemy", "furia", vivo);
+  const res3 = applyEndTurnEffects(board3, "player");
+  const v = res3.board.furia.enemy.find((c) => c.uid === vivo.uid)!;
+  check("Crueldad apunta al débil CON PODER (no al cuerpo a 0)", v.currentPower === 10, `real ${v.currentPower}`);
+}
+
+// ---------------------------------------------------------------------------
+// 11bis. REGLA DEL CAMPO — poder a 0 dispara ÚLTIMO ALIENTO (on_death)
+// ---------------------------------------------------------------------------
+console.log("\n💀 PODER A CERO → ÚLTIMO ALIENTO");
+{
+  // Legado: la muerta deja +3 al aliado más débil del carril
+  const board = emptyBoard();
+  place(board, "player", "furia", boardCard(cardById("colmillo_del_verdugo"))); // crueldad 1
+  const moribundo = boardCard(cardById("veterano_caido"), { currentPower: 1, basePower: 6 }); // legado 3
+  const herido = boardCard(cardById("berserker_recluta"), { currentPower: 2, basePower: 5 });
+  place(board, "enemy", "furia", moribundo);
+  place(board, "enemy", "furia", herido);
+  const res = applyEndTurnEffects(board, "player");
+  const muerto = res.board.furia.enemy.find((c) => c.uid === moribundo.uid);
+  const vivo = res.board.furia.enemy.find((c) => c.uid === herido.uid)!;
+  check("Último Aliento se DISPARA: la carta a 0 cae", !muerto, muerto ? `sigue con ${muerto.currentPower}` : "destruido");
+  check("Legado deja +3 al aliado más débil", vivo.currentPower === 5, `real ${vivo.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------

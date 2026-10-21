@@ -5,8 +5,8 @@
 // de FxLayer. Se suscribe al mismo fxBus y opera sobre [data-card-uid]:
 //
 //   ▸ mutation value>0 : PULSO DE BUFF — flash esmeralda + scale up y vuelta.
-//   ▸ mutation value<0 : HIT — flash rojo + knockback en la dirección del
-//                        atacante (sourceUid) + micro-rotación.
+//   ▸ mutation value<0 : HIT — flash rojo (SIN empujón: el knockback era un
+//                        «choque» imperceptible que costaba layout — fuera).
 //   ▸ destroy          : MUERTE POR SPEC — clona la carta en un overlay fijo y
 //                        la anima según su spec (quemado / congelación /
 //                        disolución venenosa / desvanecimiento en sombra /
@@ -36,16 +36,6 @@ const enabled = () => useSettings.getState().animationsOn && !reducedMotion();
 const uidEl = (uid: string): HTMLElement | null =>
   document.querySelector<HTMLElement>(`[data-card-uid="${uid}"]`);
 
-/** shake global del tablero (ancla [data-board-root] en page/PvpGame). */
-function shakeBoard() {
-  const board = document.querySelector<HTMLElement>("[data-board-root]");
-  if (!board) return;
-  board.classList.remove("fx-shake-board");
-  void board.offsetWidth; // reinicia la animación
-  board.classList.add("fx-shake-board");
-  setTimeout(() => board.classList.remove("fx-shake-board"), 400);
-}
-
 // ---------------------------------------------------------------------------
 // Overlays temporales
 // ---------------------------------------------------------------------------
@@ -72,32 +62,8 @@ function flashOverlay(el: HTMLElement, color: string, duration = 340) {
   setTimeout(() => div.remove(), duration + 60);
 }
 
-/** Vector de empuje desde el atacante (o hacia atrás por defecto). */
-function knockback(el: HTMLElement, sourceRect: DOMRect | null) {
-  const r = el.getBoundingClientRect();
-  const cx = r.left + r.width / 2;
-  const cy = r.top + r.height / 2;
-  let dx = 0;
-  let dy = -1; // por defecto: retrocede hacia arriba
-  if (sourceRect) {
-    const sx = sourceRect.left + sourceRect.width / 2;
-    const sy = sourceRect.top + sourceRect.height / 2;
-    const vx = cx - sx;
-    const vy = cy - sy;
-    const len = Math.hypot(vx, vy) || 1;
-    dx = vx / len;
-    dy = vy / len;
-  }
-  const dist = Math.max(r.width, 42) * 0.22;
-  el.animate(
-    [
-      { transform: "translate(0,0) rotate(0deg)" },
-      { transform: `translate(${dx * dist}px, ${dy * dist}px) rotate(${dx * 4}deg)`, offset: 0.32 },
-      { transform: "translate(0,0) rotate(0deg)" },
-    ],
-    { duration: 380, easing: "cubic-bezier(.2,.9,.3,1.2)" }
-  );
-}
+/** Vector de empuje eliminado — el «choque» entre cartas era imperceptible
+ *  y movía layout en WebView low-end (jank). El flash rojo basta. */
 
 function buffPulse(el: HTMLElement) {
   el.animate(
@@ -165,15 +131,10 @@ export function CardJuiceLayer() {
     const onEvents = (events: FxEvent[]) => {
       if (!enabled()) return;
 
-      let destroyCount = 0;
-
       for (const ev of events) {
         // ── MUTACIÓN: buff o hit ──
         if (ev.kind === "mutation" && ev.targetUids?.length) {
           const positive = (ev.value ?? 0) > 0;
-          const sourceRect = ev.sourceUid
-            ? uidEl(ev.sourceUid)?.getBoundingClientRect() ?? null
-            : null;
           for (const uid of ev.targetUids) {
             // captura del elemento en el momento del evento (aún existe)
             const el = uidEl(uid);
@@ -185,7 +146,6 @@ export function CardJuiceLayer() {
                 buffPulse(live);
                 flashOverlay(live, "radial-gradient(circle, rgba(52,211,153,0.5), rgba(16,185,129,0.15))");
               } else {
-                knockback(live, sourceRect);
                 flashOverlay(live, "radial-gradient(circle, rgba(255,80,100,0.55), rgba(225,29,72,0.2))");
               }
             }, ev.delayMs ?? 0);
@@ -195,7 +155,6 @@ export function CardJuiceLayer() {
 
         // ── DESTRUCCIÓN: clon de muerte por spec ──
         if (ev.kind === "destroy" && ev.targetUids?.length) {
-          destroyCount += ev.targetUids.length;
           for (const uid of ev.targetUids) {
             const el = uidEl(uid);
             if (!el) continue;
@@ -210,11 +169,6 @@ export function CardJuiceLayer() {
             }, ev.delayMs ?? 0);
           }
         }
-      }
-
-      // 2+ bajas en la misma tanda → sacudida global del tablero
-      if (destroyCount >= 2) {
-        later(shakeBoard, 120);
       }
     };
 

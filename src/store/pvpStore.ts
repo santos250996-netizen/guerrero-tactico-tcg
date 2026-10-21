@@ -100,8 +100,6 @@ interface PvpStoreState {
   bossPickSelected: number[];
   /** La victoria acaba de CERRAR la campaña (escalón 15) → celebración ★. */
   campaignCompleted: boolean;
-  /** seq de la última acción "pass" — dispara el choque de carriles en UI. */
-  clashSeq: number;
 
   // Formulario de setup
   playerName: string;
@@ -223,21 +221,12 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const newFloats: PvpFloatingNumber[] = [];
     let rivalPlay: RivalPlayAnnounce | null = null;
     let highlightUid: string | null = null;
-    let clashSeq = st.clashSeq;
     try {
       const la = view.lastAction;
       if (la && la.seq > prevSeq) {
-        // Cierre de medio-turno → CHOQUE DE CARRILES (la UI embiste las filas).
-        // Boom grave + vibración fuerte: el impacto ya no es mudo.
-        if (la.type === "pass" && view.phase === "playing") {
-          clashSeq = la.seq;
-          try {
-            if (useSettings.getState().soundOn) sfx.clash();
-            haptic("heavy");
-          } catch {
-            // noop
-          }
-        }
+        // NOTA: el CHOQUE DE CARRILES (boom+vibración al pasar turno) fue
+        // eliminado por jank en móvil — el pase ya suena con turnPass/
+        // enemyTurn abajo. Nada de sacudidas.
         for (const m of la.mutations) {
           if (m.powerDelta === 0) continue;
           newFloats.push({ id: `pf-${++floatId}`, uid: m.uid, value: m.powerDelta });
@@ -306,7 +295,6 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       screen,
       rivalPlay,
       highlightUid,
-      clashSeq,
       connectionLost: false,
       ...(newFloats.length > 0
         ? { floatingNumbers: [...st.floatingNumbers, ...newFloats] }
@@ -674,7 +662,6 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     bossActive: false,
     campaignStep: null,
     campaignCompleted: false,
-    clashSeq: 0,
     playerName: "",
     gameClass: "guerrero",
     joinCode: "",

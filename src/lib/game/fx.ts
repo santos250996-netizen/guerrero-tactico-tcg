@@ -161,7 +161,9 @@ export const LANE_AMBIENT: Record<LaneId, AmbientRecipe> = {
   fuego: "flames",
   hielo: "snow",
   veneno: "bubbles",
-  combate: "clash",
+  // combate: el ambient «clash» (motas rojas agitadas = choque perpetuo
+  // invisible) salió del juego — FX sin lectura = coste sin retorno.
+  combate: "motes",
   sigilo: "mist",
 };
 
@@ -314,9 +316,9 @@ export function eventsFromPlayResult(
     });
   }
 
-  // 5b. JUICE FÍSICO: mutaciones de poder → hit-flash + knockback (delta<0)
-  //     o pulso de buff (delta>0) sobre la carta afectada. Lo pinta el
-  //     CardJuiceLayer (DOM) — el canvas de keywords ya añade las partículas.
+  // 5b. JUICE FÍSICO: mutaciones de poder → hit-flash (delta<0) o pulso de
+  //     buff (delta>0) sobre la carta afectada. Lo pinta el CardJuiceLayer
+  //     (DOM) — el canvas de keywords ya añade las partículas.
   {
     const hitBySide = new Map<"player" | "enemy", string[]>();
     const buffBySide = new Map<"player" | "enemy", string[]>();

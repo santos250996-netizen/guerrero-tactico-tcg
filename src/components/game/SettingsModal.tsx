@@ -7,7 +7,7 @@ import { useGameStore } from "@/store/gameStore";
 import { motion } from "framer-motion";
 import {
   Volume2, VolumeX, Sparkles, Sparkle, LogOut, Globe, Check, Trash2,
-  Music, Vibrate,
+  Music, Vibrate, Save, Upload,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,40 @@ interface SettingsModalProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   showExitToMenu?: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RESPALDO DE PROGRESO (petición del jugador: una actualización que no
+// instala no puede costar la partida). Todo el progreso vive en
+// localStorage bajo estas claves: exportarlas en un solo bloque de texto
+// permite mudar de dispositivo / reinstalar SIN perder nada.
+// ─────────────────────────────────────────────────────────────
+const PROGRESS_KEYS = [
+  "pacto-de-guerra-profile",
+  "pacto-de-guerra-campana",
+  "pacto-de-guerra-stats",
+  "pacto-de-guerra-misiones",
+  "guerrero-tactico-coleccion",
+  "guerrero-tactico-settings",
+];
+
+const DECK_KEY_PREFIX = "guerrero-tactico-deck";
+
+function collectProgress(): string {
+  const keys: Record<string, string> = {};
+  for (const k of PROGRESS_KEYS) {
+    const v = localStorage.getItem(k);
+    if (v !== null) keys[k] = v;
+  }
+  // Mazos editados por clase (prefijo): deck + deck-mago + deck-asesino…
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(DECK_KEY_PREFIX)) {
+      const v = localStorage.getItem(k);
+      if (v !== null) keys[k] = v;
+    }
+  }
+  return JSON.stringify({ game: "pacto-de-guerra", version: 1, keys });
 }
 
 const LANGUAGES: { value: Language; label: string; flag: string }[] = [
@@ -46,11 +80,55 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
 
   const [confirmExit, setConfirmExit] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // RESPALDO DE PROGRESO: exportar copia al portapapeles + importar pegando.
+  const [exportCode, setExportCode] = useState<string | null>(null);
+  const [exportCopied, setExportCopied] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const importAreaRef = useRef<HTMLTextAreaElement>(null);
   const resetCollection = useCollectionStore((s) => s.resetAll);
   // Reset de confirmaciones al CERRAR (evento, no effect — evita cascada de renders).
   const handleOpenChange = (o: boolean) => {
     onOpenChange(o);
     if (!o) { setConfirmExit(false); setConfirmReset(false); }
+  };
+
+  const doExport = () => {
+    haptic("light");
+    const code = collectProgress();
+    setExportCode(code);
+    setExportCopied(false);
+    try {
+      void navigator.clipboard?.writeText(code).then(() => setExportCopied(true)).catch(() => {});
+    } catch {
+      // sin portapapeles: el texto queda visible para copiar a mano
+    }
+  };
+
+  const doImport = () => {
+    try {
+      const parsed = JSON.parse(importText.trim()) as { game?: string; keys?: Record<string, string> };
+      if (parsed.game !== "pacto-de-guerra" || !parsed.keys || typeof parsed.keys !== "object") {
+        setImportMsg("Código no válido — revisa que sea el bloque completo.");
+        return;
+      }
+      let written = 0;
+      for (const [k, v] of Object.entries(parsed.keys)) {
+        if (typeof v !== "string") continue;
+        localStorage.setItem(k, v);
+        written++;
+      }
+      if (written === 0) {
+        setImportMsg("El código no contiene datos.");
+        return;
+      }
+      setImportMsg(`Restaurado (${written} claves). Recargando…`);
+      haptic("success");
+      setTimeout(() => { location.reload(); }, 700);
+    } catch {
+      setImportMsg("No se pudo leer el código — cópialo completo.");
+    }
   };
 
   const exitToMenu = () => {
@@ -230,6 +308,93 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
                   </div>
                 </motion.div>
               )}
+            </div>
+          </Section>
+
+          {/* ── SECTION: PROGRESO (respaldo — sobrevive a reinstalaciones) ── */}
+          <Section title="Progreso">
+            <div className="flex flex-col gap-2 px-2 py-2">
+              <button
+                onClick={doExport}
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-emerald-950/30"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-950/60 text-emerald-300 ring-1 ring-emerald-700/40">
+                  <Save className="h-3.5 w-3.5" />
+                </span>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                    Exportar progreso
+                  </span>
+                  <span className="text-[10px] text-emerald-400/80">
+                    Copia tu colección, campaña y nivel como código
+                  </span>
+                </div>
+              </button>
+              {exportCode && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-1.5 rounded-lg border border-emerald-800/40 bg-zinc-950/80 p-2">
+                  <textarea
+                    readOnly
+                    value={exportCode}
+                    rows={3}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="w-full resize-none rounded border border-zinc-800 bg-black/60 p-1.5 font-mono text-[8px] leading-tight text-zinc-400 focus:outline-none"
+                  />
+                  <p className="text-[9px] uppercase tracking-widest text-zinc-500">
+                    {exportCopied ? "Copiado al portapapeles ✓ guárdalo donde quieras" : "Toca el texto para copiarlo — guárdalo en notas/chat"}
+                  </p>
+                </motion.div>
+              )}
+              {!importOpen ? (
+                <button
+                  onClick={() => { setImportOpen(true); setImportMsg(null); }}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-amber-950/30"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-950/60 text-amber-300 ring-1 ring-amber-700/40">
+                    <Upload className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-200">
+                      Importar progreso
+                    </span>
+                    <span className="text-[10px] text-amber-400/80">
+                      Pega un código de respaldo para restaurar
+                    </span>
+                  </div>
+                </button>
+              ) : (
+                <div className="flex flex-col gap-1.5 rounded-lg border border-amber-800/40 bg-zinc-950/80 p-2">
+                  <textarea
+                    ref={importAreaRef}
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    rows={4}
+                    placeholder={"Pega aquí el código exportado…"}
+                    className="w-full resize-none rounded border border-zinc-800 bg-black/60 p-1.5 font-mono text-[8px] leading-tight text-zinc-300 placeholder:text-zinc-700 focus:border-amber-700/60 focus:outline-none"
+                  />
+                  {importMsg && <p className="text-[9px] uppercase tracking-widest text-amber-300/90">{importMsg}</p>}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                      onClick={() => { setImportOpen(false); setImportText(""); setImportMsg(null); }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={importText.trim().length === 0}
+                      className="flex-1 border border-amber-600 bg-amber-900/70 text-amber-50 hover:bg-amber-800 disabled:opacity-50"
+                      onClick={doImport}
+                    >
+                      Restaurar
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <p className="px-2 text-[9px] leading-snug text-zinc-600">
+                Respalda ANTES de instalar una actualización: el código trae TODO tu avance.
+              </p>
             </div>
           </Section>
 

@@ -247,9 +247,12 @@ console.log("\n❄️ MAGO — HIELO (escarcha · ventisca)");
   ];
   const endRes = applyEndTurnEffects(b, "player", [], ["arcana", "fuego", "hielo"]);
   const e1 = endRes.board[lane].enemy.find((c) => c.uid === "e1")!;
-  const e2 = endRes.board[lane].enemy.find((c) => c.uid === "e2")!;
+  const e2 = endRes.board[lane].enemy.find((c) => c.uid === "e2");
   assert("Ventisca: −1 a todos (13→12)", e1.currentPower === 12, `power=${e1.currentPower}`);
-  assert("Ventisca: piso en 0 (1→0)", e2.currentPower === 0, `power=${e2.currentPower}`);
+  // REGLA DEL CAMPO: el débil (1→0) CAE al cierre del turno — antes quedaba
+  // como cuerpo a 0 eterno; ahora muere y su Último Aliento puede sonar.
+  assert("Ventisca: el débil llega a 0 y CAE (regla del campo)", !e2, e2 ? `power=${e2.currentPower}` : "destruido");
+  assert("Log de caída presente", endRes.logs.some((l) => l.text.includes("cae")));
 }
 
 // ============================================================================

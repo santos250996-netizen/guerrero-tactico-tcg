@@ -286,7 +286,7 @@ export const KEYWORD_META: Record<
   },
   crueldad: {
     label: "Crueldad", short: "CRUE", icon: Target, color: "text-rose-300",
-    description: "Fin de Turno: reduce en X el poder del enemigo más débil de este carril.",
+    description: "Fin de Turno: reduce en X el poder del enemigo más débil CON PODER de este carril (ignora cuerpos a 0).",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "furia",
   },

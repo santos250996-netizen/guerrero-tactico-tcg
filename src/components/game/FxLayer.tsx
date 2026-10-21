@@ -218,24 +218,9 @@ export function FxLayer() {
     const uidRect = (uid: string): DOMRect | null =>
       rectOf(document.querySelector(`[data-card-uid="${uid}"]`));
 
-    const shakeEl = (el: Element | null) => {
-      if (!el) return;
-      el.classList.remove("fx-shake");
-      // forzar reflow para reiniciar la animación
-      void (el as HTMLElement).offsetWidth;
-      el.classList.add("fx-shake");
-      setTimeout(() => el.classList.remove("fx-shake"), 480);
-    };
-
-    /** Sacudida global del tablero (explosiones grandes / impactos fuertes). */
-    const shakeBoard = () => {
-      const board = document.querySelector("[data-board-root]");
-      if (!board) return;
-      board.classList.remove("fx-shake-board");
-      void (board as HTMLElement).offsetWidth;
-      board.classList.add("fx-shake-board");
-      setTimeout(() => board.classList.remove("fx-shake-board"), 400);
-    };
+    // NOTA PERF (reporte del jugador): las SACUDIDAS (shakeEl/shakeBoard) se
+    // eliminaron — mover el tablero/carril entero era jank puro en WebView
+    // low-end y el gesto pasaba desapercibido. Las partículas comunican solo.
 
     // ── Spawning de partículas ──
     const push = (p: Particle) => {
@@ -559,15 +544,11 @@ export function FxLayer() {
                 burst(c.x, c.y, color, 26, 150 * intensity, { gravity: 40 });
                 burst(c.x, c.y, [255, 237, 213], 10, 90);
                 ring(c.x, c.y, color, 10, 130, 0.5, 3);
-                const sel = laneSelector(ev);
-                if (sel) shakeEl(document.querySelector(sel));
-                shakeBoard();
               }, 300));
             } else {
               burst(c.x, c.y, color, 26, 150 * intensity, { gravity: 40 });
               burst(c.x, c.y, [255, 237, 213], 10, 90);
               ring(c.x, c.y, color, 10, 130, 0.5, 3);
-              shakeBoard();
             }
             break;
           }
@@ -747,10 +728,6 @@ export function FxLayer() {
             burst(c.x, c.y, [244, 63, 94], 7, 65);
             ring(c.x, c.y, [244, 63, 94], 7, 60, 0.4);
           });
-          if (laneR) {
-            const sel = laneSelector(ev);
-            if (sel) shakeEl(document.querySelector(sel));
-          }
           break;
         }
         case "shieldBlock": {

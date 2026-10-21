@@ -37,8 +37,6 @@ import { useSettings } from "@/lib/settings";
 import { music } from "@/lib/music";
 import { haptic } from "@/lib/haptics";
 import { CLASS_META, LANE_META, RARITY_META } from "@/lib/game/types";
-import type { LaneId } from "@/lib/game/types";
-import { getEffectiveCost, isCardCostAllowed, getLaneMaxCards } from "@/lib/game/engine";
 import { RARITY_LABEL } from "@/lib/game/balance";
 import { cardById } from "@/lib/game/cards";
 import { PvpLane } from "./PvpLane";
@@ -48,7 +46,6 @@ import { FxLayer } from "../FxLayer";
 import { CardJuiceLayer } from "../CardJuiceLayer";
 import { CornerOrnaments } from "../CardFrame";
 import { Confetti } from "../Confetti";
-import { ClassVictoryFlourish } from "../ClassVictoryFlourish";
 import { SettingsModal } from "../SettingsModal";
 import { MissionToast } from "../MainMenu";
 import { sfx } from "@/lib/sound";
@@ -60,38 +57,18 @@ import { Button } from "@/components/ui/button";
 const CLASS_ICON: Record<string, LucideIcon> = { guerrero: Swords, mago: Wand2, asesino: EyeOff };
 
 // ──────────────────────────────────────────────────────────────
-// handPlayOptions — carriles donde una carta de MANO es jugable AHORA
-// (espejo exacto de la validación del servidor: spec del carril, coste
-// con bono, energía y hueco). null si el preview NO es de mano o no es
-// tu turno → el preview queda solo lectura.
+// handPlayOptions ELIMINADO — la sugerencia «Jugar en X» del preview salió
+// del juego (petición del jugador): cada uno decide dónde jugar. El drag es
+// la única ruta de jugada.
 // ──────────────────────────────────────────────────────────────
-function handPlayOptions(
-  card: unknown,
-  view: NonNullable<ReturnType<typeof usePvpStore.getState>["view"]>,
-): { lane: string; title: string; enabled: boolean }[] | null {
-  if (!card || typeof card !== "object") return null;
-  const c = card as { handBonus?: unknown; basePower?: unknown; cost?: number; subtypes?: string[] };
-  // Cartas de TABLERO (basePower) nunca: solo mano (handBonus presente).
-  if (!("handBonus" in c) || "basePower" in c) return null;
-  if (!view.yourTurn || view.phase !== "playing") return null;
-  const you = view.you;
-  const subtypes = c.subtypes ?? [];
-  // SOLO carriles de SU spec (una carta ATAQUE no ofrece PROTECCIÓN/FURIA);
-  // enabled marca si además hay coste/energía/hueco en ese carril.
-  const options = you.lanes
-    .filter((lane: LaneId) => subtypes.includes(lane))
-    .map((lane: LaneId) => {
-      const bonus = you.laneBonuses[lane] ?? null;
-      // V3: MAGO con Resonancia (misma spec consecutiva) paga −1 — espejo del
-      // pre-check del servidor, si no el botón JUGAR EN se desactivaría para
-      // jugadas que el engine SÍ acepta.
-      const reson = you.gameClass === "mago" && you.lastSpec === lane;
-      const okCost = isCardCostAllowed(c.cost ?? 0, bonus) && Math.max(0, getEffectiveCost(c.cost ?? 0, bonus) - (reson ? 1 : 0)) <= you.energy;
-      const okSpace = (view.board[lane]?.player.length ?? 0) < getLaneMaxCards(bonus);
-      return { lane, title: LANE_META[lane].title, enabled: okCost && okSpace };
-    });
-  return options.length > 0 ? options : null;
-}
+
+// ──────────────────────────────────────────────────────────────
+// NOTA PERF (reporte del jugador «se pega al cambiar turno en móvil»):
+// el CHOQUE DE CARRILES (sacudida del tablero + chispas + boom al cerrar
+// medio-turno) fue ELIMINADO — animaba el tablero entero 2 veces por pase
+// (setClash true/false) y en WebView low-end eso ES el jank del cambio de
+// turno. El pase ahora solo suena (turnPass/enemyTurn) y cambia el separador.
+// ──────────────────────────────────────────────────────────────
 
 export function PvpGame() {
   const view = usePvpStore((s) => s.view);
@@ -110,28 +87,6 @@ export function PvpGame() {
   const battleIntro = usePvpStore((s) => s.battleIntro);
   const bossPickOptions = usePvpStore((s) => s.bossPickOptions);
   const dismissBattleIntro = usePvpStore((s) => s.dismissBattleIntro);
-
-  // CHOQUE DE CARRILES: al cerrar un medio-turno (pass) las dos filas se
-  // embisten hacia el separador con sacudida + chispas. 750ms y vuelve.
-  // (Suscripción al store — setState dentro del callback del sistema externo,
-  //  nunca directo en el body del effect por react-hooks/set-state-in-effect.)
-  const [clash, setClash] = useState(false);
-  const clashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    let last = 0;
-    const unsub = usePvpStore.subscribe((s) => {
-      if (s.clashSeq === 0 || s.clashSeq === last) return;
-      last = s.clashSeq;
-      if (!useSettings.getState().animationsOn) return;
-      if (clashTimer.current) clearTimeout(clashTimer.current);
-      setClash(true);
-      clashTimer.current = setTimeout(() => setClash(false), 750);
-    });
-    return () => {
-      unsub();
-      if (clashTimer.current) clearTimeout(clashTimer.current);
-    };
-  }, []);
 
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -273,40 +228,21 @@ export function PvpGame() {
         )}
       </AnimatePresence>
 
-      {/* ══ TABLERO: fila rival + separador + fila propia ══
-          data-board-root: ancla de la sacudida global del tablero (juice). */}
+      {/* ══ TABLERO: fila rival + separador + fila propia ══ */}
       <main className="app-main mx-auto flex w-full flex-1 flex-col px-1.5 py-1">
-        <div
-          data-board-root
-          className={cn(
-            "relative grid h-full min-h-0 flex-1 grid-rows-[1fr_auto_1fr] gap-1 rounded-lg",
-            clash && "fx-clash-board"
-          )}
-        >
+        <div className="relative grid h-full min-h-0 flex-1 grid-rows-[1fr_auto_1fr] gap-1 rounded-lg">
           {/* Filigranas heráldicas en las esquinas del tablero completo */}
           <CornerOrnaments size={26} className="-inset-x-1 -inset-y-1 z-20" />
-          {/* FILA RIVAL — embiste hacia ABAJO al chocar */}
-          <motion.div
-            animate={{ y: clash ? 7 : 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 22 }}
-            className="grid min-h-0 grid-cols-3 gap-1"
-          >
+          {/* FILA RIVAL */}
+          <div className="grid min-h-0 grid-cols-3 gap-1">
             {[0, 1, 2].map((p) => (
               <PvpLane key={`rival-${p}`} position={p} side="rival" />
             ))}
-          </motion.div>
+          </div>
 
-          {/* Separador VS — chispas del choque + indicador latiendo cuando
-              el rival está jugando (su turno se VE). */}
+          {/* Separador VS — indicador latiendo cuando el rival está jugando
+              (su turno se VE). Sin chispas: FX invisible = coste sin retorno. */}
           <div className="relative flex items-center justify-center gap-2 py-0.5">
-            {clash &&
-              [16.66, 50, 83.33].map((x) => (
-                <span
-                  key={x}
-                  className="clash-spark pointer-events-none absolute top-1/2 z-20"
-                  style={{ left: `${x}%` }}
-                />
-              ))}
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
             <span
               className={cn(
@@ -320,16 +256,12 @@ export function PvpGame() {
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-rose-700/40 to-transparent" />
           </div>
 
-          {/* FILA PROPIA — embiste hacia ARRIBA al chocar */}
-          <motion.div
-            animate={{ y: clash ? -7 : 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 22 }}
-            className="grid min-h-0 grid-cols-3 gap-1"
-          >
+          {/* FILA PROPIA */}
+          <div className="grid min-h-0 grid-cols-3 gap-1">
             {[0, 1, 2].map((p) => (
               <PvpLane key={`me-${p}`} position={p} side="me" />
             ))}
-          </motion.div>
+          </div>
         </div>
       </main>
 
@@ -378,19 +310,13 @@ export function PvpGame() {
         />
       )}
 
-      {/* Preview de carta — con botones "Jugar en <carril>" cuando es una
-          carta de MANO en TU turno: ruta alternativa al drag (a prueba de
-          dedos torpes en pantallas táctiles). */}
+      {/* Preview de carta — SOLO LECTURA: el jugador decide dónde jugar
+          (drag o carril). Fuera la sugerencia «Jugar en X»: decisión del
+          jugador (petición explícita). */}
       <CardPreviewModal
         card={previewCard}
         open={previewCard !== null}
         onOpenChange={(o) => { if (!o) setPreviewCard(null); }}
-        playOptions={handPlayOptions(previewCard, view)}
-        onPlayLane={(lane) => {
-          const c = previewCard as { uid?: string } | null;
-          setPreviewCard(null);
-          if (c?.uid) void usePvpStore.getState().sendPlay(c.uid, lane);
-        }}
       />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
 
@@ -552,9 +478,10 @@ function HistoriaEndOverlay({
   const bossActive = usePvpStore.getState().bossActive;
   const playedStep = usePvpStore.getState().campaignStep ?? 1;
   const campaignClosed = usePvpStore.getState().campaignCompleted;
-  // MOMENTO FIRMA (V3 grupo A): la victoria de TU clase tiene su gesto
-  const myClass = usePvpStore.getState().view?.you.gameClass ?? "guerrero";
   const { step: nextStep, prestige } = useCampaignStore.getState();
+  // NIVEL: celebra la subida (flash del statsStore) y muestra el XP ganado
+  const stats = useStatsStore.getState();
+  const need = xpForNext(stats.level);
   // Botín del JEFE a ELEGIR (3 épicas, 2 tuyas) — suscripción reactiva: al
   // confirmar las 2 el picker desaparece y el botín completo aparece.
   const bossPick = usePvpStore((s) => s.bossPickOptions);
@@ -562,9 +489,10 @@ function HistoriaEndOverlay({
   const picking = result === "WIN" && !!bossPick?.length;
   const won = result === "WIN";
   const loot = rewards ?? [];
-  // NIVEL: celebra la subida (flash del statsStore) y muestra el XP ganado
-  const stats = useStatsStore.getState();
-  const need = xpForNext(stats.level);
+  // FIX MODAL BLOQUEADO (reporte del jugador: «no deja continuar, hay que
+  // cerrar la app»): los botones de navegación NUNCA se ocultan. Si el pick
+  // del jefe está pendiente, convive arriba — elegir es OPCIONAL (son épicas
+  // extra sobre el botín del escalón, que ya está pagado y visible).
   return (
     <AnimatePresence>
       {open && (
@@ -581,12 +509,10 @@ function HistoriaEndOverlay({
             animate={{ scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 200, damping: 20 }}
             className={cn(
-              "relative mx-4 w-full max-w-sm overflow-hidden rounded-2xl border-2 bg-gradient-to-b to-black p-5 text-center shadow-2xl",
+              "mx-4 w-full max-w-sm rounded-2xl border-2 bg-gradient-to-b to-black p-5 text-center shadow-2xl",
               won ? "border-amber-500/60 from-amber-950" : "border-rose-800/60 from-rose-950"
             )}
           >
-            {/* MOMENTO FIRMA — gesto de victoria de la clase (una vez) */}
-            {won && <ClassVictoryFlourish gameClass={myClass} />}
             {won && campaignClosed ? (
               <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
             ) : won && bossActive ? (
@@ -709,11 +635,15 @@ function HistoriaEndOverlay({
               </>
             )}
 
-            {loot.length > 0 && !picking && (
+            {/* BOTÍN — SIEMPRE visible (también durante el pick del jefe):
+                la recompensa existe y se ve. El pick de épicas es extra. */}
+            {loot.length > 0 && (
               <>
                 <p className="mt-2 text-[10px] uppercase tracking-widest text-amber-200/80">
                   {bossActive && won
-                    ? "Botín del JEFE · escalón + tus 2 épicas"
+                    ? picking
+                      ? "Botín del escalón (las épicas van aparte)"
+                      : "Botín del JEFE · escalón + tus 2 épicas"
                     : `Botín · ${loot.length} ${loot.length === 1 ? "carta" : "cartas"} para tu colección`}
                 </p>
                 <div className="mt-3 flex justify-center gap-3">
@@ -756,7 +686,7 @@ function HistoriaEndOverlay({
                 </p>
               </>
             )}
-            {loot.length === 0 && !picking && (
+            {loot.length === 0 && (
               <p className="mt-2 text-[10px] text-zinc-500">Sin botín esta vez…</p>
             )}
             {!won && loot.length > 0 && (
@@ -771,8 +701,7 @@ function HistoriaEndOverlay({
             )}
 
             {/* LA CAMPAÑA encadena: siguiente escalón / reintentar / nueva vuelta.
-                Ocultos mientras el botín del jefe está SIN elegir. */}
-            {!picking && (
+                SIEMPRE disponibles — el modal no puede quedar atrapado jamás. */}
             <div className="mt-4 flex flex-col items-center gap-2">
               <Button
                 onClick={onRematch}
@@ -809,7 +738,6 @@ function HistoriaEndOverlay({
                 Menú
               </Button>
             </div>
-            )}
           </motion.div>
         </motion.div>
       )}
@@ -955,9 +883,7 @@ function PvpGameOverModal({ open, rewards, onRematch, onExit }: {
 
   return (
     <Dialog open={open}>
-      <DialogContent className="relative overflow-hidden border-amber-800/40 bg-zinc-950 text-zinc-100 sm:max-w-sm">
-        {/* MOMENTO FIRMA — gesto de victoria de la clase (una vez) */}
-        {win && <ClassVictoryFlourish gameClass={view.you.gameClass} />}
+      <DialogContent className="border-amber-800/40 bg-zinc-950 text-zinc-100 sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-center gap-2 text-2xl font-black uppercase tracking-widest" style={{ fontFamily: "var(--font-cinzel), serif" }}>
             <Skull className={cn("h-6 w-6", win ? "hidden" : "text-rose-400")} />
