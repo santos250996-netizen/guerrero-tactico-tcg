@@ -17,6 +17,7 @@ import { classCardsOf, ALL_CARDS_V3 } from "../src/lib/game/cards";
 import type { GameClass } from "../src/lib/game/types";
 import { getBalanceInfo } from "../src/lib/game/balance";
 import { KEYWORD_META } from "../src/lib/game/types";
+import { BASE_CLASSES, V3_NEW_CLASSES } from "../src/lib/game/v3";
 
 let passed = 0;
 let failed = 0;
@@ -33,11 +34,17 @@ function section(t: string) {
   console.log(`\n── ${t} ${"─".repeat(Math.max(0, 58 - t.length))}`);
 }
 
-const CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
+// V3.0: paramétrico — valida las 3 clases base SIEMPRE y las clases nuevas
+// solo cuando su pool ya existe (decks vacíos en T-A se saltan sin fallar).
+const CLASSES: GameClass[] = [...BASE_CLASSES, ...V3_NEW_CLASSES];
+function poolReady(cls: GameClass): boolean {
+  return classCardsOf(cls).length > 0;
+}
 
 section("REGLA A — sin textos gemelos (keyword+X+trigger) por clase");
 {
   for (const cls of CLASSES) {
+    if (!poolReady(cls)) continue;
     const cards = classCardsOf(cls);
     const seen = new Map<string, string>();
     const dupes: string[] = [];
@@ -54,6 +61,7 @@ section("REGLA A — sin textos gemelos (keyword+X+trigger) por clase");
 section("REGLA B — sin gemelas de hueco (keyword+trigger+coste) por clase");
 {
   for (const cls of CLASSES) {
+    if (!poolReady(cls)) continue;
     const cards = classCardsOf(cls);
     const seen = new Map<string, string>();
     const dupes: string[] = [];
@@ -75,6 +83,7 @@ section("Cada familia de keyword es una escalera (X distintos o triggers distint
     asesino: "purga ×2/×3 · emboscada ×2/×3",
   };
   for (const cls of CLASSES) {
+    if (!poolReady(cls)) continue;
     const cards = classCardsOf(cls);
     const fams = new Map<string, Set<string>>();
     for (const c of cards) {
@@ -95,17 +104,20 @@ section("Cada familia de keyword es una escalera (X distintos o triggers distint
 section("Pool de clase intacto: 28 cartas, ids únicos");
 {
   for (const cls of CLASSES) {
+    if (!poolReady(cls)) continue;
     const cards = classCardsOf(cls);
     check(`${cls}: 28 cartas`, cards.length === 28, `n=${cards.length}`);
     check(`${cls}: ids únicos`, new Set(cards.map((c) => c.id)).size === 28);
   }
-  check(`catálogo: ${ALL_CARDS_V3.length} ids únicos`, ALL_CARDS_V3.length === 84 && new Set(ALL_CARDS_V3.map((c) => c.id)).size === 84);
+  // V3.0: el catálogo CRECE por tandas (84 → 112 → 140 → 168). El guardián
+  // es la UNICIDAD total, no un número fijo.
+  check(`catálogo: ${ALL_CARDS_V3.length} ids únicos`, new Set(ALL_CARDS_V3.map((c) => c.id)).size === ALL_CARDS_V3.length);
 }
 
-section("PTP: las 84 cartas siguen en rango (±0.5) tras el rediseño");
+section(`PTP: TODAS las ${ALL_CARDS_V3.length} cartas en rango (±0.5)`);
 {
   const bad = ALL_CARDS_V3.filter((c) => !getBalanceInfo(c).balanced);
-  check("84/84 calibradas", bad.length === 0, bad.map((c) => `${c.name} (${getBalanceInfo(c).delta.toFixed(1)})`).join(" · "));
+  check(`${ALL_CARDS_V3.length}/${ALL_CARDS_V3.length} calibradas`, bad.length === 0, bad.map((c) => `${c.name} (${getBalanceInfo(c).delta.toFixed(1)})`).join(" · "));
 }
 
 section("Coherencia texto↔X en las 17 cartas retocadas (texto cita SU valor)");

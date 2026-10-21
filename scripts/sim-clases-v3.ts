@@ -76,7 +76,10 @@ function playGame(clsA: GameClass, clsB: GameClass): "WIN" | "LOSS" | "DRAW" {
   return state.finalResultA!.result as "WIN" | "LOSS" | "DRAW";
 }
 
-const CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
+// V3.0: el sim se amplía SOLO con las clases que ya tienen mazo oficial
+// (T-B Botánico ✓ · Pirata/Tinker entran al aterrizar sus 28 en T-C/T-D).
+const CLASSES: GameClass[] = (["guerrero", "mago", "asesino", "botanico", "pirata", "tinker"] as GameClass[])
+  .filter((c) => CLASS_DECKS[c].length === 12);
 const N = Number(process.argv[2] ?? 60);
 
 console.log(`\n══ SIM BALANCE V3 — ${N} partidas por emparejamiento (IA vs IA, mazos oficiales) ══\n`);

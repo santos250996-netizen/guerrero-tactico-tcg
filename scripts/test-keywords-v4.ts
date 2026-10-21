@@ -332,7 +332,9 @@ console.log("\n📋 COMPOSICIÓN de los 3 mazos segundos");
 
   // Catálogo global: ids únicos entre los 72.
   const ids = new Set(ALL_CARDS_V3.map((c) => c.id));
-  assert("catálogo: 84 ids únicos", ALL_CARDS_V3.length === 84 && ids.size === 84, `${ALL_CARDS_V3.length} cartas, ${ids.size} ids`);
+  // V3.0: el catálogo crece por tandas (84 → 112 → 140 → 168) — el guardián
+  // es la UNICIDAD total, no un número fijo.
+  assert("catálogo: ids únicos", ids.size === ALL_CARDS_V3.length, `${ALL_CARDS_V3.length} cartas, ${ids.size} ids`);
 }
 
 console.log("\n⚖️ PTP — catálogo completo en rango (±0.5)");
