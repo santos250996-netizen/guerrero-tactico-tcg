@@ -1178,3 +1178,21 @@ Stage Summary:
 - Decisiones de diseño nuevas documentadas en código (aprobables por el jugador antes de T-G): reglas sistémicas de las 3 clases nuevas (Ecosistema/Viento de Popa/Taller de Campamento) — el plan §2 no las definía y los Records las exigían; Carnívora con fallback +1 (anti-noop Task 46); Saqueo perforante con botín +2 al hundir; Motín sin [X], pierde poder si el enemigo es más débil.
 - CI: push a main dispara build APK (sin cambios de config; flag apagada = release invisible).
 - Próximo: T-B Botánico (28 cartas: patrón 8/8/12, curva 1×2/2×3/3×5/4×1/5×1, PTP 84, decks I/II, jefe Yggra, sims N=250, 28 webp).
+
+---
+Task ID: 53-d (T-B Botánico)
+Agent: Z.ai main agent
+Task: T-B — 28 cartas Botánico + decks I/II + jefe Yggra + 28 artes webp
+
+Work Log:
+- Commit 7ff774e. Estudio de guardianes reales: pools 28 (8/8/12), PTP ±0.5 por carta, decks 12 con curva exacta 1×2/2×3/3×5/4×1/5×1 + 12 keywords distintas + patrón 2A/1I/1A por carril, id=slug(nombre), Reglas A/B por pool y unicidad GLOBAL de combo (coste|poder|keyword|X|trigger) en tanda29.
+- 28 cartas diseñadas a mano con escaleras por familia; 7 colisiones de combo global detectadas por tanda29 → 2ª iteración con mini-solver de restricciones (scripts/solver-botanico.ts: curva por mazo + Reglas A/B + unicidad global + PTP) que confirmó el atasco y guió el ajuste final (Brote→fervor×3 c2, Círculo→fortaleza×2 c1, Lecho→c3, Coro→fortaleza×4, Amanita→c3, Jardín→c2).
+- Suites parametrizadas: test-no-gemelas y test-keywords-v4 ahora validan las clases con pool existente y catálogo creciente (112 ids únicos); NUEVO scripts/test-v3-clase.ts <clase> (33 aserciones por clase, reutilizable en T-C/T-D).
+- sim-clases-v3.ts ampliado a clases con mazo completo: botanico 43.7–48.9% winrate (spread preexistente del sim: guerrero domina 57% vs asesino; ~55% empates por diseño del entorno). Documentado; ajuste fino de V3_* si T-G lo pide.
+- Arte: scripts/gen-card-art-v9.mjs — 28 composiciones exclusivas (plano/ángulo/momento §8); 2 tandas de generación por timeout (16+12), downscale 432×576 + webp → catálogo visual 112 webp (+1.4MB). Verificados visualmente 3 (full-bleed, sin marcos).
+- Verificación: tsc ✓, build ✓, suites verdes (v3-clase 33, tanda29 84, no-gemelas 42, v4 71, resto intactas).
+
+Stage Summary:
+- T-B COMPLETE: Botánico jugable a nivel de datos/engine (decks I/II, jefe Yggra con mazo de 12 ESPORAS, 28 artes). Sigue OCULTO (flag V3 off).
+- Aprendizaje clave para T-C/T-D: diseñar combos contra la UNICIDAD GLOBAL desde el inicio (el solver de restricciones es la herramienta; reutilizarlo con las familias pirata/tinker).
+- Próximo: T-C Pirata (28 cartas saqueo/tripulacion/motin/contrabando/canonazo/andanada, jefe Kaela ARTILLERÍA, 28 webp).
