@@ -3,14 +3,12 @@
   RESPALDO AUTOMÁTICO (Android 11 y anteriores — fullBackupContent).
   El progreso del juego vive en el localStorage del WebView, que Android
   guarda en app_webview/ — un HERMANO de files/, NO dentro. La versión
-  anterior de estas reglas solo incluía domain="file" (files/) y el
-  comentario prometía una cobertura que NO existía: el localStorage no
-  viajaba al backup. Con domain="root" path="app_webview" el estado del
-  juego SÍ va a Google Auto Backup: al reinstalar (mismo dispositivo con
-  Auto-restaurar activo o cambio de móvil con la misma cuenta) el progreso
-  vuelve SOLO. Complemento de «Exportar/Importar» en Ajustes (manual) y
-  del banner de restauración de un toque (Task 50). PETICIÓN DEL JUGADOR:
-  una actualización no puede costar la partida.
+  original solo incluía domain="file" (files/) y el localStorage no viajaba
+  al backup. Con domain="root" path="app_webview" el estado del juego SÍ va
+  a Google Auto Backup. NOTA LINT (FullBackupContent): con includes
+  explícitos, todo exclude debe estar DENTRO de un include → NO añadir
+  excludes de root/cache ni root/code_cache: al no estar incluidos jamás
+  entraron en el backup y Lint los marca como FATAL (lintVitalRelease).
 -->
 <full-backup-content>
     <include domain="root" path="app_webview" />
@@ -19,6 +17,4 @@
     <include domain="sharedpref" path="." />
     <include domain="external" path="." />
     <exclude domain="file" path="cache" />
-    <exclude domain="root" path="cache" />
-    <exclude domain="root" path="code_cache" />
 </full-backup-content>

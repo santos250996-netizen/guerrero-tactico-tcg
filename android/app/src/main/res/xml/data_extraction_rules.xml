@@ -4,8 +4,9 @@
   Igual objetivo que backup_rules.xml: el localStorage del juego vive en
   app_webview/ (raíz de datos internos, NO files/) → domain="root" para
   que el respaldo en la nube y la transferencia de dispositivo lo lleven
-  de verdad. PETICIÓN DEL JUGADOR: reinstalar o mudar de móvil no puede
-  borrar el progreso.
+  de verdad. NOTA LINT: con includes explícitos, los excludes solo son
+  válidos dentro de un include — sin excludes de root/cache ni
+  root/code_cache (no están incluidos → nunca se respaldan → Lint fatal).
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -15,8 +16,6 @@
         <include domain="sharedpref" path="." />
         <include domain="external" path="." />
         <exclude domain="file" path="cache" />
-        <exclude domain="root" path="cache" />
-        <exclude domain="root" path="code_cache" />
     </cloud-backup>
     <device-transfer>
         <include domain="root" path="app_webview" />
@@ -25,7 +24,5 @@
         <include domain="sharedpref" path="." />
         <include domain="external" path="." />
         <exclude domain="file" path="cache" />
-        <exclude domain="root" path="cache" />
-        <exclude domain="root" path="code_cache" />
     </device-transfer>
 </data-extraction-rules>
