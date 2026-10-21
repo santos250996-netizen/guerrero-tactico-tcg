@@ -43,7 +43,9 @@ const pool = classCardsOf(cls);
 const deckI = CLASS_DECKS[cls];
 const deckII = CLASS_DECKS_SECOND[cls];
 const lanes = CLASS_META[cls].lanes;
-const bossLane = lanes[2]; // el carril de 12 es SIEMPRE el tercero (tema del jefe)
+// El carril del JEFE es el de 12 cartas (Botánico/Pirata: el 3º; Tinker:
+// MAQUINARIA, el central — plan-expansion-v3 §2.3).
+const bossLane = lanes.find((l) => pool.filter((c) => c.subtypes[0] === l).length === 12) ?? lanes[2];
 const laneSet = new Set<string>(lanes);
 
 section(`${cls}: pool de 28`);

@@ -140,9 +140,9 @@ function play(board: Board, card: HandCard, lane: LaneId, extraHand: HandCard[] 
 // ---------------------------------------------------------------------------
 section("0. Cimientos: flag V3, adyacencia y tablero");
 {
-  assert(V3_CLASSES_UNLOCKED === false, "V3_CLASSES_UNLOCKED arranca APAGADA (mega-release T-G)");
-  assert(visibleClasses().length === 3, "visibleClasses() expone solo las 3 clases base");
-  assert(!visibleClasses().includes("botanico") && !visibleClasses().includes("pirata") && !visibleClasses().includes("tinker"), "ninguna clase V3 filtrada a la UI");
+  assert(V3_CLASSES_UNLOCKED === true, "V3_CLASSES_UNLOCKED ENCENDIDA (el jugador pidió ver las 6 clases en T-D)");
+  assert(visibleClasses().length === 6, "visibleClasses() expone las 6 clases");
+  assert(visibleClasses().includes("botanico") && visibleClasses().includes("pirata") && visibleClasses().includes("tinker"), "las 3 clases V3 filtradas a la UI");
   assert(isNewClass("pirata") && isNewClass("botanico") && isNewClass("tinker"), "isNewClass() marca las 3 nuevas");
   assert(!isNewClass("guerrero"), "isNewClass() no marca a las base");
 
