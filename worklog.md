@@ -1100,3 +1100,20 @@ Stage Summary:
 - El backup nativo ahora cubre lo que su comentario llevaba meses prometiendo (app_webview en domain root) — bug real cazado en la auditoría
 - La desinstalación única sigue siendo inevitable para los APK pre-tanda 40 (firma = seguridad del SO), pero después NUNCA más: firma estable + versionCode monótono verificados en Task 49
 - Pendiente vigente: Rush de Jefes, menú de mejoras a elección
+
+---
+Task ID: 51
+Agent: Z (principal)
+Task: hotfix CI — lintVitalRelease FATAL en las backup rules de Task 50 («cache/code_cache is not in an included path»)
+
+Work Log:
+- CAUSA RAÍZ (confirmada por el log del CI del jugador): Task 50 añadió <exclude domain="root" path="cache|code_cache"/> — con includes EXPLÍCITOS, la regla FullBackupContent de Android Lint exige que todo exclude esté DENTRO de un include del mismo dominio; root/ entero no está incluido (solo root/app_webview) → 4 excludes huérfanos (backup_rules.xml:22, data_extraction_rules.xml:18,19,28,29) → lintVitalRelease FATAL → BUILD FAILED antes de empaquetar.
+- FIX MÍNIMO: los excludes de root eran además INÚTILES (lo no incluido jamás entra al backup — cache/code_cache solo son relevantes si se incluye root/. entero). Eliminados los 4; queda <exclude domain="file" path="cache"/> (dentro de file/. → válido, y ya existía antes de Task 50 sin romper nada). La cobertura real de Task 50 (root/app_webview en las 3 secciones) queda INTACTA.
+- GUARDIÁN PERMANENTE scripts/test-backup-rules.ts (10 asserts): parsea los XML reales y replica la regla exacta de Lint (exclude ⟹ include del mismo dominio con prefijo de frontera '/') + app_webview incluido en las 3 secciones + cero excludes de dominio root + dominios válidos. Si alguien reintroduce un exclude huérfano, falla AQUÍ antes de quemar un runner del CI.
+- xmllint no existe en el entorno → validación de buen formato con ElementTree (2/2 OK); sin SDK local → el lint real corre en CI (run de este push = validación definitiva).
+- Verificación: guardian 10/10 · XMLs bien formados · grep: solo quedan los 3 includes root/app_webview
+- Commit + push a main (CI regenera APK v2.7)
+
+Stage Summary:
+- El CI vuelve a verde con la cobertura REAL del localStorage intacta: root/app_webview incluido en fullBackupContent, cloud-backup y device-transfer
+- La regla de Lint que nos cazó vive ahora como suite permanente: excludes huérfanos imposibles en el repo
