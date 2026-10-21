@@ -1154,3 +1154,27 @@ Stage Summary:
 - La expansión V3.0 queda cuantificada: +3 clases, +108 cartas, +27 keywords, +108 arte, +3 jefes, Rush de Jefes, V3.1 — en 7 tandas verificadas (T-A a T-G)
 - Lo que espera aprobación del jugador: los 3 kits de keywords (§2 del doc), los ejes de la ampliación (§2.4), la rotación de jefes por prestigio (§3.1) y la spec de Rush de Jefes (§3.2)
 - Bloqueante de datos: re-pedir B6/E13 (solo afecta T-F)
+
+---
+Task ID: 53-b (plan fix) + 53-c (T-A)
+Agent: Z.ai main agent
+Task: Descartar B6/E13 del plan V3.0 y construir T-A (cimientos de las 3 clases nuevas)
+
+Work Log:
+- Jugador: «no sé qué es B6/E13, olvida eso» → fuera de alcance. Mejoras V3.0 = solo Rush de Jefes.
+- Plan actualizado (estado APROBADO — en construcción; §3.3 DESCARTADO; T-F sin B6/E13; riesgo 6 eliminado) → commit d1eebf1.
+- T-A commiteado y pusheado (be57bf9): 21 archivos, +1607 líneas.
+- types.ts: GameClass ×6, LaneId ×9, CLASS_META +3 (Botánico green/Sprout, Pirata blue/Ship, Tinker yellow/Wrench), LANE_ADJACENT (cadenas 1-2-1 por clase), Keyword +18, KEYWORD_META +18 (labels/descripciones/triggers/scopes/subtypes), LANE_META +9.
+- engine.ts: 10 casos on_play (Micelio doble escudo via init placement, Simbiosis con réplica de poder de entrada, Polen al MENOS debuffeado honesto, Carnívora devora+alimenta [+2/+1 anti-noop], Saqueo robo perforante+botín, Motín SWAP por bonusPower+mutación directa, Canonazo AoE adyacente, Remache, Sobrecalentar, Descarga); 3 start_turn (Estación con turnNumber param, Tripulación, Engranaje) + regla Viento de Popa; end_turn Torreta + regla Ecosistema; on_death Floración/Andanada/Chatarra; playCard: escudo propio coraza/remache/micelio, Contrabando (random hand buff), Taller de Campamento (+1 Ítems, patrón Duelista visible); scoreAIPlay estimaciones V3.0; emptyBoard() exportado; ALL_LANE_IDS ×18.
+- balance.ts KEYWORD_BASE_VALUES +18 (motin=5.0 fijo hasValue=false, contrabando=0.35, canonazo=1.7 con scope 1.4...). fx.ts KEYWORD_FX +18 y LANE_AMBIENT +9 con recetas existentes (dedicadas en T-F).
+- pvp.ts: fireStartTurn pasa state.turn (Estación).
+- v3.ts NUEVO: V3_CLASSES_UNLOCKED=false, visibleClasses(), isNewClass() — un solo interruptor para el mega-release.
+- UI plumbing: ClassSelect/CollectionScreen/ProfileScreen/PvpSetup/ClassRuleBadge consumen flag; paletas laneColors+LaneHex green/blue/yellow; campaign.ts: bots Nim/Roka/Fenn, jefes Yggra/Kaela/Dorvik, temas Esporas/Artillería/Maquinaria, CLASS_UNLOCK_STEP 3/8/13, CLASS_RULE_META +3, lore +3; cards.ts decks vacíos (T-B/C/D) + BOSS_DECKS por carril.
+- Tests: scripts/test-v3-fundamentos.ts NUEVO (58 aserciones, 18 keywords + 3 reglas + adyacencia + flag + simetría bot). Fixes en tests legacy: emptyBoard() centralizada en engine (test-clases-v3, test-keywords-v2, test-keywords-t47, test-tanda29 ×3 literales).
+- Verificación completa: tsc 0 errores · eslint limpio · next build OK · 16/16 suites verdes (~932 aserciones, 0 regresiones).
+
+Stage Summary:
+- T-A COMPLETE: el motor entiende las 3 clases nuevas (6 GameClass / 18 LaneId / 51 keywords / 6 reglas de clase) pero la UI sigue mostrando solo las 3 base.
+- Decisiones de diseño nuevas documentadas en código (aprobables por el jugador antes de T-G): reglas sistémicas de las 3 clases nuevas (Ecosistema/Viento de Popa/Taller de Campamento) — el plan §2 no las definía y los Records las exigían; Carnívora con fallback +1 (anti-noop Task 46); Saqueo perforante con botín +2 al hundir; Motín sin [X], pierde poder si el enemigo es más débil.
+- CI: push a main dispara build APK (sin cambios de config; flag apagada = release invisible).
+- Próximo: T-B Botánico (28 cartas: patrón 8/8/12, curva 1×2/2×3/3×5/4×1/5×1, PTP 84, decks I/II, jefe Yggra, sims N=250, 28 webp).
