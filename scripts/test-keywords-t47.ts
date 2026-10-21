@@ -132,15 +132,15 @@ console.log("\n🟠 DUELISTA — «Al Jugar: +X» funciona Y SE VE");
 // ---------------------------------------------------------------------------
 console.log("\n☠️ PURGA — sin presa débil hiere a la MÁS FUERTE (perfora)");
 {
-  const def = cardById("cuchilla_del_silencio"); // purga X=2
+  const def = cardById("cuchilla_del_silencio"); // purga X=3 (Task 48: antes ×2)
   const board = emptyBoard();
   const big = boardCard(cardById("tajo_quebrantamuros")); // poder 17, > 2
   place(board, "enemy", "sigilo", big);
   const hand = [asHand(def)];
   const res = playCard(board, hand, 10, "player", "sigilo", hand[0], null, NO_TRAP, 1);
   const after = res.board.sigilo.enemy.find((c) => c.uid === big.uid)!;
-  check("Sin candidato ≤X → el más fuerte recibe −X (17→15)", after.currentPower === 15, `real ${after.currentPower}`);
-  check("La herida acumula (debuffTaken) para Contagio", (after.debuffTaken ?? 0) === 2, `real ${after.debuffTaken}`);
+  check("Sin candidato ≤X → el más fuerte recibe −X (17→14)", after.currentPower === 14, `real ${after.currentPower}`);
+  check("La herida acumula (debuffTaken) para Contagio", (after.debuffTaken ?? 0) === 3, `real ${after.debuffTaken}`);
 
   // y con presa ≤X sigue destruyendo (rama original)
   const board2 = emptyBoard();
@@ -269,7 +269,7 @@ console.log("\n📖 INTERPRETACIÓN — KEYWORD_META describe el rediseño (tool
 
   // Los textos de carta también cuentan la historia nueva
   check("Texto Duelista Errante actualizado", cardById("duelista_errante").text.startsWith("Al Jugar: gana +1."));
-  check("Texto Cuchilla del Silencio actualizado", cardById("cuchilla_del_silencio").text.includes("hiere en 2"));
+  check("Texto Cuchilla del Silencio actualizado", cardById("cuchilla_del_silencio").text.includes("hiere en 3"));
   check("Texto Baluarte Errante actualizado", cardById("baluarte_errante").text.includes("MÁS DAÑADO"));
   check("Texto Frasco de Peste actualizado", cardById("frasco_de_peste").text.includes("TODAS"));
   check("Texto Maza Glacial actualizada", cardById("maza_glacial").text.includes("golpea al más fuerte"));

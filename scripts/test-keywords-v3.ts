@@ -16,7 +16,7 @@ import {
   lanesForClass,
   type Board,
 } from "../src/lib/game/engine";
-import { MAGE_CARDS, ROGUE_CARDS } from "../src/lib/game/cards";
+import { MAGE_CARDS, MAGE2_CARDS, ROGUE_CARDS } from "../src/lib/game/cards";
 
 let passed = 0;
 let failed = 0;
@@ -151,7 +151,7 @@ function byId(cards: CardDef[], id: string): CardDef {
 }
 
 // ============================================================================
-console.log("\n🧙 MAGO — ARCANA (convergencia · sobrecarga)");
+console.log("\n🧙 MAGO — ARCANA (convergencia · drenar · sobrecarga)");
 {
   const lane: LaneId = "arcana";
   const def = byId(MAGE_CARDS, "conjurador_de_estrellas"); // Convergencia[2]
@@ -171,18 +171,30 @@ console.log("\n🧙 MAGO — ARCANA (convergencia · sobrecarga)");
   const r2 = simulatePlay(b, "player", lane, def);
   assert("Convergencia: carril vacío → +0", r2.finalPower === 13, `finalPower=${r2.finalPower} (esperado 11+2)`);
 
-  // SOBRECARGA: +2X al jugar; powerDecay = X
-  const sob = byId(MAGE_CARDS, "aberracion_arcana"); // X=2
+  // DRENAR PODER (Aberración, Task 48: antes Sobrecarga×2 — gemela de Chispazo):
+  // +X propio Y −X al enemigo más fuerte (escudos absorben la reducción)
+  const dren = byId(MAGE_CARDS, "aberracion_arcana"); // drenar X=1
   b = emptyBoard();
-  const r3 = simulatePlay(b, "player", lane, sob);
-  // poder 7 + sinergia 2 + 4 = 13
-  assert("Sobrecarga: +2X al entrar (X=2 → +4)", r3.finalPower === 13, `finalPower=${r3.finalPower}`);
-  const placed = r3.board[lane].player[0];
+  b[lane].enemy = [makeCard(byId(MAGE2_CARDS, "tejedor_de_mana"), { uid: "big", currentPower: 10, shieldRemaining: 5 })];
+  const r3 = simulatePlay(b, "player", lane, dren);
+  // poder 8 + sinergia 2 + drenar +1 = 11
+  assert("Drenar: gana +X al entrar (8+2+1=11)", r3.finalPower === 11, `finalPower=${r3.finalPower}`);
+  const bigAfter = r3.board[lane].enemy.find((c) => c.uid === "big")!;
+  assert("Drenar: el más fuerte pierde X (escudo absorbe: 10 intacto, escudo 5→4)", bigAfter.currentPower === 10 && bigAfter.shieldRemaining === 4, `power=${bigAfter.currentPower} shield=${bigAfter.shieldRemaining}`);
+
+  // SOBRECARGA (Chispazo, Task 48: la Aberración pasó a Drenar para dejar de
+  // ser su gemela): +2X al jugar; powerDecay = X
+  const sob = byId(MAGE2_CARDS, "chispazo_incontrolado"); // X=1
+  b = emptyBoard();
+  const r4 = simulatePlay(b, "player", lane, sob);
+  // poder 8 + sinergia 2 + 2 = 12
+  assert("Sobrecarga: +2X al entrar (X=1 → +2)", r4.finalPower === 12, `finalPower=${r4.finalPower}`);
+  const placed = r4.board[lane].player[0];
   // Simular powerDecay como lo hace playCard real
   placed.powerDecay = sob.keywordValue;
-  const endRes = applyEndTurnEffects(r3.board, "player", [], ["arcana", "fuego", "hielo"]);
+  const endRes = applyEndTurnEffects(r4.board, "player", [], ["arcana", "fuego", "hielo"]);
   const after = endRes.board[lane].player[0];
-  assert("Sobrecarga: fin de turno pierde X (13→11)", after.currentPower === 11, `power=${after.currentPower}`);
+  assert("Sobrecarga: fin de turno pierde X (12→11)", after.currentPower === 11, `power=${after.currentPower}`);
   assert("Sobrecarga: decay consumido (powerDecay=0)", after.powerDecay === 0, `decay=${after.powerDecay}`);
 }
 
@@ -237,7 +249,9 @@ console.log("\n❄️ MAGO — HIELO (escarcha · ventisca)");
   cry = res.board[lane].player[0];
   assert("Escarcha: 1 → capped a 2 (no suma infinito)", cry.shieldRemaining === 2, `shield=${cry.shieldRemaining}`);
 
-  // Ventisca: −X a TODOS los enemigos al fin de turno
+  // Ventisca: −X a TODOS los enemigos al fin de turno (Task 48: se mantiene
+  // ×1 — el ×2 sobre-encendía al mago en las sims; Aliento Gélido dejó de ser
+  // su gemela al pasar a Detonación)
   const ven = byId(MAGE_CARDS, "viento_cortante"); // X=1
   b = emptyBoard();
   b[lane].player = [makeCard(ven, { uid: "v1" })];
@@ -344,7 +358,8 @@ console.log("\n🌑 ASESINO — SIGILO (emboscada · purga)");
   assert("Emboscada: 2ª carta +2 (7+2+2=11)", r2.finalPower === 11, `finalPower=${r2.finalPower}`);
 
   // Purga: destruye al MÁS DÉBIL ≤ X (no al más fuerte como Remate)
-  const pur = byId(ROGUE_CARDS, "cuchilla_del_silencio"); // X=2
+  // Task 48: Cuchilla sube a X=3 (la ×2 barata es Dardo Sombrío)
+  const pur = byId(ROGUE_CARDS, "cuchilla_del_silencio"); // X=3
   b = emptyBoard();
   b[lane].enemy = [
     makeCard(byId(ROGUE_CARDS, "ajuste_de_cuentas"), { uid: "strong", currentPower: 1, }), // ≤2 pero MÁS FUERTE entre candidatos... power 1
@@ -353,7 +368,7 @@ console.log("\n🌑 ASESINO — SIGILO (emboscada · purga)");
   ];
   const r3 = simulatePlay(b, "player", lane, pur);
   const ids = r3.board[lane].enemy.map((c) => c.uid);
-  assert("Purga: mata al MÁS DÉBIL ≤2 (power 1)", !ids.includes("strong"), `supervivientes: ${ids.join(",")}`);
+  assert("Purga: mata al MÁS DÉBIL ≤3 (power 1)", !ids.includes("strong"), `supervivientes: ${ids.join(",")}`);
   assert("Purga: respeta al mid (2) y al big (9)", ids.includes("mid") && ids.includes("big"), `supervivientes: ${ids.join(",")}`);
 }
 

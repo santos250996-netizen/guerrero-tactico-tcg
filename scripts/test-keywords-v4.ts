@@ -274,7 +274,7 @@ console.log("\n🤝 ASESINO SIGILO — Conspiración (buff de MANO al resto)");
 
   // El buff entra en juego: jugar h1 después suma el handBonus al poder final.
   const res2 = playCard(res.board, res.hand, 20, "player", "sigilo", r1, null, null, 2);
-  // Sombra Veloz p10 + syn sigilo 2 + emboscada 2ª carta +2 + handBonus 2 = 16.
+  // Sombra Veloz p9 + syn sigilo 2 + emboscada 2ª carta +3 (X=3, Task 48) + handBonus 2 = 16.
   const jugada = res2.playedCard;
   assert("el buff de mano se materializa al jugar", jugada.currentPower === 16, `p=${jugada.currentPower} (esperado 16)`);
 }

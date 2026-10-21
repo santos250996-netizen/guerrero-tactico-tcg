@@ -1030,3 +1030,28 @@ Stage Summary:
 - PvpFloat ya no descarta floats de cartas recién jugadas — bug de pipeline preexistente que afectaba a cualquier buff de entrada
 - 717 asserts verdes; línea roja bot=player intacta (la mutación cosmética es client-neutral: el server reconstruye la misma jugada determinista)
 - Pendiente vigente: Rush de Jefes (Task 39), menú de mejoras a elección, APK overwrite (investigación pendiente del lote de pulido)
+
+---
+Task ID: 48
+Agent: Z (principal)
+Task: «hay cartas q practicamente tienen mismo efecto y poder en un juego donde cada clase aun tiene 28 cartas no se puede permitir eso» — auditoría y eliminación de cartas gemelas por clase
+
+Work Log:
+- AUDITORÍA SISTEMÁTICA (scripts/audit-dupes.ts, queda como herramienta): Regla A = mismo keyword+X+trigger dentro de la clase (texto idéntico, solo cambia el cuerpo) · Regla B = mismo keyword+trigger+coste (misma ranura de curva). RESULTADO INICIAL: 13 pares A + 3 pares B — el jugador tenía razón y con datos.
+- GEMELAS ELIMINADAS (17 cartas retocadas, cada familia ahora es una escalera X distinta + coste distinto):
+  · GUERRERO: Fiera Ensangrentada fervor×1→×2 (2/5) · Emblema de Sangre ímpetu×1→×2 (1/2) · Centinela Anclado amparo×2→×1 (2/9) · Estandarte de la Cohorte insignia×4→LEGADO×4 al morir (3/9) · Torre de Asedio Viviente fervor×2→×3 (4/10) · Pavés de la Muralla amparo×1→CORAZA×4 (3/9) · Juramento de Acero fortaleza×1→LEGADO×2 Último Aliento (1/3)
+  · MAGO: Aberración Arcana sobrecarga×2→DRENAR×1 (2/8, ya no gemela de Chispazo) · Lengua de Fuego llamarada×1→×2 (2/6) · Estallido Ígneo remate×2→SOBRECARGA×2 (4/14, ya no choca con Ajuste de Cuentas) · Carapacho Glacial coraza×3→×2 (3/11) · Anciano del Norte legado×3→×5 (5/16) · Cetro de Escarcha escarcha×2→×1 (2/8) · Estatua Viviente fervor×2→×3 (3/6) · Aliento Gélido ventisca×1→DETONACIÓN×1 al morir (2/8, ya no gemela de Viento Cortante)
+  · ASESINO: Cuchilla del Silencio purga×2→×3 (3/7) · Sombra Veloz emboscada×2→×3 (3/9)
+- RESULTADO POST: Regla A = 0 · Regla B = 0 · 47 pares de tiering legítimo (X y coste distintos siempre). Cada keyword famélica quedó como escalera: impetu ×1/×2, coraza ×2/×3/×4, escarcha ×1/×2/×3, fervor ×1/×2/×3, legado ×2/×3/×4/×5, llamarada ×1/×2, etc.
+- INVARIANTES RESPETADAS: PTP 84/84 en ±0.5 (SCOPE_MODS CARRIL_LOCAL 1.2 aplicado en la calibración) · curva 1×2/2×3/3×5/4×1/5×1 por mazo II intacta · 12 keywords distintas por mazo II (v4 lo exige) · combos (coste|poder|keyword|X|trigger) únicos en las 84 (tanda29) · 28 cartas por clase.
+- SUITE NUEVA scripts/test-no-gemelas.ts (37 asserts): Regla A/B = 0 por clase + escaleras presentes + 28 ids únicos + PTP 84/84 + coherencia texto↔X de las 17 retocadas + keywords/triggers válidos. Permanente para que las gemelas no vuelvan.
+- TESTS ACTUALIZADOS: v3 (Aberración ahora Drenar con escudo absorbiendo + Sobrecarga vía Chispazo + purga X=3) · t47 (cuchilla 17→14, debuffTaken 3, texto «hiere en 3») · v4 (comentario Sombra p9+3+2+2=16).
+- BALANCE CON DATOS: baseline original a N=150 = 46.0/50.4/46.8; tras el rediseño inicial 41.5/48.9/43.2 (el mago se encendió: Ventisca ×2 recurrente era el culpable). Ajuste: Viento Cortante revierto a ×1 (12), Estallido 15→14, Carapacho 12→11 y Aliento pasa a Detonación. FINAL a N=250 (500 juegos/emparejamiento): 50.0/45.6/52.0 ✅ banda 45-55. El 43.5 intermedio era ruido (SE ±4%).
+- Verificación: tsc 0 · lint 0 · 14 suites 0 fallos (719+37 = ~756 asserts) · build estático RC=0 · E2E móvil 390×844 (partida inicia, PASAR avanza Turno 1→4, preview abre con chip Remate[2]+texto, 5 ciclos sin colgar) — scripts/e2e-t48-{preview,final}.png
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- Las 28 cartas de cada clase ya no tienen ni una gemela: 16 pares muertos eliminados y cada familia es una escalera legible (mismo nombre de keyword, X y coste distintos = roles distintos)
+- Balance de clases verificado con sims a N=250 dentro de banda; bot=player intacto (solo cambió el catálogo, no el engine)
+- scripts/test-no-gemelas.ts es ahora guardián permanente: Regla A/B en 0, PTP 84/84 y textos fieles a la rareza
+- Pendiente vigente: Rush de Jefes (Task 39), menú de mejoras a elección, APK overwrite (investigación pendiente del lote de pulido)
