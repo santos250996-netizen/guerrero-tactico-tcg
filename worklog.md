@@ -1117,3 +1117,19 @@ Work Log:
 Stage Summary:
 - El CI vuelve a verde con la cobertura REAL del localStorage intacta: root/app_webview incluido en fullBackupContent, cloud-backup y device-transfer
 - La regla de Lint que nos cazó vive ahora como suite permanente: excludes huérfanos imposibles en el repo
+
+---
+Task ID: 52
+Agent: Z (principal)
+Task: CI roto en «Setup Android SDK» — el runner descargó un archivo que NO era un ZIP ("Archive is not a ZIP archive" → unzip exit 1 antes de llegar al build)
+
+Work Log:
+- DIAGNÓSTICO: fallo de infraestructura transitorio en la descarga de commandlinetools-linux-9477386_latest.zip (archivo truncado o página de error servida con 200). Nada que ver con el código — el build ni arrancó.
+- HARDENING DEL STEP (3 capas de defensa): (1) CADENA DE VERSIONES 15859902 → 13114758 → 9477386 — si la CDN sirve corrupto un build number exacto, cae al siguiente (15859902 confirmado como vigente en developer.android.com/studio, 13114758 conocido-bueno de 164MB); (2) firma ZIP (magic bytes PK) ANTES de confiar en el archivo; (3) unzip -tq valida la integridad COMPLETA; 2 reintentos por versión con backoff. Ninguna versión válida tras todo el recorrido → exit 1 con mensaje claro.
+- REINTENTO DE GRACIA en sdkmanager (también es red): si la instalación de platform-tools/platforms;android-36/build-tools;36.0.0 falla, reintenta una vez a los 10s.
+- VALIDACIÓN LOCAL: YAML parseado (12 pasos), bash -n del step OK, y la lógica de firma probada contra un HTML falso (rechazado) y un ZIP real (aceptado).
+- Commit ae03572 push a main → el CI se relanza solo con el step blindado (validación definitiva en el runner).
+
+Stage Summary:
+- El pipeline del APK es autoreparable ante fallos transitorios de descarga: no vuelve a morir por un ZIP corrupto puntual
+- Cadena de versiones = también immune a que Google retire un build number concreto del repo
