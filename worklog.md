@@ -1196,3 +1196,21 @@ Stage Summary:
 - T-B COMPLETE: Botánico jugable a nivel de datos/engine (decks I/II, jefe Yggra con mazo de 12 ESPORAS, 28 artes). Sigue OCULTO (flag V3 off).
 - Aprendizaje clave para T-C/T-D: diseñar combos contra la UNICIDAD GLOBAL desde el inicio (el solver de restricciones es la herramienta; reutilizarlo con las familias pirata/tinker).
 - Próximo: T-C Pirata (28 cartas saqueo/tripulacion/motin/contrabando/canonazo/andanada, jefe Kaela ARTILLERÍA, 28 webp).
+
+---
+Task ID: 53-e (T-C Pirata)
+Agent: Z.ai main agent
+Task: T-C — 28 cartas Pirata + decks I/II + jefe Kaela + 28 artes webp
+
+Work Log:
+- Commit a8bcea9. Diseño con slots verificados por script (PTP exacto + unicidad global + Reglas A/B + curvas) ANTES de escribir cards.ts — sin whack-a-mole.
+- DECISIÓN DE DISEÑO: Motín (hasValue=false) no puede escalar → aparece UNA sola vez en el pool (mazo I); el mazo II repite CORAZA con otra X (11 familias). Excepción documentada en test-v3-clase (pirata mazo II espera 11 distintas).
+- Corrección de cálculo: legado es on_death → factor 1.0 (no 0.8) — Lobo del Mar recalibrado a X1 c2 p8. Las suites PTP lo confirmaron.
+- 5 colisiones de combos resueltas variando X/coste dentro del diseño (cofre X4 c1, grito X2 c3, bandera X4 c3, cuchillo X2 c3, canon c1, salva c2, lobo X1).
+- Arte: gen-card-art-v10.mjs (28 composiciones §8), 3 tandas por timeouts (17+10), downscale + webp → catálogo visual 140 (+1.3MB). Boca de Kaela verificada visualmente.
+- Verificación: tsc ✓ lint ✓ build ✓ · v3-clase pirata 33✓ botanico 33✓ · no-gemelas 47 · tanda29 84 · resto de suites intactas.
+
+Stage Summary:
+- T-C COMPLETE: Pirata jugable a nivel de datos (decks Jolly Roger/Baluarte, jefe Kaela con 12 ARTILLERÍA). OCULTO (flag V3 off).
+- Pendiente T-D: Tinker (remache/chatarra/engranaje/sobrecalentar/torreta/descarga, jefe Dorvik MAQUINARIA). OJO: chatarra es on_death (factor 1.0 en PTP).
+- Próximo: T-D Tinker + 28 webp, luego T-E (ampliación +8×3 + 9 keywords), T-F (Rush de Jefes + UI 6 clases), T-G (release).
