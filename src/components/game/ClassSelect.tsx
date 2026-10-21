@@ -19,8 +19,9 @@ import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
 import { CAMPAIGN_STEPS, isBossStep, classUnlocked, classUnlockHint } from "@/lib/game/campaign";
 import { ClassRuleBadge } from "./ClassRuleBadge";
-import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2, Sprout, Ship, Wrench } from "lucide-react";
 import type { GameClass } from "@/lib/game/types";
+import { V3_CLASSES_UNLOCKED, visibleClasses } from "@/lib/game/v3";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +31,7 @@ interface ClassDef {
   /** Lema corto (una línea — Cinzel, bajo el nombre). */
   tagline: string;
   icon: React.ReactNode;
-  color: "amber" | "violet" | "emerald";
+  color: "amber" | "violet" | "emerald" | "green" | "blue" | "yellow";
 }
 
 const CLASSES: ClassDef[] = [
@@ -55,6 +56,32 @@ const CLASSES: ClassDef[] = [
     icon: <EyeOff className="h-6 w-6" strokeWidth={2.2} />,
     color: "emerald",
   },
+  // V3.0 — visibles solo con la bandera del mega-release (lib/game/v3.ts).
+  ...(V3_CLASSES_UNLOCKED
+    ? [
+        {
+          id: "botanico" as GameClass,
+          name: "BOTÁNICO",
+          tagline: "Crecimiento · Enjambre · Esporas",
+          icon: <Sprout className="h-6 w-6" strokeWidth={2.2} />,
+          color: "green" as const,
+        },
+        {
+          id: "pirata" as GameClass,
+          name: "PIRATA",
+          tagline: "Saqueo · Abordaje · Pólvora",
+          icon: <Ship className="h-6 w-6" strokeWidth={2.2} />,
+          color: "blue" as const,
+        },
+        {
+          id: "tinker" as GameClass,
+          name: "TINKER",
+          tagline: "Artefactos · Engranajes · Chispa",
+          icon: <Wrench className="h-6 w-6" strokeWidth={2.2} />,
+          color: "yellow" as const,
+        },
+      ]
+    : []),
 ];
 
 const COLOR_MAP: Record<ClassDef["color"], {
@@ -96,6 +123,36 @@ const COLOR_MAP: Record<ClassDef["color"], {
     btnPrimary: "from-emerald-700 via-emerald-600 to-teal-700 hover:from-emerald-600 hover:via-emerald-500 hover:to-teal-600 border-emerald-400/50",
     accent: "text-emerald-300",
     hex: "16,185,129",
+  },
+  green: {
+    border: "border-green-500/40",
+    bg: "bg-zinc-950/40",
+    glow: "shadow-[0_0_28px_rgba(74,222,128,0.18)]",
+    iconBg: "bg-green-950/50",
+    iconRing: "ring-green-400/60",
+    btnPrimary: "from-green-700 via-green-600 to-lime-700 hover:from-green-600 hover:via-green-500 hover:to-lime-600 border-green-400/50",
+    accent: "text-green-300",
+    hex: "74,222,128",
+  },
+  blue: {
+    border: "border-blue-500/40",
+    bg: "bg-zinc-950/40",
+    glow: "shadow-[0_0_28px_rgba(96,165,250,0.18)]",
+    iconBg: "bg-blue-950/50",
+    iconRing: "ring-blue-400/60",
+    btnPrimary: "from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-600 hover:via-blue-500 hover:to-indigo-600 border-blue-400/50",
+    accent: "text-blue-300",
+    hex: "96,165,250",
+  },
+  yellow: {
+    border: "border-yellow-500/40",
+    bg: "bg-zinc-950/40",
+    glow: "shadow-[0_0_28px_rgba(250,204,21,0.18)]",
+    iconBg: "bg-yellow-950/50",
+    iconRing: "ring-yellow-400/60",
+    btnPrimary: "from-yellow-700 via-yellow-600 to-amber-700 hover:from-yellow-600 hover:via-yellow-500 hover:to-amber-600 border-yellow-400/50",
+    accent: "text-yellow-300",
+    hex: "250,204,21",
   },
 };
 
@@ -192,8 +249,10 @@ export function ClassSelect() {
   useEffect(() => {
     hydrateCollection();
     useCampaignStore.getState().hydrate();
-    // Mazo inicial de CADA clase (una vez): las neutrales + relleno barato.
-    ["guerrero", "mago", "asesino"].forEach((c) =>
+    // Mazo inicial de CADA clase VISIBLE (una vez): las neutrales + relleno
+    // barato. Las clases V3.0 se añaden solas cuando la bandera se encienda
+    // (sus pools llegan en T-B/C/D — grantStarterDeck con pool vacío es no-op).
+    visibleClasses().forEach((c) =>
       useCollectionStore.getState().grantStarterDeck(c as GameClass)
     );
   }, []);

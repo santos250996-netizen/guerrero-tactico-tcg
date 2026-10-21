@@ -24,8 +24,18 @@ import { RARITY_META } from "@/lib/game/types";
 import type { GameClass, Rarity } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 import { useSettings } from "@/lib/settings";
+import { visibleClasses } from "@/lib/game/v3";
 
-const CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
+const CLASSES: GameClass[] = [...visibleClasses()];
+
+const CLASS_TAB_LABEL: Record<GameClass, string> = {
+  guerrero: "Guerrero",
+  mago: "Mago",
+  asesino: "Asesino",
+  botanico: "Botánico",
+  pirata: "Pirata",
+  tinker: "Tinker",
+};
 
 const TIER_DOT: Record<Rarity, string> = {
   common: "bg-zinc-400",
@@ -125,7 +135,7 @@ export function CollectionScreen() {
               )}
               style={{ fontFamily: "var(--font-cinzel), serif" }}
             >
-              {cls === "guerrero" ? "Guerrero" : cls === "mago" ? "Mago" : "Asesino"}
+              {CLASS_TAB_LABEL[cls]}
             </button>
           ))}
         </div>

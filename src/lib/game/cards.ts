@@ -1313,11 +1313,22 @@ export const ALL_CARDS_V3: CardDef[] = [
   ...SIGILO_BOSS_CARDS,
 ];
 
-/** Mazo espejo por clase (jugador e IA usan el mismo). */
+/**
+ * Mazo espejo por clase (jugador e IA usan el mismo).
+ *
+ * V3.0 (plan-expansion-v3 §5): las clases nuevas se commitean con mazos
+ * VACÍOS — sus 28 cartas llegan en T-B (Botánico), T-C (Pirata) y T-D
+ * (Tinker). Mientras V3_CLASSES_UNLOCKED esté apagada, la UI jamás ofrece
+ * estas clases y ningún flujo puede iniciar una partida con ellas; los
+ * Records de tipo exigen la entrada desde T-A.
+ */
 export const CLASS_DECKS: Record<GameClass, CardDef[]> = {
   guerrero: WARRIOR_DECK,
   mago: MAGE_DECK,
   asesino: ROGUE_DECK,
+  botanico: [], // T-B
+  pirata: [], // T-C
+  tinker: [], // T-D
 };
 
 /**
@@ -1328,6 +1339,9 @@ export const CLASS_DECKS_SECOND: Record<GameClass, CardDef[]> = {
   guerrero: WARRIOR2_CARDS,
   mago: MAGE2_CARDS,
   asesino: ROGUE2_CARDS,
+  botanico: [], // T-B
+  pirata: [], // T-C
+  tinker: [], // T-D
 };
 
 /** Los DOS mazos predeterminados de una clase (para el sorteo del bot). */
@@ -1347,6 +1361,10 @@ export const BOSS_DECKS: Record<GameClass, CardDef[]> = {
   guerrero: ALL_CARDS_V3.filter((c) => c.subtypes.includes("proteccion")),
   mago: ALL_CARDS_V3.filter((c) => c.subtypes.includes("hielo")),
   asesino: ALL_CARDS_V3.filter((c) => c.subtypes.includes("sigilo")),
+  // V3.0 — los pools nuevos entran en T-B/C/D; el filtro por carril ya está.
+  botanico: ALL_CARDS_V3.filter((c) => c.subtypes.includes("esporas")), // Yggra
+  pirata: ALL_CARDS_V3.filter((c) => c.subtypes.includes("artilleria")), // Kaela
+  tinker: ALL_CARDS_V3.filter((c) => c.subtypes.includes("maquinaria")), // Dorvik
 };
 
 // ============================================================================

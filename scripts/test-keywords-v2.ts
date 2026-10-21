@@ -14,6 +14,7 @@ import {
   computeFinalResult,
   type Board,
   type TrapState,
+  emptyBoard,
 } from "../src/lib/game/engine";
 import type { BoardCard, CardDef, HandCard, LaneId } from "../src/lib/game/types";
 import { KEYWORD_META as KEYWORD_META_V2 } from "../src/lib/game/types";
@@ -69,19 +70,6 @@ function boardCard(def: CardDef, overrides: Partial<BoardCard> = {}): BoardCard 
   };
 }
 
-function emptyBoard(): Board {
-  return {
-    armas: { player: [], enemy: [] },
-    proteccion: { player: [], enemy: [] },
-    furia: { player: [], enemy: [] },
-    arcana: { player: [], enemy: [] },
-    fuego: { player: [], enemy: [] },
-    hielo: { player: [], enemy: [] },
-    veneno: { player: [], enemy: [] },
-    combate: { player: [], enemy: [] },
-    sigilo: { player: [], enemy: [] },
-  };
-}
 
 const NO_TRAP: TrapState | null = null;
 

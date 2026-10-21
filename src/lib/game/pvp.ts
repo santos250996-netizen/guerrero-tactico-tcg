@@ -508,7 +508,14 @@ function pushTriggerLogs(state: PvpState, result: TriggerResult, actor: PvpSide)
 function fireStartTurn(state: PvpState, side: PvpSide): FxEvent[] {
   try {
     const board = toEngineBoard(state, side);
-    const res = applyStartTurnEffects(board, "player", state.players[side].hand, state.players[side].lanes, rulesFor(state, side));
+    const res = applyStartTurnEffects(
+      board,
+      "player",
+      state.players[side].hand,
+      state.players[side].lanes,
+      rulesFor(state, side),
+      state.turn // ESTACIÓN (Botánico V3.0): la temporada madura con el turno global
+    );
     writeBack(state, side, res.board);
     if (res.rulesOut) writeRules(state, side, res.rulesOut);
     pushTriggerLogs(state, res, side);

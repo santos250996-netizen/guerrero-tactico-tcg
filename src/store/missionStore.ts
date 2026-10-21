@@ -45,6 +45,9 @@ const CLASS_LABEL: Record<GameClass, string> = {
   guerrero: "Guerrero",
   mago: "Mago",
   asesino: "Asesino",
+  botanico: "Botánico",
+  pirata: "Pirata",
+  tinker: "Tinker",
 };
 
 /** Fecha local YYYY-MM-DD (formato "sv": ordenable y sin zona horaria rara). */

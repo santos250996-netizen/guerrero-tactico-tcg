@@ -7,23 +7,34 @@ import {
   Wand2, FlameKindling, Snowflake, FlaskConical, EyeOff, Sword,
   Wind, Bug, Crosshair,
   Flag, ShieldCheck, Droplets, Bomb, Hammer, CloudFog, Telescope, Handshake,
+  // V3.0 — Botánico · Pirata · Tinker
+  TreePine, Flower2, Biohazard, Anchor, Package, Wrench, Cog, Ship, Leaf,
+  Coins, Users, Crown, Recycle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type CardCategory = "Ataque" | "Ítem" | "Acción";
 
 /**
- * Los 9 carriles del juego (3 por clase). Cada partida usa SOLO los 3 de la
+ * Los 18 carriles del juego (3 por clase). Cada partida usa SOLO los 3 de la
  * clase elegida — ver CLASS_META más abajo.
+ *
+ * V3.0 (plan-expansion-v3.md): Botánico 🌿 · Pirata 🏴‍☠️ · Tinker 🔧 —
+ * commiteados con la bandera V3_CLASSES_UNCLOCKED apagada hasta el release.
  */
 export type LaneId =
   | "armas" | "proteccion" | "furia" // Guerrero
   | "arcana" | "fuego" | "hielo" // Mago
-  | "veneno" | "combate" | "sigilo"; // Asesino
+  | "veneno" | "combate" | "sigilo" // Asesino
+  | "raiz" | "flor" | "esporas" // Botánico
+  | "puente" | "bodega" | "artilleria" // Pirata
+  | "taller" | "maquinaria" | "chispa"; // Tinker
 
 export type Subtype = LaneId;
 
-export type GameClass = "guerrero" | "mago" | "asesino";
+export type GameClass =
+  | "guerrero" | "mago" | "asesino"
+  | "botanico" | "pirata" | "tinker";
 
 /** Definición de clase: carriles activos + identidad. */
 export const CLASS_META: Record<
@@ -51,6 +62,62 @@ export const CLASS_META: Record<
     icon: EyeOff,
     color: "emerald",
   },
+  // ── V3.0 (visibles solo con V3_CLASSES_UNCLOCKED — lib/game/v3.ts) ──
+  botanico: {
+    label: "Botánico",
+    tagline: "Crecimiento · Enjambre · Esporas",
+    lanes: ["raiz", "flor", "esporas"],
+    icon: Sprout,
+    color: "green",
+  },
+  pirata: {
+    label: "Pirata",
+    tagline: "Saqueo · Abordaje · Pólvora",
+    lanes: ["puente", "bodega", "artilleria"],
+    icon: Ship,
+    color: "blue",
+  },
+  tinker: {
+    label: "Tinker",
+    tagline: "Artefactos · Engranajes · Chispa",
+    lanes: ["taller", "maquinaria", "chispa"],
+    icon: Wrench,
+    color: "yellow",
+  },
+};
+
+/**
+ * Carriles ADYACENTES de un carril (mismo clase, consecutivos en el orden de
+ * CLASS_META). Solo lo usa la ARTILLERÍA: Canonazo/Andanada golpean «este
+ * carril y los adyacentes» — el primer alcance multi-carril del juego.
+ * En una partida de 3 carriles en cadena: el central tiene 2 vecinos y los
+ * extremos 1.
+ */
+export const LANE_ADJACENT: Record<LaneId, LaneId[]> = {
+  // Guerrero
+  armas: ["proteccion"],
+  proteccion: ["armas", "furia"],
+  furia: ["proteccion"],
+  // Mago
+  arcana: ["fuego"],
+  fuego: ["arcana", "hielo"],
+  hielo: ["fuego"],
+  // Asesino
+  veneno: ["combate"],
+  combate: ["veneno", "sigilo"],
+  sigilo: ["combate"],
+  // Botánico
+  raiz: ["flor"],
+  flor: ["raiz", "esporas"],
+  esporas: ["flor"],
+  // Pirata
+  puente: ["bodega"],
+  bodega: ["puente", "artilleria"],
+  artilleria: ["bodega"],
+  // Tinker
+  taller: ["maquinaria"],
+  maquinaria: ["taller", "chispa"],
+  chispa: ["maquinaria"],
 };
 
 // ============================================================================
@@ -185,7 +252,28 @@ export type Keyword =
   | "ruptura_glacial" // Al Jugar: −X al enemigo con más reducciones, IGNORA escudos (hielo)
   | "miasma" // Al Jugar: −X a TODOS los enemigos del carril, IGNORA escudos (veneno)
   | "caza_mayor" // Al Jugar: +2X si el enemigo más fuerte del carril te supera; si no +X (combate)
-  | "conspiracion"; // Al Jugar: el resto de tu mano gana +X permanente (sigilo)
+  | "conspiracion" // Al Jugar: el resto de tu mano gana +X permanente (sigilo)
+  // --- V3.0 · BOTÁNICO (plan-expansion-v3 §2.1) ---
+  | "micelio" // Al Jugar: escudo X a sí misma y al aliado más débil del carril (raíz)
+  | "estacion" // Inicio de Turno: +X; desde el turno 4 gana +2X (raíz)
+  | "simbiosis" // Al Jugar: +X por cada aliado del carril con MENOS poder que esta (flor)
+  | "floracion" // Último Aliento: TODAS tus cartas del carril ganan +X (flor)
+  | "polen" // Al Jugar: −X al enemigo con MENOS reducciones acumuladas (esporas)
+  | "carnivora" // Al Jugar: devora la más débil con poder ≤X y gana +2 (esporas)
+  // --- V3.0 · PIRATA (plan-expansion-v3 §2.2) ---
+  | "saqueo" // Al Jugar: roba X al enemigo más débil; si lo deja a 0, +2 de botín (puente)
+  | "tripulacion" // Inicio de Turno: +X por cada carta propia en este carril (puente)
+  | "motin" // Al Jugar: INTERCAMBIA su poder con el enemigo más fuerte (bodega)
+  | "contrabando" // Al Jugar: una carta ALEATORIA de tu mano gana +X (bodega)
+  | "canonazo" // Al Jugar: −X a todos los enemigos del carril y los ADYACENTES (artillería)
+  | "andanada" // Último Aliento: −X a todos los enemigos del carril y los adyacentes (artillería)
+  // --- V3.0 · TINKER (plan-expansion-v3 §2.3) ---
+  | "remache" // Al Jugar: escudo X a TODAS tus cartas del carril, incluida ella (taller)
+  | "chatarra" // Último Aliento: el aliado más débil gana +X y un escudo X (taller)
+  | "engranaje" // Inicio de Turno: +X mientras haya un Ítem propio en el carril (maquinaria)
+  | "sobrecalentar" // Al Jugar: +2X si hay otro Ítem propio en el carril; si no +X (maquinaria)
+  | "torreta" // Fin de Turno: −X al enemigo MÁS FUERTE del carril (chispa)
+  | "descarga"; // Al Jugar: −X a los DOS enemigos más débiles del carril (chispa)
 
 /**
  * El effectId de una carta coincide con su keyword (mismo string) — el engine
@@ -428,6 +516,126 @@ export const KEYWORD_META: Record<
     trigger: "on_play", hasValue: true, scope: "MANO",
     exclusiveSubtype: "sigilo",
   },
+
+  // ------------------------------------------------------------------
+  // V3.0 · BOTÁNICO 🌿 (plan-expansion-v3 §2.1)
+  // ------------------------------------------------------------------
+  micelio: {
+    label: "Micelio", short: "MICE", icon: Biohazard, color: "text-green-300",
+    description: "Al Jugar: esta carta y el aliado más débil de este carril ganan un escudo de X puntos. La red fúngica protege a los suyos.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "raiz",
+  },
+  estacion: {
+    label: "Estación", short: "ESTA", icon: Leaf, color: "text-green-300",
+    description: "Inicio de Turno: gana +X de poder permanente. A partir del turno 4 la temporada madura y gana +2X.",
+    trigger: "start_turn", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "raiz",
+  },
+  simbiosis: {
+    label: "Simbiosis", short: "SIMB", icon: Handshake, color: "text-green-300",
+    description: "Al Jugar: gana +X por cada carta tuya de este carril que tenga MENOS poder que esta.",
+    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "flor",
+  },
+  floracion: {
+    label: "Floración", short: "FLOR", icon: Flower2, color: "text-green-300",
+    description: "Último Aliento: al morir, TODAS tus cartas de este carril ganan +X de poder permanente. La muerte alimenta el enjambre.",
+    trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "flor",
+  },
+  polen: {
+    label: "Polen", short: "POLE", icon: Wind, color: "text-green-300",
+    description: "Al Jugar: reduce en X el poder del enemigo con MENOS reducciones acumuladas (empate: el más débil). Los escudos lo absorben.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "esporas",
+  },
+  carnivora: {
+    label: "Carnívora", short: "CARN", icon: Bug, color: "text-green-300",
+    description: "Al Jugar: devora la carta enemiga más débil con poder ≤ X y gana +2 de poder. Sin presa, mastica tierra y gana +1.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "esporas",
+  },
+
+  // ------------------------------------------------------------------
+  // V3.0 · PIRATA 🏴‍☠️ (plan-expansion-v3 §2.2)
+  // ------------------------------------------------------------------
+  saqueo: {
+    label: "Saqueo", short: "SAQU", icon: Coins, color: "text-blue-300",
+    description: "Al Jugar: roba X de poder al enemigo más débil (los escudos no lo impiden). Si el robo lo deja a 0, cae y ganas +2 de botín.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "puente",
+  },
+  tripulacion: {
+    label: "Tripulación", short: "TRIP", icon: Users, color: "text-blue-300",
+    description: "Inicio de Turno: gana +X por cada carta tuya en este carril (esta incluida). A más grumetes, más fuerza.",
+    trigger: "start_turn", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "puente",
+  },
+  motin: {
+    label: "Motín", short: "MOTI", icon: Crown, color: "text-blue-300",
+    description: "Al Jugar: INTERCAMBIA su poder con el del enemigo más fuerte de este carril. El amotinado toma el mando… y su poder.",
+    trigger: "on_play", hasValue: false, scope: "PROPIO",
+    exclusiveSubtype: "bodega",
+  },
+  contrabando: {
+    label: "Contrabando", short: "CONT2", icon: Package, color: "text-blue-300",
+    description: "Al Jugar: UNA carta aleatoria de tu mano gana +X de poder permanente.",
+    trigger: "on_play", hasValue: true, scope: "MANO",
+    exclusiveSubtype: "bodega",
+  },
+  canonazo: {
+    label: "Canonazo", short: "CANO", icon: Bomb, color: "text-blue-300",
+    description: "Al Jugar: reduce en X el poder de TODOS los enemigos de este carril y de los adyacentes. La pólvora no respeta fronteras.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL_ADYACENTE",
+    exclusiveSubtype: "artilleria",
+  },
+  andanada: {
+    label: "Andanada", short: "ANDA", icon: Bomb, color: "text-blue-300",
+    description: "Último Aliento: reduce en X el poder de TODOS los enemigos de este carril y de los adyacentes.",
+    trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL_ADYACENTE",
+    exclusiveSubtype: "artilleria",
+  },
+
+  // ------------------------------------------------------------------
+  // V3.0 · TINKER 🔧 (plan-expansion-v3 §2.3)
+  // ------------------------------------------------------------------
+  remache: {
+    label: "Remache", short: "REMA2", icon: Hammer, color: "text-yellow-300",
+    description: "Al Jugar: TODAS tus cartas de este carril (esta incluida) ganan un escudo de X puntos.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "taller",
+  },
+  chatarra: {
+    label: "Chatarra", short: "CHAT", icon: Recycle, color: "text-yellow-300",
+    description: "Último Aliento: al morir, el aliado más débil de este carril gana +X de poder y un escudo de X puntos. Se recicla.",
+    trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "taller",
+  },
+  engranaje: {
+    label: "Engranaje", short: "ENGR", icon: Cog, color: "text-yellow-300",
+    description: "Inicio de Turno: gana +X de poder mientras haya al menos un Ítem tuyo en este carril.",
+    trigger: "start_turn", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "maquinaria",
+  },
+  sobrecalentar: {
+    label: "Sobrecalentar", short: "SOB2", icon: Flame, color: "text-yellow-300",
+    description: "Al Jugar: gana +2X si hay OTRO Ítem tuyo en este carril; si no, gana +X.",
+    trigger: "on_play", hasValue: true, scope: "PROPIO",
+    exclusiveSubtype: "maquinaria",
+  },
+  torreta: {
+    label: "Torreta", short: "TORR", icon: Crosshair, color: "text-yellow-300",
+    description: "Fin de Turno: reduce en X el poder del enemigo MÁS FUERTE de este carril. Los escudos lo absorben.",
+    trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "chispa",
+  },
+  descarga: {
+    label: "Descarga", short: "DESC", icon: Zap, color: "text-yellow-300",
+    description: "Al Jugar: reduce en X el poder de los DOS enemigos más débiles de este carril. Los escudos lo absorben.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "chispa",
+  },
 };
 
 export type Rarity = "common" | "rare" | "epic" | "legendary" | "mythic";
@@ -554,6 +762,18 @@ export const LANE_META: Record<
   veneno: { title: "VENENO", icon: FlaskConical, color: "lime" },
   combate: { title: "COMBATE", icon: Sword, color: "red" },
   sigilo: { title: "SIGILO", icon: EyeOff, color: "indigo" },
+  // Botánico (V3.0)
+  raiz: { title: "RAÍZ", icon: TreePine, color: "green" },
+  flor: { title: "FLOR", icon: Flower2, color: "green" },
+  esporas: { title: "ESPORAS", icon: Biohazard, color: "green" },
+  // Pirata (V3.0)
+  puente: { title: "PUENTE", icon: Anchor, color: "blue" },
+  bodega: { title: "BODEGA", icon: Package, color: "blue" },
+  artilleria: { title: "ARTILLERÍA", icon: Bomb, color: "blue" },
+  // Tinker (V3.0)
+  taller: { title: "TALLER", icon: Hammer, color: "yellow" },
+  maquinaria: { title: "MAQUINARIA", icon: Cog, color: "yellow" },
+  chispa: { title: "CHISPA", icon: Zap, color: "yellow" },
 };
 
 // ---------------------------------------------------------------------------

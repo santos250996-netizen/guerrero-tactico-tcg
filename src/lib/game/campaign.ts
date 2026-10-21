@@ -39,6 +39,10 @@ export const CAMPAIGN_BOT_NAMES: Record<GameClass, string> = {
   guerrero: "Bram",
   mago: "Iria",
   asesino: "Kess",
+  // V3.0
+  botanico: "Nim",
+  pirata: "Roka",
+  tinker: "Fenn",
 };
 
 /** Jefes de la campaña (mazo temático propio + jugada gratis + 3 bonos). */
@@ -46,6 +50,10 @@ export const CAMPAIGN_BOSS_NAMES: Record<GameClass, string> = {
   guerrero: "Korgath, Coloso de Hierro",
   mago: "Nyx, Reina de Escarcha",
   asesino: "Vharos, Sombra Primigenia",
+  // V3.0 (plan-expansion-v3 §2 — jefes de los carriles de 12)
+  botanico: "Yggra, el Jardín Devorador",
+  pirata: "Kaela, la Boca de Hierro",
+  tinker: "Dorvik, Maestro de Engranajes",
 };
 
 /** Tema del mazo del jefe de cada clase (coincide con BOSS_DECKS en cards.ts). */
@@ -53,6 +61,10 @@ export const CAMPAIGN_BOSS_THEMES: Record<GameClass, string> = {
   guerrero: "Protección",
   mago: "Hielo",
   asesino: "Sigilo",
+  // V3.0
+  botanico: "Esporas",
+  pirata: "Artillería",
+  tinker: "Maquinaria",
 };
 
 const RIVAL_ROTATION: readonly GameClass[] = ["guerrero", "mago", "asesino"];
@@ -151,6 +163,11 @@ export const CLASS_UNLOCK_STEP: Record<GameClass, number> = {
   guerrero: 0,
   mago: 5,
   asesino: 10,
+  // V3.0 — visibles solo con V3_CLASSES_UNLOCKED (lib/game/v3.ts); una vez
+  // encendida, se desbloquean progresando la escalera como las demás.
+  botanico: 3,
+  pirata: 8,
+  tinker: 13,
 };
 
 /** ¿Está jugable esta clase con X escalones superados? */
@@ -199,6 +216,25 @@ export const CLASS_RULE_META: Record<
     lore: "Cada tajo que no mata deja una marca. El asesino cuenta sus marcas en silencio… y cuando cobra, cobra todo de una vez.",
     tip: "Debilitar enemigos te da 1 PC (tope 5, persisten entre turnos). Juega en un carril con un debilitado y consume TODOS tus PC: +4 de poder por PC.",
   },
+  // ── V3.0 (plan-expansion-v3 §2 — reglas sin estado, para AMBOS lados) ──
+  botanico: {
+    rule: "Ecosistema",
+    sigil: "🌿",
+    lore: "El jardín del botánico no es un ejército: es una comunidad. Donde el depredador convive con la flor y la espora, todo crece más fuerte.",
+    tip: "Al cerrar tu turno, cada carril tuyo con cartas de 2+ categorías distintas (Ataque/Ítem/Acción) da +1 permanente a TODAS tus cartas de ese carril.",
+  },
+  pirata: {
+    rule: "Viento de Popa",
+    sigil: "🏴‍☠️",
+    lore: "Un buque sobrevivido siempre zarpa con menos grumetes. Los capitanes de Kaela dicen que el mar premia al que sigue de pie.",
+    tip: "Al iniciar tu turno, si tienes MENOS cartas en tablero que el rival, TODAS tus cartas ganan +1 permanente mientras dure la desventaja.",
+  },
+  tinker: {
+    rule: "Taller de Campamento",
+    sigil: "🔧",
+    lore: "Dorvik no viaja sin su forja portátil. Cada artefacto sale de sus manos con un remache más que el diseño pide — y eso marca la diferencia.",
+    tip: "Tus cartas de ÍTEM entran al tablero con +1 de poder permanente (artesanía de campaña, siempre activa).",
+  },
 };
 
 // ── Lore: splash pre-batalla (la escalera se SIENTE escrita) ───────────────
@@ -220,6 +256,22 @@ export const CAMPAIGN_BOT_LORE: Record<GameClass, [string, string, string]> = {
     "El gremio puso precio a tu cabeza. Kess siempre cobra.",
     "Ni el estruendo de la guerra lo delata: Kess ya está detrás de ti.",
   ],
+  // V3.0
+  botanico: [
+    "El sendero se cierra con raíces. Nim riega sus esporas sin mirarte: «las malas hierbas también se podan».",
+    "El enjambre susurra tu nombre. Nim sonríe: la primavera llegó a tu camino.",
+    "El jardinero mayor despliega el jardín completo: hoy florece la guerra.",
+  ],
+  pirata: [
+    "Roka sube a cubierta lancando el ancla. «Pago peaje o lo tomo — tú eliges».",
+    "Tu bandera ya ondea en su tabla de botín. Roka afila el sable.",
+    "La capitana de la Boca de Hierro despliega toda la artillería: la marea sube.",
+  ],
+  tinker: [
+    "Fenn ajusta un autómata mientras te estudia. «Todo se destornilla, hasta tu suerte».",
+    "Sus torretas ya conocen tu peso. Fenn marca el precio del blindaje.",
+    "El maestro de engranajes arranca la producción completa: hoy la máquina no se detiene.",
+  ],
 };
 
 /** Línea de ambiente de cada JEFE (claves por clase del jefe). */
@@ -227,6 +279,10 @@ export const CAMPAIGN_BOSS_LORE: Record<GameClass, string> = {
   guerrero: "«Mil escalones, mil huesos. El muro soy yo.» — Korgath bloquea el paso con su muralla de hierro.",
   mago: "«Inclínate: el invierno también corona.» — Nyx congela el sendero bajo tus pies.",
   asesino: "«La última sombra no necesita luz para vencer.» — Vharos se derrite desde las propias sombras.",
+  // V3.0
+  botanico: "«Todo lo que pisas ya es mío: las raíces llegaron primero.» — Yggra despierta bajo tus pies.",
+  pirata: "«Este paso paga peaje: todo tu botín o toda tu sangre.» — Kaela apunta con la boca de hierro.",
+  tinker: "«Mi taller, mis reglas. Tú eres la siguiente pieza.» — Dorvik arranca la cadena de producción.",
 };
 
 /** Lore del escalón para el splash pre-batalla (jefe o rival por tramo). */

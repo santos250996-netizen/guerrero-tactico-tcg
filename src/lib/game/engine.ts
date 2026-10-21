@@ -31,7 +31,7 @@ import type {
   PowerLogEntry,
   Keyword,
 } from "./types";
-import { CLASS_META, KEYWORD_META, LANE_BONUS_POOL, LANE_META } from "./types";
+import { CLASS_META, KEYWORD_META, LANE_ADJACENT, LANE_BONUS_POOL, LANE_META } from "./types";
 import type { FxEvent } from "./fx";
 import { recordKeyword, recordKeywordNoop } from "./keyword-stats";
 import { v4 as uuidv4 } from "uuid";
@@ -43,6 +43,11 @@ export const ALL_LANE_IDS: LaneId[] = [
   ...CLASS_META.guerrero.lanes,
   ...CLASS_META.mago.lanes,
   ...CLASS_META.asesino.lanes,
+  // V3.0 — Botánico · Pirata · Tinker (los Records del juego exigen cobertura
+  // total de LaneId; las clases quedan ocultas en UI hasta V3_CLASSES_UNLOCKED)
+  ...CLASS_META.botanico.lanes,
+  ...CLASS_META.pirata.lanes,
+  ...CLASS_META.tinker.lanes,
 ];
 
 /** Carriles activos de una clase (el tablero de la partida usa solo estos 3). */
@@ -80,6 +85,10 @@ export const V3_RESONANCIA_POWER = 2;
 export const V3_RESONANCIA_COST_CUT = 1;
 export const V3_COMBO_CAP = 5;
 export const V3_COMBO_POWER = 4;
+// V3.0 — reglas sistémicas de las clases nuevas (T-A, plan-expansion-v3 §2):
+export const V3_VIENTO_POWER = 1; // Pirata — «Viento de Popa»: +1 por carta mientras vayas con menos tripulación
+export const V3_TALLER_POWER = 1; // Tinker — «Taller de Campamento»: los Ítems entran con +1
+export const V3_ESTACION_TURN = 4; // Botánico — la Estación madura (+2X) desde este turno
 
 export interface ClassRulesState {
   /** Clase de cada lado RELATIVO (player = quien actúa en la llamada). null = regla inactiva. */
@@ -125,6 +134,16 @@ export type LaneTraps = Record<LaneId, TrapState | null>;
 
 export function emptyLaneTraps(): LaneTraps {
   return Object.fromEntries(ALL_LANE_IDS.map((ln) => [ln, null])) as LaneTraps;
+}
+
+/**
+ * Tablero VACÍO con TODOS los carriles del catálogo (18 en V3.0). Lo usan los
+ * tests y cualquier flujo que quiera un tablero válido sin conocer la clase.
+ */
+export function emptyBoard(): Board {
+  return Object.fromEntries(
+    ALL_LANE_IDS.map((ln) => [ln, { player: [], enemy: [] }])
+  ) as unknown as Board;
 }
 
 // ---------------------------------------------------------------------------
@@ -734,6 +753,202 @@ function applyEffectLogic(
       break;
     }
 
+    // ---- MICELIO [X]: escudo X a sí misma y al aliado más débil del carril ----
+    // El escudo PROPIO se otorga en playCard (init de shieldRemaining, como
+    // Coraza/Remache); aquí solo el del aliado más débil.
+    case "micelio": {
+      if (x > 0) {
+        const target = lowestPowerCard(allyLane);
+        if (target) {
+          accum.mutations.push({ side, lane, uid: target.uid, powerDelta: 0, shieldDelta: x });
+          recordKeyword("micelio", x * 2); // escudo propio (placement) + aliado
+        } else {
+          recordKeyword("micelio", x); // sola en el carril: solo su propio escudo
+        }
+      }
+      break;
+    }
+
+    // ---- SIMBIOSIS [X]: +X por cada aliado del carril con MENOS poder que esta ----
+    // Ranking de poder entre propias (eje nuevo). La propia aún no está
+    // colocada: su poder de entrada se replica desde los términos base.
+    case "simbiosis": {
+      if (x > 0) {
+        const myEntry =
+          card.power +
+          ctx.handBonus +
+          (card.subtypes.includes(lane) ? 2 : 0) +
+          getLaneBonusPower(card.category, ctx.laneBonus);
+        const count = allyLane.filter((a) => a.currentPower < myEntry).length;
+        const gained = x * count;
+        if (gained > 0) {
+          accum.bonusPower += gained;
+          recordKeyword("simbiosis", gained);
+        } else recordKeywordNoop("simbiosis"); // es la más débil: nada que alimente
+      }
+      break;
+    }
+
+    // ---- POLEN [X]: −X al enemigo con MENOS reducciones acumuladas ----
+    // Espejo de Ruptura Glacial (que pica a la MÁS debuffeada): la espora
+    // busca tejido fresco. Empate de reducciones → el más débil. Honest:
+    // viaDebuff (los escudos absorben).
+    case "polen": {
+      if (x > 0) {
+        let target: BoardCard | undefined;
+        for (const c of enemyLane) {
+          if (!target) {
+            target = c;
+            continue;
+          }
+          const dt = c.debuffTaken ?? 0;
+          const tt = target.debuffTaken ?? 0;
+          if (dt < tt || (dt === tt && c.currentPower < target.currentPower)) target = c;
+        }
+        if (target) {
+          accum.mutations.push({
+            side: enemySide, lane, uid: target.uid, powerDelta: -x, viaDebuff: true,
+          });
+          recordKeyword("polen", x);
+        } else recordKeywordNoop("polen");
+      }
+      break;
+    }
+
+    // ---- CARNÍVORA [X]: devora la más débil con poder ≤ X y gana +2 ----
+    // Destrucción que ALIMENTA (Remate/Purga no dan nada a cambio). Sin
+    // presa: mastica tierra y gana +1 (Task 46: las keyword muertas sin
+    // función se sienten rojas — la planta siempre come algo).
+    case "carnivora": {
+      if (x > 0) {
+        const candidates = enemyLane.filter((c) => c.currentPower <= x);
+        const target = lowestPowerCard(candidates);
+        if (target) {
+          accum.removedCards.push({ side: enemySide, lane, uid: target.uid, reason: "carnivora" });
+          accum.bonusPower += 2;
+          recordKeyword("carnivora", 2, 1);
+        } else {
+          accum.bonusPower += 1;
+          recordKeyword("carnivora", 1);
+        }
+      }
+      break;
+    }
+
+    // ---- SAQUEO [X]: roba X al enemigo más débil (perfora escudos) ----
+    // El grapple del pirata no respeta barreras: mutación directa. Si el
+    // robo deja a la víctima a 0, cae y el botín paga +2 adicionales.
+    case "saqueo": {
+      if (x > 0) {
+        const target = lowestPowerCard(enemyLane);
+        if (target) {
+          accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -x });
+          accum.bonusPower += x; // el poder robado engorda al saqueador
+          if (target.currentPower - x <= 0) {
+            accum.removedCards.push({ side: enemySide, lane, uid: target.uid, reason: "saqueo" });
+            accum.bonusPower += 2; // botín extra por hundirla
+            recordKeyword("saqueo", x + 2, 1);
+          } else {
+            recordKeyword("saqueo", x);
+          }
+        } else recordKeywordNoop("saqueo");
+      }
+      break;
+    }
+
+    // ---- MOTÍN: INTERCAMBIA su poder con el enemigo más fuerte del carril ----
+    // Primer SWAP de poder del juego (hasValue=false — sin [X]). El amotinado
+    // entra con el poder del capitán y el capitán queda con su base. Mutación
+    // directa: el motín no es daño, es política (los escudos no lo impiden).
+    // Se balancea con poder base BAJO: el swing esperado ya lo cobra el PTP.
+    case "motin": {
+      const target = highestPowerCard(enemyLane);
+      if (target) {
+        const myEntry =
+          card.power +
+          ctx.handBonus +
+          (card.subtypes.includes(lane) ? 2 : 0) +
+          getLaneBonusPower(card.category, ctx.laneBonus);
+        const swapGain = target.currentPower - myEntry;
+        if (swapGain !== 0) {
+          accum.bonusPower += swapGain; // si es negativo, el motín fracasó y entra débil
+          accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -swapGain });
+          recordKeyword("motin", Math.abs(swapGain));
+        } else recordKeywordNoop("motin"); // poder idéntico: el motín no cambia nada
+      } else recordKeywordNoop("motin"); // sin capitán que destronar
+      break;
+    }
+
+    // ---- CONTRABANDO [X]: una carta ALEATORIA de tu mano gana +X ----
+    // Buff de mano puntual (Conspiración buffa TODA la mano). Se aplica en
+    // playCard sobre la mano restante (la carta ya no está en ella).
+    case "contrabando": {
+      // (manejado en playCard — ver bloque contrabando)
+      break;
+    }
+
+    // ---- CANONAZO [X]: −X a TODOS los enemigos del carril y los ADYACENTES ----
+    // Primer alcance multi-carril del juego (scope CARRIL_LOCAL_ADYACENTE).
+    // Honest: viaDebuff (los escudos absorben su parte — llamarada de pólvora).
+    case "canonazo": {
+      if (x > 0) {
+        let hits = 0;
+        for (const enemy of enemyLane) {
+          accum.mutations.push({ side: enemySide, lane, uid: enemy.uid, powerDelta: -x, viaDebuff: true });
+          hits++;
+        }
+        for (const adj of LANE_ADJACENT[lane] ?? []) {
+          for (const enemy of ctx.board[adj][enemySide]) {
+            accum.mutations.push({ side: enemySide, lane: adj, uid: enemy.uid, powerDelta: -x, viaDebuff: true });
+            hits++;
+          }
+        }
+        if (hits > 0) recordKeyword("canonazo", x * hits);
+        else recordKeywordNoop("canonazo");
+      }
+      break;
+    }
+
+    // ---- REMACHE [X]: escudo X a TODAS tus cartas del carril (incluida ella) ----
+    // El escudo PROPIO se otorga en playCard (init, como Coraza); aquí el
+    // de las ya colocadas. Amparo excluye a la propia; Remache no.
+    case "remache": {
+      if (x > 0) {
+        for (const ally of allyLane) {
+          accum.mutations.push({ side, lane, uid: ally.uid, powerDelta: 0, shieldDelta: x });
+        }
+        recordKeyword("remache", x * (1 + allyLane.length));
+      }
+      break;
+    }
+
+    // ---- SOBRECALENTAR [X]: +2X si hay OTRO Ítem propio en el carril; si no +X ----
+    case "sobrecalentar": {
+      if (x > 0) {
+        const hasItem = allyLane.some((a) => a.category === "Ítem");
+        const gained = hasItem ? 2 * x : x;
+        accum.bonusPower += gained;
+        recordKeyword("sobrecalentar", gained);
+      }
+      break;
+    }
+
+    // ---- DESCARGA [X]: −X a los DOS enemigos más débiles del carril ----
+    // Primer multi-objetivo doble (Llamarada es AoE completo; esto pica 2).
+    // Honest: viaDebuff (los escudos absorben la descarga).
+    case "descarga": {
+      if (x > 0) {
+        const sorted = [...enemyLane].sort((a, b) => a.currentPower - b.currentPower).slice(0, 2);
+        if (sorted.length > 0) {
+          for (const t of sorted) {
+            accum.mutations.push({ side: enemySide, lane, uid: t.uid, powerDelta: -x, viaDebuff: true });
+          }
+          recordKeyword("descarga", x * sorted.length);
+        } else recordKeywordNoop("descarga");
+      }
+      break;
+    }
+
     // ---- Keywords que disparan en OTROS triggers (no-op aquí) ----
     // fervor / duelista / purificacion / escarcha / veneno / custodia / desafio → start_turn
     // fortaleza / crueldad / ventisca / contagio → end_turn
@@ -894,10 +1109,17 @@ export function playCard(
 
   // 3.5. Trap: if active trap exists and is owned by the opposing side, it
   // triggers and reduces the new card's final power.
+  // TALLER DE CAMPAMENTO (Tinker, V3.0): los Ítems de un tinker entran con +1
+  // (artesanía de campaña — regla sistémica sin estado, aplica a ambos lados).
+  const tallerBonus =
+    rules && rules.classes[side] === "tinker" && handCard.category === "Ítem"
+      ? V3_TALLER_POWER
+      : 0;
   let finalPower =
     effect.finalPower +
     (isResonancia ? V3_RESONANCIA_POWER : 0) +
-    comboBonus;
+    comboBonus +
+    tallerBonus;
   let trapTriggered = false;
   if (activeTrap && activeTrap.owner !== side) {
     finalPower = Math.max(0, finalPower - activeTrap.value);
@@ -989,14 +1211,39 @@ export function playCard(
     trigger: handCard.trigger ?? KEYWORD_META[keyword].trigger,
     keyword: handCard.keyword,
     keywordValue: handCard.keywordValue,
-    // Coraza: self shield granted on play (pool finito, sin refresco)
-    shieldRemaining: keyword === "coraza" ? (handCard.keywordValue ?? 0) : undefined,
+    // Coraza / Remache / Micelio: self shield granted on play (pool finito, sin refresco)
+    shieldRemaining:
+      keyword === "coraza" || keyword === "remache" || keyword === "micelio"
+        ? (handCard.keywordValue ?? 0)
+        : undefined,
     // Sobrecarga: pending one-shot decay charged at end of turn
     powerDecay: keyword === "sobrecarga" ? (handCard.keywordValue ?? 0) : undefined,
     debuffTaken: 0,
   };
   if (keyword === "coraza" && (handCard.keywordValue ?? 0) > 0) {
     recordKeyword("coraza", handCard.keywordValue ?? 0); // escudo inicial otorgado
+  }
+  if (
+    (keyword === "remache" || keyword === "micelio") &&
+    (handCard.keywordValue ?? 0) > 0
+  ) {
+    // El escudo PROPIO de Remache/Micelio (el del aliado ya se registró en
+    // applyEffectLogic) — se refleja también como mutación cosmética para
+    // que el float verde y el VFX de escudo lleguen al cliente.
+    const dx = handCard.keywordValue ?? 0;
+    newCard.powerLog = [
+      { source: KEYWORD_META[keyword].label, delta: 0, kind: "buff" },
+    ];
+    effect.mutations.push({ side, lane, uid: newCard.uid, powerDelta: 0, shieldDelta: dx });
+  }
+  // TALLER DE CAMPAMENTO visible (patrón Duelista Task 47): el +1 viaja dentro
+  // de finalPower; la mutación cosmética lo pinta (float/log/VFX).
+  if (tallerBonus > 0) {
+    newCard.powerLog = [
+      ...(newCard.powerLog ?? []),
+      { source: "Taller de Campamento", delta: tallerBonus, kind: "buff" },
+    ];
+    effect.mutations.push({ side, lane, uid: newCard.uid, powerDelta: tallerBonus });
   }
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
 
@@ -1035,6 +1282,25 @@ export function playCard(
         { source: handCard.name, delta: conspirX },
       ],
     }));
+  }
+
+  // ── CONTRABANDO [X]: UNA carta aleatoria de la mano restante gana +X ──
+  // (Conspiración buffa a TODA la mano; el contrabando es un trato suelto.)
+  if (keyword === "contrabando" && (handCard.keywordValue ?? 0) > 0) {
+    const contrabX = handCard.keywordValue ?? 0;
+    if (newHand.length > 0) {
+      const idx = Math.floor(Math.random() * newHand.length);
+      const lucky = newHand[idx];
+      newHand[idx] = {
+        ...lucky,
+        handBonus: (lucky.handBonus ?? 0) + contrabX,
+        handBonusSources: [
+          ...(lucky.handBonusSources ?? []),
+          { source: handCard.name, delta: contrabX },
+        ],
+      };
+      recordKeyword("contrabando", contrabX);
+    } else recordKeywordNoop("contrabando"); // última carta: no hay cómplice
   }
 
   // REGLAS V3: escribir el estado de reglas resultante (copia funcional —
@@ -1222,6 +1488,42 @@ export function scoreAIPlay(
   if (card.keyword === "ruptura_glacial") {
     const anyCracked = board[lane].player.some((c) => (c.debuffTaken ?? 0) > 0);
     if (anyCracked) score += x * 0.5; // el sim ya cuenta la mutación; prima si hay grieta
+  }
+  // ---- V3.0 (T-A): estimaciones que la simulación no ve ----
+  if (card.keyword === "estacion") {
+    score += x * 2; // recurrente y madura a +2X (como Fervor con prima tardía)
+  }
+  if (card.keyword === "tripulacion") {
+    score += x * 1.5 * Math.max(1, sim.board[lane].enemy.length); // escala con propias
+  }
+  if (card.keyword === "engranaje") {
+    const hasItem = board[lane].enemy.some((c) => c.category === "Ítem") || card.category === "Ítem";
+    score += hasItem ? x * 1.5 : 0.3; // condicional a piezas
+  }
+  if (card.keyword === "torreta") {
+    score += x * 1.5; // recurrente al más fuerte
+  }
+  if (card.keyword === "micelio") {
+    score += x * 1.5; // escudo propio + aliado
+  }
+  if (card.keyword === "remache") {
+    score += x * 0.8 * (sim.board[lane].enemy.length + 1); // carril completo incluida ella
+  }
+  if (card.keyword === "contrabando") {
+    score += x; // una carta de la mano futura
+  }
+  if (card.keyword === "canonazo" || card.keyword === "andanada") {
+    const adjEnemies = (LANE_ADJACENT[lane] ?? []).reduce((acc, ln) => acc + board[ln].player.length, 0);
+    score += x * 1.2 * adjEnemies; // el sim ya cuenta el carril local; prima el adyacente
+  }
+  if (card.keyword === "floracion") {
+    score += x * 1.2 * sim.board[lane].enemy.length; // legado de carril entero
+  }
+  if (card.keyword === "chatarra") {
+    score += x * 1.2; // poder + escudo al más débil
+  }
+  if (card.keyword === "descarga") {
+    if (board[lane].player.length >= 2) score += x * 0.5; // el sim ya cuenta las 2 mutaciones
   }
 
   // 11. Avoid playing into a player-owned trap if it would kill the card
@@ -1418,7 +1720,12 @@ function triggerResult(board: Board): TriggerResult {
 
 /**
  * Fire all START_TURN effects on the board for the given side.
- * Keywords: Fervor, Duelista, Purificación (V2) · Escarcha, Veneno (V3).
+ * Keywords: Fervor, Duelista, Purificación (V2) · Escarcha, Veneno (V3) ·
+ * Estación, Tripulación, Engranaje (V3.0).
+ *
+ * `turnNumber` = turno GLOBAL de la partida (1-6) — lo usa Estación (madura
+ * a +2X desde V3_ESTACION_TURN). 0 = desconocido (tests legacy): trata como
+ * pre-maduración.
  */
 export function applyStartTurnEffects(
   board: Board,
@@ -1426,12 +1733,42 @@ export function applyStartTurnEffects(
   _hand: HandCard[] = [],
   lanes: LaneId[] = LANE_IDS,
   /** REGLAS V3 (opcional): los debuffs de las cartas de `side` dan PC (Asesino). */
-  rules?: ClassRulesState
+  rules?: ClassRulesState,
+  /** Turno global de la partida (Estación). */
+  turnNumber = 0
 ): TriggerResult {
   const newBoard = cloneBoard(board);
   const result = triggerResult(newBoard);
   const { logs, fx } = result;
   let rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
+
+  // ── VIENTO DE POPA (Pirata, V3.0): si tu tripulación total es MENOR que la
+  // del rival, TODAS tus cartas ganan +1 al inicio de tu turno. El que llega
+  // con menos grumetes navega con el viento a favor (remontada sin estado).
+  if (rulesOut && rulesOut.classes[side] === "pirata") {
+    let mine = 0;
+    let theirs = 0;
+    for (const lane of lanes) {
+      mine += newBoard[lane][side].length;
+      theirs += newBoard[lane][enemySideOf(side)].length;
+    }
+    if (mine < theirs && mine > 0) {
+      const pushedUids: string[] = [];
+      for (const lane of lanes) {
+        for (const card of newBoard[lane][side]) {
+          applyPowerDelta(newBoard, side, lane, card.uid, V3_VIENTO_POWER, "Viento de popa", "start_turn");
+          pushedUids.push(card.uid);
+        }
+      }
+      if (pushedUids.length > 0) {
+        logs.push({
+          side,
+          text: `🏴‍☠️ Viento de popa: menos tripulación que el rival — +${V3_VIENTO_POWER} a ${pushedUids.length} carta(s).`,
+        });
+        fx.push({ kind: "class", recipe: "formation_banner", lane: lanes[0], side, targetUids: pushedUids, value: V3_VIENTO_POWER });
+      }
+    }
+  }
 
   for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
@@ -1602,6 +1939,56 @@ export function applyStartTurnEffects(
           break;
         }
 
+        // ---- ESTACIÓN [X]: +X al inicio de turno; +2X desde el turno 4 ----
+        // Contador de turnos (eje nuevo): la temporada madura y el carril
+        // RAÍZ florece tarde pero fuerte.
+        case "estacion": {
+          if (x > 0) {
+            const mature = turnNumber >= V3_ESTACION_TURN;
+            const gained = mature ? 2 * x : x;
+            applyPowerDelta(newBoard, side, lane, card.uid, gained, `${card.name} (Estación)`, "start_turn");
+            logs.push({
+              side,
+              text: mature
+                ? `🌿 ${card.name} (Estación): la temporada madura — +${gained} permanente`
+                : `🌿 ${card.name} (Estación): +${gained} permanente`,
+            });
+            fx.push({ kind: "keyword", keyword: "estacion", lane, side, targetUids: [card.uid], value: gained });
+            recordKeyword("estacion", gained);
+          }
+          break;
+        }
+
+        // ---- TRIPULACIÓN [X]: +X por cada carta propia en este carril ----
+        // Contador recurrente de propias (esta incluida — mínimo 1).
+        case "tripulacion": {
+          if (x > 0) {
+            const gained = x * Math.max(1, ownLane.length);
+            applyPowerDelta(newBoard, side, lane, card.uid, gained, `${card.name} (Tripulación)`, "start_turn");
+            logs.push({ side, text: `⚓ ${card.name} (Tripulación): +${gained} (${ownLane.length} grumete(s) en el carril)` });
+            fx.push({ kind: "keyword", keyword: "tripulacion", lane, side, targetUids: [card.uid], value: gained });
+            recordKeyword("tripulacion", gained);
+          }
+          break;
+        }
+
+        // ---- ENGRANAJE [X]: +X mientras haya un Ítem propio en este carril ----
+        // Condición por presencia de Ítem (incluida esta carta si LO ES).
+        case "engranaje": {
+          if (x > 0) {
+            const hasItem = ownLane.some((c) => c.category === "Ítem");
+            if (hasItem) {
+              applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Engranaje)`, "start_turn");
+              logs.push({ side, text: `⚙️ ${card.name} (Engranaje): +${x} (la máquina tiene piezas)` });
+              fx.push({ kind: "keyword", keyword: "engranaje", lane, side, targetUids: [card.uid], value: x });
+              recordKeyword("engranaje", x);
+            } else {
+              recordKeywordNoop("engranaje"); // sin piezas en el carril: el mecanismo se para
+            }
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -1674,6 +2061,41 @@ export function applyEndTurnEffects(
     }
   }
 
+  // ── ECOSISTEMA (Botánico, V3.0): carril con cartas de 2+ CATEGORÍAS
+  // distintas → +1 permanente a TODAS tus cartas de ese carril al cierre.
+  // La diversidad es vida (Ataque+Ítem+Acción conviviendo = ecosistema).
+  // Comparte campo/cap de Formación (anti-bola-de-nieve, mismo tope +1).
+  if (rulesOut && rulesOut.classes[side] === "botanico") {
+    for (const lane of lanes) {
+      const own = newBoard[lane][side];
+      if (own.length < 2) continue;
+      const cats = new Set(own.map((c) => c.category));
+      if (cats.size < 2) continue;
+      const bloomedUids: string[] = [];
+      const bloomedNames: string[] = [];
+      for (const card of [...own]) {
+        if ((card.formation ?? 0) >= V3_FORMACION_CAP) continue;
+        applyPowerDelta(newBoard, side, lane, card.uid, 1, "Ecosistema", "end_turn");
+        const idx = newBoard[lane][side].findIndex((c) => c.uid === card.uid);
+        if (idx >= 0) {
+          newBoard[lane][side][idx] = {
+            ...newBoard[lane][side][idx],
+            formation: (newBoard[lane][side][idx].formation ?? 0) + 1,
+          };
+        }
+        bloomedUids.push(card.uid);
+        bloomedNames.push(card.name);
+      }
+      if (bloomedUids.length > 0) {
+        logs.push({
+          side,
+          text: `🌿 Ecosistema: diversidad en ${LANE_META[lane].title} — +1 a ${bloomedUids.length} carta(s) (${bloomedNames.join(", ")})`,
+        });
+        fx.push({ kind: "class", recipe: "formation_banner", lane, side, targetUids: bloomedUids, value: bloomedUids.length });
+      }
+    }
+  }
+
   for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
       if (card.trigger !== "end_turn") continue;
@@ -1732,6 +2154,45 @@ export function applyEndTurnEffects(
               logs.push({ side, text: `🎯 ${card.name} (Crueldad): sin presa — se enfurece y gana +${x}` });
               fx.push({ kind: "keyword", keyword: "crueldad", lane, side, targetUids: [card.uid], value: x });
               recordKeyword("crueldad", x);
+            }
+          }
+          break;
+        }
+
+        // ---- TORRETA [X]: −X al enemigo MÁS FUERTE del carril (honesto) ----
+        // El francotirador pica arriba (Crueldad pica abajo). Los escudos
+        // absorben — es un proyectil, no veneno. Sin presa: la torreta
+        // espera (noop; a diferencia de FURIA, la máquina no se enfurece).
+        case "torreta": {
+          if (x > 0) {
+            const vivos = newBoard[lane][enemySide].filter((c) => c.currentPower > 0);
+            const target = highestPowerCard(vivos);
+            if (target) {
+              const res = applyDebuff(
+                newBoard,
+                enemySide,
+                lane,
+                target.uid,
+                -x,
+                `${card.name} (Torreta)`,
+                "end_turn"
+              );
+              if (rulesOut && res.appliedDelta < 0) grantCombo(rulesOut, side, 1);
+              if (res.absorbedByShield > 0 && res.appliedDelta === 0) {
+                logs.push({ side, text: `🎯 ${card.name} (Torreta): BLOQUEADO por escudo de ${target.name}` });
+                fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
+                recordKeywordNoop("torreta");
+              } else {
+                const absorbedNote = res.absorbedByShield > 0 ? ` (${res.absorbedByShield} absorbido por escudo)` : "";
+                logs.push({ side, text: `🎯 ${card.name} (Torreta): ${res.appliedDelta} al más fuerte — ${target.name}${absorbedNote}` });
+                fx.push({ kind: "keyword", keyword: "torreta", lane, side: enemySide, targetUids: [target.uid], value: x });
+                recordKeyword("torreta", Math.abs(res.appliedDelta));
+                if (res.absorbedByShield > 0) {
+                  fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
+                }
+              }
+            } else {
+              recordKeywordNoop("torreta"); // sin objetivos: la torreta barre el horizonte
             }
           }
           break;
@@ -1923,6 +2384,71 @@ export function applyOnDeathEffects(
       if (detonationHits === 0) recordKeywordNoop("detonacion");
     } else {
       recordKeywordNoop("detonacion");
+    }
+  }
+
+  // ---- FLORACIÓN [X]: al morir, TODAS tus cartas del carril ganan +X ----
+  // La muerte que alimenta al enjambre (Legado solo buffa al más débil).
+  if (deadCard.keyword === "floracion" && x > 0) {
+    const allies = [...newBoard[lane][side]];
+    if (allies.length > 0) {
+      for (const ally of allies) {
+        applyPowerDelta(newBoard, side, lane, ally.uid, x, `${deadCard.name} (Floración)`, "on_death");
+      }
+      logs.push({ side, text: `🌸 ${deadCard.name} (Floración): +${x} a ${allies.length} carta(s) del carril` });
+      fx.push({
+        kind: "keyword", keyword: "floracion", lane, side, sourceUid: deadCard.uid,
+        targetUids: allies.map((a) => a.uid), value: x,
+      });
+      recordKeyword("floracion", x * allies.length);
+    } else {
+      recordKeywordNoop("floracion"); // murió sola: sus esporas no encuentran suelo
+    }
+  }
+
+  // ---- ANDANADA [X]: al morir, −X a TODOS los enemigos del carril y ADYACENTES ----
+  // La última salva cubre dos frentes (Detonación es de un solo carril).
+  // Honest: applyDebuff (los escudos absorben su parte).
+  if (deadCard.keyword === "andanada" && x > 0) {
+    const lanesHit: LaneId[] = [lane, ...(LANE_ADJACENT[lane] ?? [])];
+    let volleyHits = 0;
+    let volleyTargets = 0;
+    for (const ln of lanesHit) {
+      for (const enemy of [...newBoard[ln][enemySideOf(side)]]) {
+        const res = applyDebuff(newBoard, enemySideOf(side), ln, enemy.uid, -x, `${deadCard.name} (Andanada)`, "on_death");
+        if (res.appliedDelta < 0) volleyHits++;
+        volleyTargets++;
+        fx.push({ kind: "keyword", keyword: "andanada", lane: ln, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: [enemy.uid], value: x });
+      }
+    }
+    if (rulesOut && volleyHits > 0) grantCombo(rulesOut, side, volleyHits);
+    if (volleyTargets > 0) {
+      logs.push({ side, text: `💥 ${deadCard.name} (Andanada): −${x} a ${volleyTargets} enemigo(s) en ${lanesHit.length} carril(es)` });
+      recordKeyword("andanada", x * volleyHits);
+      if (volleyHits === 0) recordKeywordNoop("andanada");
+    } else {
+      recordKeywordNoop("andanada"); // la salva cae al mar
+    }
+  }
+
+  // ---- CHATARRA [X]: al morir, el aliado más débil gana +X y un escudo X ----
+  // Reciclaje: poder + blindaje (Legado solo da poder).
+  if (deadCard.keyword === "chatarra" && x > 0) {
+    const target = lowestPowerCard(newBoard[lane][side]);
+    if (target) {
+      applyPowerDelta(newBoard, side, lane, target.uid, x, `${deadCard.name} (Chatarra)`, "on_death");
+      const idx = newBoard[lane][side].findIndex((c) => c.uid === target.uid);
+      if (idx >= 0) {
+        newBoard[lane][side][idx] = {
+          ...newBoard[lane][side][idx],
+          shieldRemaining: (newBoard[lane][side][idx].shieldRemaining ?? 0) + x,
+        };
+      }
+      logs.push({ side, text: `⚙️ ${deadCard.name} (Chatarra): ${target.name} recicla +${x} de poder y escudo ${x}` });
+      fx.push({ kind: "keyword", keyword: "chatarra", lane, side, sourceUid: deadCard.uid, targetUids: [target.uid], value: x });
+      recordKeyword("chatarra", x);
+    } else {
+      recordKeywordNoop("chatarra"); // murió sin heredero: la chatarra se pierde
     }
   }
 

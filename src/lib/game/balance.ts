@@ -123,6 +123,27 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   miasma: 1.8, // −X AoE one-shot PERFORANTE (prima de perforación sobre Llamarada)
   caza_mayor: 1.4, // media entre +2X (si el más fuerte te supera) y +X
   conspiracion: 0.8, // +X a toda la mano (media ~4-5 cartas futuras, muy valioso)
+  // --- V3.0 Botánico (plan-expansion-v3 §2.1) ---
+  micelio: 0.9, // doble escudo one-shot (yo + el más débil): Coraza 1.0 solo a sí misma
+  estacion: 2.6, // +X/turno como Fervor (3.0) pero madura a +2X desde el turno 4
+  simbiosis: 1.1, // +X por aliado MENOR en poder (Convergencia 1.0, condicionado al ranking)
+  floracion: 1.2, // AoE de buff one-shot al morir (espejo de Detonación 1.2)
+  polen: 1.4, // −X one-shot honesto al MENOS debuffeado (Ruptura 1.6 es perforante)
+  carnivora: 1.9, // destrucción del más débil ≤X (Purga 1.8) + se alimenta (+2/+1)
+  // --- V3.0 Pirata ---
+  saqueo: 1.6, // robo perforante + botín por kill (Drenar 1.5, sin bonus por destrucción)
+  tripulacion: 2.0, // +X/turno escalando con propias (Fortaleza 2.5 buffa TODO el carril)
+  motin: 5.0, // SWAP fijo sin [X]: intercambio con el más fuerte (valor esperado del swing)
+  contrabando: 0.35, // +X a UNA carta aleatoria de la mano (Conspiración 0.8 a TODA la mano)
+  canonazo: 1.7, // −X AoE honesto carril+adyacente (scope 1.4 compensa; Miasma 1.8 perforante)
+  andanada: 1.3, // −X AoE al morir carril+adyacente (Detonación 1.2 de un solo carril)
+  // --- V3.0 Tinker ---
+  remache: 0.85, // escudo X al carril COMPLETO incluida ella (Amparo 0.8 sin self)
+  chatarra: 1.3, // legado mejorado: +X y escudo X (Legado 1.0 solo poder)
+  engranaje: 2.2, // +X/turno condicional a Ítem en carril (Duelista 2.5 condicional a soledad)
+  sobrecalentar: 1.4, // media +2X/+X condicionada a otro Ítem (Emboscada 1.5)
+  torreta: 1.8, // −X/turno al MÁS FUERTE honesto (Crueldad 2.0 pica al más débil)
+  descarga: 1.5, // −X one-shot a los 2 más débiles (Llamarada 1.5 AoE completo)
 };
 
 export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): number {

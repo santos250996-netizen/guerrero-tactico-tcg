@@ -17,6 +17,7 @@ import {
   V3_COMBO_POWER,
   type Board,
   type ClassRulesState,
+  emptyBoard,
 } from "../src/lib/game/engine";
 import { applyPvpAction, createPvpState, joinPvpState } from "../src/lib/game/pvp";
 import type { BoardCard, HandCard, LaneId } from "../src/lib/game/types";
@@ -88,19 +89,6 @@ function bc(name: string, power: number, overrides: Partial<BoardCard> = {}): Bo
   };
 }
 
-function emptyBoard(): Board {
-  return {
-    armas: { player: [], enemy: [] },
-    proteccion: { player: [], enemy: [] },
-    furia: { player: [], enemy: [] },
-    arcana: { player: [], enemy: [] },
-    fuego: { player: [], enemy: [] },
-    hielo: { player: [], enemy: [] },
-    veneno: { player: [], enemy: [] },
-    combate: { player: [], enemy: [] },
-    sigilo: { player: [], enemy: [] },
-  };
-}
 
 function rulesOf(classes: { player?: ClassRulesState["classes"]["player"]; enemy?: ClassRulesState["classes"]["enemy"] }, combo = { player: 0, enemy: 0 }): ClassRulesState {
   const r = emptyClassRules();

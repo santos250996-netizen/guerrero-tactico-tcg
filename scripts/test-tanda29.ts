@@ -10,6 +10,7 @@ import {
   isCardCostAllowed,
   playCard,
   computeFinalResult,
+  emptyBoard,
   type Board,
 } from "../src/lib/game/engine";
 import { LANE_BONUS_POOL, LANE_META, type BoardCard, type CardDef, type LaneBonus, type LaneId } from "../src/lib/game/types";
@@ -54,17 +55,7 @@ section("1. Bono 'Coste -1': las cartas de coste 1 cuestan 0");
   assert(getFinalCost(3, null) === 3, "sin bono el coste es el base");
   // jugada REAL con energía 0: una carta de coste 1 en carril cost_neg es legal
   const cost1 = ALL_CARDS_V3.find((c) => c.cost === 1 && !c.keyword?.startsWith("remate"))!;
-  const board: Board = {
-    armas: { player: [], enemy: [] },
-    proteccion: { player: [], enemy: [] },
-    furia: { player: [], enemy: [] },
-    arcana: { player: [], enemy: [] },
-    fuego: { player: [], enemy: [] },
-    hielo: { player: [], enemy: [] },
-    veneno: { player: [], enemy: [] },
-    combate: { player: [], enemy: [] },
-    sigilo: { player: [], enemy: [] },
-  };
+  const board: Board = emptyBoard();
   const hand = [{ ...cost1, uid: "c1", handBonus: 0 } as never];
   let ok = false;
   try {
@@ -86,11 +77,7 @@ section("2. REMATE nuevo: resta X al MÁS DÉBIL; si tiene ≤ X lo destruye");
   });
   const remateCard = ALL_CARDS_V3.find((c) => c.keyword === "remate" && c.keywordValue === 2)!;
   const hand = [{ ...remateCard, uid: "r", handBonus: 0 } as never];
-  const baseBoard = (): Board => ({
-    armas: { player: [], enemy: [] }, proteccion: { player: [], enemy: [] }, furia: { player: [], enemy: [] },
-    arcana: { player: [], enemy: [] }, fuego: { player: [], enemy: [] }, hielo: { player: [], enemy: [] },
-    veneno: { player: [], enemy: [] }, combate: { player: [], enemy: [] }, sigilo: { player: [], enemy: [] },
-  });
+  const baseBoard = (): Board => emptyBoard();
 
   // (a) el MÁS DÉBIL con poder > X → sobrevive con −X
   {
@@ -352,11 +339,7 @@ section("9. Bots de la CAMPAÑA + temas de jefe");
 section("10. Partida completa bot vs jugador scriptado sin errores");
 {
   const mirror = CLASS_DECKS.guerrero;
-  const board: Board = {
-    armas: { player: [], enemy: [] }, proteccion: { player: [], enemy: [] }, furia: { player: [], enemy: [] },
-    arcana: { player: [], enemy: [] }, fuego: { player: [], enemy: [] }, hielo: { player: [], enemy: [] },
-    veneno: { player: [], enemy: [] }, combate: { player: [], enemy: [] }, sigilo: { player: [], enemy: [] },
-  };
+  const board: Board = emptyBoard();
   let energy = 1;
   let crashed = false;
   try {

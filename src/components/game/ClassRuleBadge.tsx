@@ -33,6 +33,22 @@ const TONE: Record<GameClass, { chip: string; text: string; open: string }> = {
     text: "text-emerald-200",
     open: "border-emerald-500/30 bg-emerald-950/20",
   },
+  // V3.0
+  botanico: {
+    chip: "border-green-500/40 bg-green-950/40",
+    text: "text-green-200",
+    open: "border-green-500/30 bg-green-950/20",
+  },
+  pirata: {
+    chip: "border-blue-500/40 bg-blue-950/40",
+    text: "text-blue-200",
+    open: "border-blue-500/30 bg-blue-950/20",
+  },
+  tinker: {
+    chip: "border-yellow-500/40 bg-yellow-950/40",
+    text: "text-yellow-200",
+    open: "border-yellow-500/30 bg-yellow-950/20",
+  },
 };
 
 export function ClassRuleBadge({ gameClass }: { gameClass: GameClass }) {

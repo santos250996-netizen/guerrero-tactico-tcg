@@ -6,6 +6,7 @@ import { useGameStore } from "@/store/gameStore";
 import { useStatsStore, leagueOf, nextLeagueOf, xpForNext } from "@/store/statsStore";
 import { useCollectionStore } from "@/store/collectionStore";
 import { ALL_CARDS_V3 } from "@/lib/game/cards";
+import { visibleClasses } from "@/lib/game/v3";
 import type { GameClass } from "@/lib/game/types";
 import { ArrowLeft, Check, X, Image as ImageIcon, Lock, Crown, Trophy, Swords, Scale, Gamepad2, Skull, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -916,11 +917,14 @@ function MiniStatChip({
 // ──────────────────────────────────────────────────────────────
 // Liga PvP — tarjeta con liga actual, puntos y progreso a la siguiente
 // ──────────────────────────────────────────────────────────────
-const CLASSES: GameClass[] = ["guerrero", "mago", "asesino"];
+const CLASSES: GameClass[] = [...visibleClasses()];
 const CLASS_LABELS: Record<GameClass, string> = {
   guerrero: "Guerrero",
   mago: "Mago",
   asesino: "Asesino",
+  botanico: "Botánico",
+  pirata: "Pirata",
+  tinker: "Tinker",
 };
 
 const LEAGUE_STYLE: Record<string, { ring: string; text: string; glow: string }> = {

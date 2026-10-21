@@ -20,11 +20,21 @@ import { LOCAL_PVP_PORT } from "@/lib/pvp/local-server";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
+import { V3_CLASSES_UNLOCKED } from "@/lib/game/v3";
+import { Sprout, Ship, Wrench } from "lucide-react";
 
 const CLASS_PICKS: { id: GameClass; icon: LucideIcon; ring: string; glow: string; text: string }[] = [
   { id: "guerrero", icon: Swords, ring: "border-amber-400/70", glow: "shadow-[0_0_22px_rgba(251,191,36,0.3)]", text: "text-amber-300" },
   { id: "mago", icon: Wand2, ring: "border-violet-400/70", glow: "shadow-[0_0_22px_rgba(168,85,247,0.3)]", text: "text-violet-300" },
   { id: "asesino", icon: EyeOff, ring: "border-emerald-400/70", glow: "shadow-[0_0_22px_rgba(52,211,153,0.3)]", text: "text-emerald-300" },
+  // V3.0 — solo se muestran con la bandera del mega-release encendida.
+  ...(V3_CLASSES_UNLOCKED
+    ? [
+        { id: "botanico" as GameClass, icon: Sprout, ring: "border-green-400/70", glow: "shadow-[0_0_22px_rgba(74,222,128,0.3)]", text: "text-green-300" },
+        { id: "pirata" as GameClass, icon: Ship, ring: "border-blue-400/70", glow: "shadow-[0_0_22px_rgba(96,165,250,0.3)]", text: "text-blue-300" },
+        { id: "tinker" as GameClass, icon: Wrench, ring: "border-yellow-400/70", glow: "shadow-[0_0_22px_rgba(250,204,21,0.3)]", text: "text-yellow-300" },
+      ]
+    : []),
 ];
 
 export function PvpSetup() {

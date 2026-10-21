@@ -24,6 +24,10 @@ export const LANE_HEX: Record<string, string> = {
   lime: "#a3e635",
   red: "#f87171",
   indigo: "#818cf8",
+  // V3.0
+  green: "#4ade80",
+  blue: "#60a5fa",
+  yellow: "#facc15",
 };
 
 // ---------------------------------------------------------------------------

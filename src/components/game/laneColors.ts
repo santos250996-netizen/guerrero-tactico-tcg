@@ -95,4 +95,32 @@ export const LANE_COLOR_CLASSES: Record<
     headerBg: "bg-gradient-to-r from-indigo-950/80 to-zinc-950/80",
     dividerLine: "from-indigo-600/40",
   },
+  // ── V3.0: Botánico (verde naturaleza) · Pirata (azul marino) · Tinker (latón/cobre) ──
+  green: {
+    bg: "bg-gradient-to-b from-green-950/60 via-zinc-950/80 to-black",
+    border: "border-green-700/50",
+    text: "text-green-300",
+    ring: "ring-green-400/60",
+    glow: "shadow-[0_0_20px_-2px_rgba(74,222,128,0.2)]",
+    headerBg: "bg-gradient-to-r from-green-950/80 to-zinc-950/80",
+    dividerLine: "from-green-600/40",
+  },
+  blue: {
+    bg: "bg-gradient-to-b from-blue-950/60 via-zinc-950/80 to-black",
+    border: "border-blue-700/50",
+    text: "text-blue-300",
+    ring: "ring-blue-400/60",
+    glow: "shadow-[0_0_20px_-2px_rgba(96,165,250,0.2)]",
+    headerBg: "bg-gradient-to-r from-blue-950/80 to-zinc-950/80",
+    dividerLine: "from-blue-600/40",
+  },
+  yellow: {
+    bg: "bg-gradient-to-b from-yellow-950/60 via-zinc-950/80 to-black",
+    border: "border-yellow-700/50",
+    text: "text-yellow-300",
+    ring: "ring-yellow-400/60",
+    glow: "shadow-[0_0_20px_-2px_rgba(250,204,21,0.2)]",
+    headerBg: "bg-gradient-to-r from-yellow-950/80 to-zinc-950/80",
+    dividerLine: "from-yellow-600/40",
+  },
 };

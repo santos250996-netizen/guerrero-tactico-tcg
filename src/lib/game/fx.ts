@@ -136,6 +136,27 @@ export const KEYWORD_FX: Record<Keyword, FxRecipe | null> = {
   miasma: "poison_spread",
   caza_mayor: "crosshair",
   conspiracion: "buff_up",
+  // V3.0 Botánico (recetas existentes recolocadas — recetas dedicadas en T-F)
+  micelio: "bless_rings",
+  estacion: "buff_up",
+  simbiosis: "arcane_converge",
+  floracion: "spirit_transfer",
+  polen: "poison_drip",
+  carnivora: "skull_burst",
+  // V3.0 Pirata
+  saqueo: "spirit_transfer",
+  tripulacion: "buff_up",
+  motin: "shatter",
+  contrabando: "buff_up",
+  canonazo: "explosion",
+  andanada: "explosion",
+  // V3.0 Tinker
+  remache: "shield_ring",
+  chatarra: "award_burst",
+  engranaje: "buff_up",
+  sobrecalentar: "overload_burst",
+  torreta: "crosshair",
+  descarga: "clash_multi",
 };
 
 // ---------------------------------------------------------------------------
@@ -165,6 +186,17 @@ export const LANE_AMBIENT: Record<LaneId, AmbientRecipe> = {
   // invisible) salió del juego — FX sin lectura = coste sin retorno.
   combate: "motes",
   sigilo: "mist",
+  // V3.0 — recetas existentes recolocadas (dedicadas: «polen», «humo»,
+  // «chispas»… llegan en T-F con el encendido de UI).
+  raiz: "motes", // polvo de tierra flotando
+  flor: "motes", // polen a la deriva
+  esporas: "mist", // bruma de esporas
+  puente: "mist", // niebla marina
+  bodega: "motes", // polvo de bodega
+  artilleria: "embers", // chispas de pólvora
+  taller: "motes", // limaduras de metal
+  maquinaria: "mist", // vapor de máquina
+  chispa: "embers", // chispas eléctricas
 };
 
 // ---------------------------------------------------------------------------
