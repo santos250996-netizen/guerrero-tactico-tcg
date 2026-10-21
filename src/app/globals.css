@@ -267,6 +267,13 @@
   mix-blend-mode: overlay;
 }
 
+/* LOW-POWER (Task 46): mismo grano SIN mix-blend-mode — en móvil cada capa
+   blend por carta es una capa GPU de composición extra (hasta 12 en mesa). */
+.card-grain-plain {
+  mix-blend-mode: normal;
+  opacity: 0.07;
+}
+
 /* ── Slots vacíos heráldicos: runa que respira al poder soltar ── */
 @keyframes slot-pulse {
   0%, 100% { opacity: 0.4; transform: scale(1); }

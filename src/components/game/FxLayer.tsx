@@ -168,9 +168,13 @@ export function FxLayer() {
       useSettings.getState().animationsOn && !reducedMotion;
 
     // ── Estado + calidad adaptativa ──
+    // ambientMul 0 en LOW (Task 46): el ambiente es decoración continua y casi
+    // invisible — el jugador lo señaló como «efectos que ni se ven que cuestan».
+    // Con 0, el canvas pasa a EVENT-DRIVEN en móvil: solo anima cuando hay VFX
+    // de keyword/rituales (ráfagas cortas) y el rAF se DETIENE al acabar.
     const CFG = {
-      low:  { maxParticles: 190, dprCap: 1.25, fps: 30, ambientMul: 0.55, textGlow: false },
-      med:  { maxParticles: 320, dprCap: 1.5,  fps: 60, ambientMul: 0.8,  textGlow: false },
+      low:  { maxParticles: 190, dprCap: 1.25, fps: 30, ambientMul: 0,   textGlow: false },
+      med:  { maxParticles: 320, dprCap: 1.5,  fps: 60, ambientMul: 0.45, textGlow: false },
       high: { maxParticles: 460, dprCap: 2,    fps: 60, ambientMul: 1,    textGlow: true },
     }[perfTier()];
     const FRAME_MS = 1000 / CFG.fps;
@@ -181,8 +185,19 @@ export function FxLayer() {
     let raf = 0;
     let lastT = performance.now();
     let lastFrame = 0;
-    let resyncT = 0;
+    let resyncT = 2; // >1.2: fuerza el primer resync de emisores ya en el frame 1
     let disposed = false;
+    let running = false;
+
+    /** Enciende el rAF SOLO si hay trabajo (event-driven). En low tier el loop
+     *  duerme entre ráfagas de VFX — coste continuo del canvas = 0. */
+    const wake = () => {
+      if (running || disposed || !enabled()) return;
+      running = true;
+      lastT = performance.now();
+      lastFrame = 0;
+      raf = requestAnimationFrame(loop);
+    };
 
     const dpr = () => Math.min(CFG.dprCap, window.devicePixelRatio || 1);
 
@@ -195,7 +210,10 @@ export function FxLayer() {
       ctx!.setTransform(r, 0, 0, r, 0, 0);
     };
     resize();
-    window.addEventListener("resize", resize);
+    // (wake en el listener, NO dentro de resize: la llamada inicial corre antes
+    // de que exista `loop` — el arranque ya lo enciende al final del effect.)
+    const onResize = () => { resize(); wake(); };
+    window.addEventListener("resize", onResize);
 
     // ── Anclaje DOM ──
     const laneSelector = (ev: FxEvent): string | null => {
@@ -780,8 +798,14 @@ export function FxLayer() {
     const onEvents = (events: FxEvent[]) => {
       if (!enabled()) return;
       for (const ev of events) {
-        queued.push(setTimeout(() => spawnEvent(ev), Math.max(0, ev.delayMs ?? 0)));
+        queued.push(setTimeout(() => {
+          spawnEvent(ev);
+          // el spawn puede llegar DESPUÉS de que el loop se durmió (delayMs):
+          // reenciende para que las partículas nuevas se animen
+          wake();
+        }, Math.max(0, ev.delayMs ?? 0)));
       }
+      wake(); // event-driven: los fx (re)encienden el loop
     };
     const unsubFx = subscribeFx(onEvents);
 
@@ -875,7 +899,7 @@ export function FxLayer() {
       }
     };
 
-    // ── Loop (con tope de FPS por tier) ──
+    // ── Loop (con tope de FPS por tier + EVENT-DRIVEN: duerme sin trabajo) ──
     const loop = (t: number) => {
       if (disposed) return;
       raf = requestAnimationFrame(loop);
@@ -884,16 +908,32 @@ export function FxLayer() {
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
 
-      resyncT += dt;
-      if (resyncT > 0.7) {
-        resyncT = 0;
-        resyncAmbient();
+      // Re-sincroniza rects SOLO si el ambiente está vivo (con ambiente 0 en
+      // low tier nunca se hacen querySelectorAll/getBoundingClientRect aquí).
+      if (CFG.ambientMul > 0) {
+        resyncT += dt;
+        if (resyncT > 1.2) {
+          resyncT = 0;
+          resyncAmbient();
+        }
       }
 
       ctx!.clearRect(0, 0, window.innerWidth, window.innerHeight);
       if (!enabled()) {
-        // apagado: vacía todo y no genera
+        // apagado: vacía todo y DURMITE (wake() no enciende mientras esté off)
         if (particles.length) particles = [];
+        running = false;
+        cancelAnimationFrame(raf);
+        return;
+      }
+
+      // EVENT-DRIVEN (Task 46): sin partículas y sin ambiente no hay nada que
+      // pintar — el clear de este frame ya dejó el canvas limpio → DETÉN el
+      // rAF. El próximo fx (wake), un resize o volver de segundo plano lo
+      // reenciende. En med/high el ambiente mantiene el loop vivo como antes.
+      if (particles.length === 0 && CFG.ambientMul === 0) {
+        running = false;
+        cancelAnimationFrame(raf);
         return;
       }
 
@@ -1067,14 +1107,11 @@ export function FxLayer() {
     // Pausa total con la pestaña/app oculta (batería + FPS al volver).
     const onVis = () => {
       cancelAnimationFrame(raf);
-      if (!document.hidden && !disposed) {
-        lastT = performance.now();
-        lastFrame = 0;
-        raf = requestAnimationFrame(loop);
-      }
+      running = false;
+      if (!document.hidden && !disposed) wake();
     };
     document.addEventListener("visibilitychange", onVis);
-    raf = requestAnimationFrame(loop);
+    wake();
 
     // ── Limpieza ──
     return () => {
@@ -1082,7 +1119,7 @@ export function FxLayer() {
       cancelAnimationFrame(raf);
       for (const t of queued) clearTimeout(t);
       queued.length = 0;
-      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVis);
       unsubFx();
       if (w.__fxLayerActive === myToken) delete w.__fxLayerActive;

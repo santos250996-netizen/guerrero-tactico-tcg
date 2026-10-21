@@ -274,7 +274,7 @@ export const KEYWORD_META: Record<
   },
   purificacion: {
     label: "Purificación", short: "PURI", icon: Sparkles, color: "text-sky-300",
-    description: "Inicio de Turno: elimina las reducciones de poder acumuladas de tus cartas en este carril.",
+    description: "Inicio de Turno: elimina las reducciones de poder acumuladas de tus cartas en este carril. Si no había ninguna, el aliado más débil del carril gana un escudo de 2.",
     trigger: "start_turn", hasValue: false, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "proteccion",
   },
@@ -286,7 +286,7 @@ export const KEYWORD_META: Record<
   },
   crueldad: {
     label: "Crueldad", short: "CRUE", icon: Target, color: "text-rose-300",
-    description: "Fin de Turno: reduce en X el poder del enemigo más débil CON PODER de este carril (ignora cuerpos a 0).",
+    description: "Fin de Turno: reduce en X el poder del enemigo más débil CON PODER de este carril (ignora cuerpos a 0). Sin presa, la carta se enfurece y gana +X.",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "furia",
   },

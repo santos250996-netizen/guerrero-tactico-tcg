@@ -273,7 +273,7 @@ console.log("\n🗡️ ASESINO — VENENO (veneno · contagio)");
   assert("Veneno: −1 al más fuerte (13→12)", big.currentPower === 12, `power=${big.currentPower}`);
   assert("Veneno: IGNORA escudo (escudo 9 intacto)", big.shieldRemaining === 9, `shield=${big.shieldRemaining}`);
 
-  // Contagio: −X al enemigo con MÁS debuffTaken; si nadie, nada
+  // Contagio (Task 46): −X a TODAS las cartas enemigas CON debuffTaken
   const con = byId(ROGUE_CARDS, "frasco_de_peste"); // X=1
   b = emptyBoard();
   b[lane].player = [makeCard(con, { uid: "c1" })];
@@ -284,7 +284,7 @@ console.log("\n🗡️ ASESINO — VENENO (veneno · contagio)");
   let endRes = applyEndTurnEffects(b, "player", [], ["veneno", "combate", "sigilo"]);
   const e1 = endRes.board[lane].enemy.find((c) => c.uid === "e1")!;
   const e2 = endRes.board[lane].enemy.find((c) => c.uid === "e2")!;
-  assert("Contagio: pega al MÁS ENVENENADO (13→12), no al otro", e1.currentPower === 12 && e2.currentPower === 8, `e1=${e1.currentPower} e2=${e2.currentPower}`);
+  assert("Contagio: la plaga extiende −1 a TODOS los infectados (e1 13→12, e2 8→7)", e1.currentPower === 12 && e2.currentPower === 7, `e1=${e1.currentPower} e2=${e2.currentPower}`);
 
   // Sin veneno acumulado → no hace nada
   b = emptyBoard();

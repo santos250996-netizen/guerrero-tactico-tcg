@@ -983,3 +983,30 @@ Stage Summary:
 - Los 9 reportes cerrados: modal imposible de atrapar + recompensas siempre visibles, cero FX invisibles (y el cambio de turno medido sin jank), preview de solo lectura, Crueldad con función real, Último Aliento jugable (regla del campo), textos fieles a la rareza, APK actualizable + doble red de seguridad para el progreso (nube + código manual)
 - Balance intacto salvo lo pedido: ninguna carta cambió números; la regla «a 0 cae» es sistémica y SIMÉTRICA (mismo motor para bot y jugador — bot=player intacto)
 - Pendiente vigente: Rush de Jefes (Task 39) y menú de mejoras a elección
+
+---
+Task ID: 46
+Agent: Z.ai main agent
+Task: «aun esta pegandose en movil… tiene q quedar todo fluido · hay keywords inservibles · dejar todo pulido antes de avanzar» — medición end-to-end + reconciliación estructural + canvas event-driven + auditoría de keywords con datos
+
+Work Log:
+- MEDICIÓN NUEVA (scripts/e2e-perf-full.sh, Galaxy S25 emulado, build de producción): por primera vez se miden TODAS las interacciones, no solo cambios de turno — tap de preview, drag real, pase, idle. BASELINE: preview 56-88ms input→paint (con tormenta de 16 pointerleave de Radix), PASAR 40-48ms, 1 tap de 136-144ms, ambient canvas a 30fps SIEMPRE.
+- RECONCILIACIÓN ESTRUCTURAL (pvp.ts: reconcileView + pvpStore.applyView): buildClientView creaba objetos frescos por acción → la identidad de TODO el árbol cambiaba y el memo() de React no servía. Ahora las referencias de carriles/cartas/mano/strips que no cambiaron POR VALOR se reutilizan (huellas por carta) — el re-render por acción toca solo lo que cambió. Puro, sin tocar el engine ni la línea roja bot=player.
+- SUSCRIPCIONES ESTRECHAS: PvpLane (snapshot por carril con useShallow), PvpHandBar, franja rival EXTRAÍDA a PvpRivalStrip (memo + snapshot) — antes toda la barra de mano (8 cartas) se re-pintaba en cada acción.
+- CANVAS EVENT-DRIVEN (FxLayer): el rAF se DETIENE cuando no hay partículas y lo reencienden los fx/resize/visibilidad. Ambiente (decoración continua casi invisible) apagado en tier LOW y reducido a 0.45 en MED — el reporte del jugador de «efectos que ni se ven» aplicado a lo que quedaba. Resync de rects SOLO si el ambiente vive (cero querySelectorAll en low).
+- PREVIEW SIN RADIX (CardPreviewModal): portal propio + tap-para-cerrar + Escape, misma estética y spring — Radix (portal + focus-trap + lock de scroll) costaba 56-88ms por tap.
+- LOW-POWER: foil y grano SIN mix-blend-mode (hasta 24 capas blend GPU en mesa → 0), slot-pulse infinito estático, whileHover solo puntero fino (en táctil disparaba un spring por tap).
+- RESULTADO POST-FIX: preview LIMPIO (0 eventos >40ms), idle LIMPIO (canvas durmiendo, 0 huecos rAF en 4s), PASAR ~40ms (commit real del cambio de turno), drag fluido (0 huecos). Los picos restantes son transiciones de pantalla one-shot (menú/JUGAR).
+- AUDITORÍA KEYWORDS (keyword-stats.ts + sim-keywords.ts, 420 partidas IA-vs-IA con mazos oficiales + jefes, planner idéntico ambos lados): tabla triggers/noops/poder por keyword. INSERVIBLES confirmadas con datos: purga 97% noop · duelista 66% · ruptura_glacial 79% · purificacion 68% · custodia 50% · crueldad 44% · contagio impacto 0.3/juego.
+- REDISEÑO MÍNIMO (mismo nombre/trigger, sin tocar las sanas): PURGA destruye débil ≤X o si no hay, hiere X al más fuerte (perfora) · DUELISTA +X garantizado al jugar + crecimiento solo-en-carril · RUPTURA sin grietas golpea al más fuerte (perfora) · CUSTODIA sube hasta X el escudo MÁS DAÑADO (los demás primero, sola solo si está sola) · PURIFICACIÓN sin nada que limpiar da escudo 2 al más débil · CONTAGIO −X a TODOS los infectados del carril (la plaga se extiende) · CRUELDAD sin presa se enfurece +X.
+- RESULTADO POST-REDESIGN: purga 22%/7.0 (+50 bajas), duelista 12%/3.1, ruptura 18%/1.2, purificacion 0%/1.9, custodia 34%/0.29, contagio 0.41 multi, crueldad 38% (resto = escudos bloqueando: contrajuego). Balance re-verificado con sim-clases-v3 80/emparejamiento: 47.3/48.7/47.3 ✅ banda 45-55.
+- Textos de cartas + KEYWORD_META sincronizados; escalado por rareza verificado (purga escala sus DOS X, duelista sus DOS +X); spec nueva download/keywords-con-efectos-v5.txt.
+- Suites actualizadas: kw-v3 (+1 contagio multi, 31), kw-v4 (custodia por escudo-dañado + ruptura fallback, 71).
+- Verificación: tsc 0 · lint 0 · 12 suites = 708 asserts 0 fallos · build estático RC=0 · E2E funcional 390×844 (preview abre/cierra, drag juega, 3 ciclos de turno, modal de fin con botín visible, Menú navega) — scripts/e2e-t46-{preview,final}.png
+- Commit + push a main (CI genera APK)
+
+Stage Summary:
+- La fluidez dejó de ser una promesa y pasó a ser MEDIDA: cada interacción con datos antes/después; el canvas ya no corre cuando no hay nada que pintar y el tablero solo re-renderiza lo que cambia
+- Ninguna keyword muerta queda: las 7 inservibles rediseñadas con datos de 420 partidas y balance de clases intacto
+- Bot=player intacto: reconcileView y las suscripciones son client-side y simétricas; los rediseños de keywords viven en el engine compartido por ambos lados
+- Pendiente vigente: Rush de Jefes (Task 39) y menú de mejoras a elección

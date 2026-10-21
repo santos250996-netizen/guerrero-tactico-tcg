@@ -7,7 +7,9 @@
 // ============================================================================
 
 import { AnimatePresence, motion } from "framer-motion";
+import { memo } from "react";
 import { AlertTriangle, Activity, Settings as SettingsIcon, LogOut, Loader2, Zap, Wand2 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { usePvpStore } from "@/store/pvpStore";
 import { HandCardComponent } from "../HandCardComponent";
 import { getEffectiveCost, isCardCostAllowed } from "@/lib/game/engine";
@@ -15,26 +17,40 @@ import { LANE_META } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
-export function PvpHandBar({
+export function PvpHandBarImpl({
   onOpenRegistro,
   onOpenSettings,
 }: {
   onOpenRegistro: () => void;
   onOpenSettings: () => void;
 }) {
-  const view = usePvpStore((s) => s.view);
-  const selectedCardUid = usePvpStore((s) => s.selectedCardUid);
-  const passing = usePvpStore((s) => s.passing);
+  // PERF Task 46: snapshot ESTRECHO (useShallow) — la barra solo se abre
+  // cuando cambia SU estado real (mano, energía, turno, selección, mensajes).
+  // Con reconcileView las refs (hand) se mantienen si la mano no cambió.
+  const bar = usePvpStore(
+    useShallow((s) => {
+      const v = s.view;
+      if (!v) return null;
+      return {
+        you: v.you,
+        turn: v.turn,
+        maxTurns: v.maxTurns,
+        myTurn: v.yourTurn,
+        selectedCardUid: s.selectedCardUid,
+        passing: s.passing,
+        invalidPlayMsg: s.invalidPlayMsg,
+      };
+    })
+  );
   const selectCard = usePvpStore((s) => s.selectCard);
   const sendPlay = usePvpStore((s) => s.sendPlay);
   const sendPass = usePvpStore((s) => s.sendPass);
   const exitToMenu = usePvpStore((s) => s.exitToMenu);
-  const invalidPlayMsg = usePvpStore((s) => s.invalidPlayMsg);
   const dismissInvalidMsg = usePvpStore((s) => s.dismissInvalidMsg);
 
-  if (!view) return null;
-  const you = view.you;
-  const myTurn = view.yourTurn;
+  if (!bar) return null;
+  const { you, turn, maxTurns, myTurn, selectedCardUid, passing, invalidPlayMsg } = bar;
+  const view = { you, turn, maxTurns } as const;
 
   // Affordability consciente del BONO de carril: una carta se ve jugable si
   // existe ALGÚN carril donde el coste efectivo (con el bono, p.ej. "Coste -1")
@@ -247,3 +263,8 @@ export function PvpHandBar({
     selectCard(cardUid);
   }
 }
+
+// PERF Task 46: memo — sin esto, el re-render de PvpGame (cada acción) re-pintaba
+// TODA la mano (8 cartas con marcos/badges). Los props deben ser estables
+// (PvpGame los envuelve en useCallback).
+export const PvpHandBar = memo(PvpHandBarImpl);

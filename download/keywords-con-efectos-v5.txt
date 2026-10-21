@@ -1,0 +1,89 @@
+================================================================================
+GUERRERO TÁCTICO TCG — SPEC KEYWORDS V5 (Task 46: auditoría de keywords inservibles)
+================================================================================
+Base: motor V2/V3 intacto (4 triggers, bot=player). NADA de balance de clases
+cambió (verificado con sim-clases-v3: 47.3% / 48.7% / 47.3%, banda 45–55).
+
+QUÉ PASO AQUÍ
+-------------
+El jugador reportó "hay keywords inservibles". Se construyó un instrumento de
+medición (src/lib/game/keyword-stats.ts + scripts/sim-keywords.ts) que juega
+420 partidas IA-vs-IA (mazos oficiales + jefes, planner idéntico ambos lados)
+y cuenta por keyword: triggers, poder real movido, bajas y NOOOPS (veces que
+la keyword tuvo ocasión de actuar y no hizo nada).
+
+RESULTADO DE LA AUDITORÍA (antes → después del rediseño):
+
+  keyword           NOOP%  poder/juego     NOOP%  poder/juego
+  purga              97%      0     →      22%      7.0  (+50 bajas)
+  duelista           66%      0.12  →      12%      3.1
+  ruptura_glacial    79%      0.35  →      18%      1.2
+  purificacion       68%      0.66  →       0%      1.9
+  custodia           50%      0.16  →      34%      0.29
+  crueldad           44%      0.50  →      38%      0.57  (resto = escudos que la bloquean: contrajuego sano)
+  contagio            7%      0.30  →       8%      0.41 (multi-objetivo: X a TODOS los infectados)
+
+Las keywords sanas (coraza, insignia, fortaleza, emboscada, remate, amparo,
+sobrecarga, convergencia, refriega, golpe_certero, conspiracion, hender,
+fervor, ventisca, llamarada, impetu, veneno, escarcha, legado) NO se tocaron.
+
+REDESIGNES (mismo nombre, mismo trigger, sin números nuevos salvo fallbacks)
+----------------------------------------------------------------------------
+
+01. PURGA [X] (Cuchilla del Silencio · Dardo Sombrío)
+    ANTES : destruye la carta enemiga más débil con poder ≤ X (97% sin objetivo).
+    AHORA : destruye la más débil con poder ≤ X; SI NO HAY NINGUNA, hiere en X
+            a la MÁS FUERTE (perfora escudos — mutación directa).
+    Nicho : eliminación que nunca queda muerta; el asesino o caza presa chica
+            o marca a la grande.
+
+02. DUELISTA [X] (Duelista Errante)
+    ANTES : solo start_turn con condición "única carta del carril" (66% muerta:
+            la carta entraba, se apilaba el carril y nunca llegaba a disparar).
+    AHORA : AL JUGAR gana +X garantizado; el crecimiento por estar solo sigue
+            en start_turn.
+    Nicho : espada que se afila al desenvainar y sigue creciendo en el duelo solitario.
+
+03. RUPTURA GLACIAL [X] (Maza Glacial)
+    ANTES : −X solo a enemigos con reducciones acumuladas (79% sin grietas).
+    AHORA : igual, pero si nadie está agrietado GOLPEA AL MÁS FUERTE (perfora).
+    Nicho : el martillo rompe lo que encuentra; si no hay grietas, las abre.
+
+04. CUSTODIA [X] (Baluarte Errante · Escudero Diligente)
+    ANTES : restauraba el escudo del aliado MÁS DÉBIL EN PODER (50% veces ese
+            escudo ya estaba al tope).
+    AHORA : sube hasta X el escudo MÁS DAÑADO del carril (incluido el que no
+            tenía); protege a los DEMÁS primero, a sí misma solo si está sola.
+    Nicho : la custodia patrulla: busca el hueco en la muralla y lo tapa.
+
+05. PURIFICACIÓN (Oración del Bastión, sin X)
+    ANTES : limpiaba reducciones (68% no había nada que limpiar).
+    AHORA : igual; si no había nada, el aliado más débil del carril gana un
+            escudo de 2 (la oración siempre protege algo).
+    Nicho : anti-debuff con suelo defensivo.
+
+06. CONTAGIO [X] (Frasco de Peste · Vaho Pútrido)
+    ANTES : −X a UNA carta (la más envenenada) — impacto irrisorio con X chico.
+    AHORA : −X a TODAS las cartas enemigas del carril con reducciones
+            acumuladas (la plaga se extiende a todo lo infectado). Por
+            applyDebuff: los escudos absorben su parte.
+    Nicho : payoff del paquete veneno; escala con cuántos enemigos hay tocados.
+
+07. CRUELDAD [X] (Colmillo del Verdugo · Furia Desatada)
+    ANTES : −X al enemigo más débil CON PODER; "sin objetivo" el 44% (el resto
+            de las no-acciones eran escudos bloqueando: contrajuego legítimo).
+    AHORA : igual; SIN PRESA la carta se enfurece y gana +X permanente (la
+            furia no se apaga cuando el carril queda vacío).
+    Nicho : la bestía siempre hace algo: desgarra o crece.
+
+NOTAS DE IMPLEMENTACIÓN
+-----------------------
+· Instrumento: recordKeyword/recordKeywordNoop en cada caso del engine
+  (src/lib/game/keyword-stats.ts — contador Map, costo cero, side-agnóstico).
+· Sim: bun scripts/sim-keywords.ts [N] → tabla por keyword.
+· Balance re-verificado después del rediseño: sim-clases-v3 80/emparejamiento
+  → guerrero↔mago 47.3% · asesino↔guerrero 48.7% · asesino↔mago 47.3% ✅.
+· Tests actualizados a la nueva spec: kw-v3 31, kw-v4 71 (contagio multi,
+  custodia por escudo-dañado, ruptura con fallback, purga con fallback).
+· El texto de cada carta Y las descripciones KEYWORD_META sincronizados con
+  el nuevo comportamiento; el escalado por rareza (X y 2X) verificado.

@@ -211,19 +211,37 @@ export function CardShell({
       >
         {children}
 
-        {/* Foil holográfico (bajo el grano, sobre el arte) */}
+        {/* Foil holográfico (bajo el grano, sobre el arte).
+            LOW-POWER (Task 46): SIN mix-blend-mode — cada capa blend por carta
+            es una capa de composición GPU extra, y en mesa hay hasta 12 cartas;
+            en móvil se sustituye por un brillo iridiscente plano equivalente. */}
         {foilLevel !== "none" && (
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-0 z-10",
-              foilLevel === "full" ? "foil-holo-full" : "foil-holo-soft",
-              lowPower && foilLevel === "soft" && "opacity-60"
-            )}
-          />
+          lowPower ? (
+            <div
+              className="pointer-events-none absolute inset-0 z-10"
+              style={{
+                background:
+                  "linear-gradient(115deg, transparent 26%, rgba(255,140,220,0.14) 40%, rgba(120,225,255,0.15) 52%, rgba(255,226,89,0.15) 62%, rgba(168,108,255,0.14) 72%, transparent 86%)",
+                opacity: foilLevel === "full" ? 1 : 0.6,
+              }}
+            />
+          ) : (
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-0 z-10",
+                foilLevel === "full" ? "foil-holo-full" : "foil-holo-soft"
+              )}
+            />
+          )
         )}
 
-        {/* Grano de pergamino: textura que unifica el arte AI */}
-        <div className="card-grain pointer-events-none absolute inset-0 z-[11] opacity-[0.09]" />
+        {/* Grano de pergamino: textura que unifica el arte AI (sin blend en low-power) */}
+        <div
+          className={cn(
+            "card-grain pointer-events-none absolute inset-0 z-[11]",
+            lowPower ? "card-grain-plain" : "opacity-[0.09]"
+          )}
+        />
 
         {/* Vineta interior sutil (profundidad) */}
         <div

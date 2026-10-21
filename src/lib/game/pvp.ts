@@ -1027,3 +1027,141 @@ export function buildClientView(state: PvpState, side: PvpSide, now = Date.now()
     },
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RECONCILIACIÓN ESTRUCTURAL DE LA VISTA (perf móvil, Task 46)
+//
+// buildClientView construye objetos FRESCOS en cada llamada; sin reconciliación,
+// cada applyView cambia la identidad de TODO el árbol (6 carriles + ~12 minis +
+// mano + strips) y el memo() de React no sirve de nada: cada acción re-renderiza
+// el tablero completo (medido en móvil emulado: 40-48ms input→paint por PASAR —
+// la "pegadera" que el jugador sigue notando).
+//
+// reconcileView devuelve la vista equivalente pero REUTILIZANDO las referencias
+// previas de todo lo que no cambió por valor → los memo() reales funcionan y el
+// re-render por acción toca SOLO lo que cambió (energía, una carta, la mano…).
+//
+// PUREZA: no muta nada; solo decide qué referencias conservar. Todo lo que
+// compara son campos que pinta la UI — la línea roja bot=player no se toca
+// (funciona idéntico para ambas vistas, sea local u online).
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Huella visual de una carta en tablero: si coincide con la previa, la UI
+ *  pinta exactamente lo mismo → reutiliza la referencia previa. */
+const boardCardFp = (c: BoardCard): string =>
+  `${c.uid}|${c.defId}|${c.cost}|${c.basePower}|${c.currentPower}|${c.rarity}|` +
+  `${c.keywordValue ?? ""}|${c.shieldRemaining ?? 0}|${c.debuffTaken ?? 0}|` +
+  `${c.formation ?? 0}|${c.powerLog?.length ?? 0}|${c.text?.length ?? 0}`;
+
+/** Huella visual de una carta en mano. */
+const handCardFp = (c: HandCard): string =>
+  `${c.uid}|${c.power}|${c.handBonus}|${c.costReduction ?? 0}|${c.handBonusSources?.length ?? 0}`;
+
+/** Reconcilia un array elemento a elemento: items con la misma huella conservan
+ *  la referencia previa; si TODOS se conservan, el array entero mantiene su
+ *  identidad (el memo del consumidor salta el re-render completo). */
+function reconcileArr<T>(prev: readonly T[] | undefined, next: readonly T[], fp: (x: T) => string): T[] {
+  if (!prev || prev.length !== next.length) return [...next];
+  const out: T[] = [];
+  let allSame = true;
+  for (let i = 0; i < next.length; i++) {
+    const p = prev[i];
+    const n = next[i];
+    if (p === n) { out.push(n); continue; }
+    const kept = fp(p) === fp(n) ? p : n;
+    if (kept !== p) allSame = false;
+    out.push(kept);
+  }
+  return allSame ? (prev as T[]) : out;
+}
+
+const laneBonusSame = (a: LaneBonus | null | undefined, b: LaneBonus | null | undefined): boolean =>
+  a === b || (!!a && !!b && a.kind === b.kind && a.label === b.label && a.description === b.description && a.flavor === b.flavor);
+
+const laneBonusesSame = (a: LaneBonuses, b: LaneBonuses): boolean =>
+  (Object.keys(b) as LaneId[]).every((k) => laneBonusSame(a[k], b[k]));
+
+const stripSame = (
+  a: PvpClientView["you"] | PvpClientView["rival"],
+  b: PvpClientView["you"] | PvpClientView["rival"],
+  isYou: boolean
+): boolean => {
+  if (
+    a.name !== b.name || a.gameClass !== b.gameClass ||
+    a.lanes.join() !== b.lanes.join() || a.energy !== b.energy || a.maxEnergy !== b.maxEnergy ||
+    a.drawPileCount !== b.drawPileCount || !laneBonusesSame(a.laneBonuses, b.laneBonuses)
+  ) return false;
+  if (isYou) {
+    const u = a as PvpClientView["you"], v = b as PvpClientView["you"];
+    if (u.side !== v.side || u.comboPoints !== v.comboPoints || u.lastSpec !== v.lastSpec) return false;
+  } else {
+    const u = a as PvpClientView["rival"], v = b as PvpClientView["rival"];
+    if (u.handCount !== v.handCount || u.rivalComboPoints !== v.rivalComboPoints || u.connected !== v.connected) return false;
+  }
+  return true;
+};
+
+export function reconcileView(prev: PvpClientView, next: PvpClientView): PvpClientView {
+  // ── board: carril a carril, bando a bando ──
+  const board = next.board;
+  const prevBoard = prev.board;
+  let boardSame = true;
+  const reconciledBoard: Board = { ...board };
+  for (const laneId of Object.keys(board) as LaneId[]) {
+    const pos = board[laneId];
+    const prevPos = prevBoard?.[laneId];
+    if (prevPos === pos) continue;
+    const player = reconcileArr(prevPos?.player, pos.player, boardCardFp);
+    const enemy = reconcileArr(prevPos?.enemy, pos.enemy, boardCardFp);
+    if (player === prevPos?.player && enemy === prevPos?.enemy && prevPos) {
+      reconciledBoard[laneId] = prevPos;
+      continue;
+    }
+    reconciledBoard[laneId] = { player, enemy };
+    boardSame = false;
+  }
+
+  // ── hand ──
+  const hand = reconcileArr(prev.you?.hand, next.you.hand, handCardFp);
+
+  // ── strips you/rival (campos primitivos + refs reconciliadas) ──
+  let you = next.you;
+  if (prev.you && stripSame(prev.you, next.you, true) && hand === prev.you.hand) you = prev.you;
+  let rivalStrip = next.rival;
+  if (prev.rival && stripSame(prev.rival, next.rival, false)) rivalStrip = prev.rival;
+
+  // ── lastAction / logs (solo crecen; identidad por secuencia) ──
+  const lastAction =
+    prev.lastAction && next.lastAction &&
+    prev.lastAction.seq === next.lastAction.seq && prev.lastAction.type === next.lastAction.type
+      ? prev.lastAction
+      : next.lastAction;
+  const logs =
+    prev.logs === next.logs ||
+    (prev.logs?.length === next.logs.length &&
+      prev.logs[prev.logs.length - 1]?.id === next.logs[next.logs.length - 1]?.id)
+      ? prev.logs
+      : next.logs;
+
+  const lanesYouSame = !!prev.you && prev.you.lanes === next.you.lanes;
+  const lanesRivalSame = !!prev.rival && prev.rival.lanes === next.rival.lanes;
+
+  // Si absolutamente todo mantuvo identidad, ni siquiera cambie el objeto raíz.
+  const everythingSame =
+    boardSame && you === prev.you && rivalStrip === prev.rival &&
+    lastAction === prev.lastAction && logs === prev.logs &&
+    next.phase === prev.phase && next.turn === prev.turn &&
+    next.yourTurn === prev.yourTurn && next.version === prev.version &&
+    next.activeSide === prev.activeSide &&
+    next.finalResult === prev.finalResult && lanesYouSame && lanesRivalSame;
+  if (everythingSame) return prev;
+
+  return {
+    ...next,
+    board: boardSame ? prevBoard : reconciledBoard,
+    you,
+    rival: rivalStrip,
+    lastAction,
+    logs,
+  };
+}

@@ -1,6 +1,12 @@
 "use client";
-import { motion } from "framer-motion";
-import { Dialog, DialogContent, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
+// Task 46 (perf): el preview ya NO usa Radix Dialog — el portal + focus-trap +
+// lock de scroll de Radix costaban 56-88ms input→paint por tap en móvil emulado
+// (y una tormenta de pointerleave por todo el documento). Este overlay propio es
+// tap-para-cerrar + Escape, con la MISMA estética y animación, a una fracción
+// del coste. Sin focus-trap: el preview es solo-lectura y cierra al tocar.
+import { useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 import type { CardDef } from "@/lib/game/types";
 import { CATEGORY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import {
@@ -21,7 +27,6 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CostBadge, PowerBadge } from "./CardBadges";
 import { CardShell } from "./CardFrame";
-import { useState } from "react";
 import type { PowerLogEntry } from "@/lib/game/types";
 
 // PowerLogEntry kind → lucide icon + label + color (for the Registro de Modificadores panel)
@@ -48,6 +53,18 @@ export function CardPreviewModal({
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
+  const visible = open && !!card;
+
+  // Escape cierra (equivalente accesible del onOpenChange de Radix)
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, onOpenChange]);
+
   if (!card) return null;
   const cat = CATEGORY_META[card.category];
   const trigger = card.trigger ?? "on_play";
@@ -80,24 +97,24 @@ export function CardPreviewModal({
   // Close handler — single tap anywhere (including the card) closes the modal.
   const close = () => onOpenChange(false);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Darker, full-blocking overlay — intercepts ALL pointer events so the user
-          can't tap on underlying hand cards / lanes while the preview is open.
-          Tapping anywhere on the overlay (i.e. outside the card) closes the modal. */}
-      <DialogOverlay
-        className="fixed inset-0 z-50 bg-black/85"
-        onClick={close}
-      />
-      <DialogContent
-        showCloseButton={false}
-        // Center the card in the viewport (override the default which is fine, but
-        // we want a transparent background so only the card itself is visible).
-        className="border-transparent bg-transparent p-0 shadow-none left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] sm:max-w-xs max-w-[calc(100%-1rem)] gap-0"
-        // Tapping on the dialog content area (which is transparent) should also close
-        onClick={close}
-      >
-        <DialogTitle className="sr-only">{card.name}</DialogTitle>
+  return createPortal(
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          key="preview-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={card.name}
+          // Darker, full-blocking overlay — intercepta TODOS los pointer events
+          // (no se puede tocar mano/carriles debajo). Tap en cualquier parte
+          // (fuera o dentro de la carta) cierra.
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.13, ease: "easeOut" }}
+          onClick={close}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+        >
         <motion.div
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -258,7 +275,9 @@ export function CardPreviewModal({
 
           </CardShell>
         </motion.div>
-      </DialogContent>
-    </Dialog>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 }

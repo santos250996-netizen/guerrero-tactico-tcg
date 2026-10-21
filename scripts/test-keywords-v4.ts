@@ -122,7 +122,8 @@ console.log("\n🛡️ GUERRERO PROTECCIÓN — Custodia (escudo renovable al m�
   const bal = b.proteccion.player[0];
   assert("siendo la más débil se escuda a sí misma", bal.shieldRemaining === 2, `shield=${bal.shieldRemaining}`);
 
-  // Aliado más débil (p6 sin escudo) recibe el escudo; con escudo 1 → restaura hasta X.
+  // Task 46: apunta al escudo MÁS DAÑADO — el aliado SIN escudo es el objetivo
+  // y sube hasta X; el que ya tiene escudo 1 conserva el suyo.
   let b2 = emptyBoard();
   const centinela = makeCard(WARRIOR2_CARDS.find((c) => c.id === "centinela_anclado")!);
   const debil = makeCard(WARRIOR2_CARDS.find((c) => c.id === "estandarte_de_la_cohorte")!, {
@@ -130,10 +131,10 @@ console.log("\n🛡️ GUERRERO PROTECCIÓN — Custodia (escudo renovable al m�
   });
   b2.proteccion.player = [makeCard(WARRIOR2_CARDS.find((c) => c.id === "baluarte_errante")!), centinela, debil];
   b2 = applyStartTurnEffects(b2, "player", [], lanesForClass("guerrero")).board;
-  const debilAfter = b2.proteccion.player.find((c) => c.currentPower === 6)!;
-  assert("escudo del aliado débil restaurado hasta X", debilAfter.shieldRemaining === 2, `shield=${debilAfter.shieldRemaining}`);
   const centinelaAfter = b2.proteccion.player.find((c) => c.defId === "centinela_anclado")!;
-  assert("el más fuerte NO recibe escudo", (centinelaAfter.shieldRemaining ?? 0) === 0, `shield=${centinelaAfter.shieldRemaining}`);
+  assert("el aliado SIN escudo sube hasta X (0→2)", (centinelaAfter.shieldRemaining ?? 0) === 2, `shield=${centinelaAfter.shieldRemaining}`);
+  const debilAfter = b2.proteccion.player.find((c) => c.currentPower === 6)!;
+  assert("el que ya tenía escudo no se toca (1 intacto)", debilAfter.shieldRemaining === 1, `shield=${debilAfter.shieldRemaining}`);
 }
 
 console.log("\n🔥 GUERRERO FURIA — Desafío (+X mientras pierdes el carril)");
@@ -216,11 +217,12 @@ console.log("\n🔨 MAGO HIELO — Ruptura Glacial (pierce al más debuffeado, e
   const res2 = play(b2, "player", "hielo", maza);
   assert("empate → el más fuerte", res2.board.hielo.enemy.find((c) => c.uid === "eA")!.currentPower === 8, `A=${res2.board.hielo.enemy.find((c) => c.uid === "eA")!.currentPower}`);
 
-  // Sin grietas → no hace nada.
+  // Sin grietas (Task 46): la maza golpea al MÁS FUERTE igualmente (fallback).
   const b3 = emptyBoard();
   b3.hielo.enemy = [makeCard(MAGE2_CARDS.find((c) => c.id === "alma_del_glaciar")!, { uid: "eA", currentPower: 10, debuffTaken: 0 })];
   const res3 = play(b3, "player", "hielo", maza);
-  assert("sin grietas no golpea", res3.board.hielo.enemy[0].currentPower === 10, `p=${res3.board.hielo.enemy[0].currentPower}`);
+  const r3 = res3.board.hielo.enemy[0];
+  assert("sin grietas golpea al más fuerte (fallback, perfora)", r3.currentPower === 8 && (r3.debuffTaken ?? 0) === 2, `p=${r3.currentPower} debuff=${r3.debuffTaken}`);
 }
 
 console.log("\n☣️ ASESINO VENENO — Miasma (AoE perforante al jugar)");

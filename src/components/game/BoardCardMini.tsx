@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { BoardCard } from "@/lib/game/types";
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isLowPowerDevice } from "@/lib/game/perf";
+import { isLowPowerDevice, isMobileDevice } from "@/lib/game/perf";
 import { CardShell } from "./CardFrame";
 
 interface BoardCardMiniProps {
@@ -44,7 +44,9 @@ function BoardCardMiniImpl({ card, side, onPreview, justPlayed }: BoardCardMiniP
         transition: { duration: 0.26, ease: "easeOut" },
       }}
       transition={{ type: "spring", stiffness: 380, damping: 26 }}
-      whileHover={onPreview ? { scale: 1.08, zIndex: 10 } : undefined}
+      // whileHover SOLO en puntero fino: en táctil el «hover» se dispara al
+      // TOCAR (emulado) y pone en marcha un spring por tap — latencia gratis.
+      whileHover={!isMobileDevice() && onPreview ? { scale: 1.08, zIndex: 10 } : undefined}
       // La carta vive DENTRO de su celda del grid 2×2 del carril: w-full le da
       // el ancho de la celda y aspect-[3/4] la altura — pero si la fila del
       // grid es MÁS BAJA que la altura derivada (móviles cortos, insets de

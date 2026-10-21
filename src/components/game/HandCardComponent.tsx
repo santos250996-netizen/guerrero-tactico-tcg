@@ -6,7 +6,7 @@ import type { HandCard } from "@/lib/game/types";
 import { CATEGORY_META, LANE_META, TRIGGER_META, KEYWORD_META } from "@/lib/game/types";
 import type { LaneId } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
-import { isLowPowerDevice } from "@/lib/game/perf";
+import { isLowPowerDevice, isMobileDevice } from "@/lib/game/perf";
 import { useEffect, useRef, useState } from "react";
 import { CostBadge, PowerBadge } from "./CardBadges";
 import { CardShell } from "./CardFrame";
@@ -302,7 +302,7 @@ export function HandCardComponent({
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 30, scale: 0.85 }}
-        whileHover={{ y: -6, scale: 1.05 }}
+        whileHover={!isMobileDevice() ? { y: -6, scale: 1.05 } : undefined}
         whileTap={{ scale: 0.97 }}
         transition={{ type: "spring", stiffness: 300, damping: 22 }}
         onPointerDown={handlePointerDown}

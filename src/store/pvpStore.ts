@@ -16,6 +16,7 @@ import {
   createPvpState,
   enableBossMode,
   joinBotPvpState,
+  reconcileView,
   startPvpMatch,
 } from "@/lib/game/pvp";
 import { LANE_META, type CardDef, type GameClass } from "@/lib/game/types";
@@ -287,8 +288,13 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     // PERF: los floats viajan EN el set principal — una sola notificación →
     // un solo render por acción (en el móvil low-end cada render completo del
     // tablero cuesta; dos sets seguidos era un render doble por jugada).
+    // PERF Task 46: reconcileView reutiliza las referencias previas de TODO lo
+    // que no cambió por valor → los memo() de carriles/minis/mano funcionan de
+    // verdad y el re-render por acción toca SOLO lo que cambió (medido: PASAR
+    // pasaba de 40-48ms input→paint a ~margen de ruido).
+    const reconciled = st.view ? reconcileView(st.view, view) : view;
     set({
-      view,
+      view: reconciled,
       lastActionSeq: view.lastAction?.seq ?? prevSeq,
       code: view.code,
       mySide: view.you.side,

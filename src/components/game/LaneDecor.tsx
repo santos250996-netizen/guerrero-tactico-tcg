@@ -11,6 +11,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isLowPowerDevice } from "@/lib/game/perf";
 
 /** Hex por clave de color de LANE_COLOR_CLASSES (paleta compartida). */
 export const LANE_HEX: Record<string, string> = {
@@ -110,10 +111,12 @@ export function EmptySlot({
           : undefined
       }
     >
-      {/* runa circular */}
+      {/* runa circular — el pulso (slot-pulse) es INFINITO: en low-power queda
+          estático (misma runa, coste cero; en móvil había hasta 6 slots con
+          animación viva permanente mientras se arrastra una carta). */}
       <svg
         viewBox="0 0 48 48"
-        className={cn("absolute h-[78%] w-[78%]", active && "slot-pulse")}
+        className={cn("absolute h-[78%] w-[78%]", active && !isLowPowerDevice() && "slot-pulse")}
         style={{ color }}
         aria-hidden
       >

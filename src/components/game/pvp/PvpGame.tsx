@@ -14,13 +14,14 @@
 // pidió el diseño. Datos: pvpStore (polling del servidor autoritativo).
 // ============================================================================
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Hand, Zap, Layers, Swords, Sword, Wand2, EyeOff, Activity, Skull, Loader2,
   WifiOff, Trophy, ScrollText, Star,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
 import {
@@ -91,6 +92,13 @@ export function PvpGame() {
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // PERF Task 46: callbacks ESTABLES — PvpHandBar y los modales de fin son
+  // memo'd; lambdas inline los re-pintaban en cada acción del tablero.
+  const openRegistro = useCallback(() => setRegistroOpen(true), []);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const onRematchCb = useCallback(() => { sfx.click(); requestRematch(); }, [requestRematch]);
+  const onExitCb = useCallback(() => { sfx.click(); exitToMenu(); }, [exitToMenu]);
+
   // MÚSICA: entra en modo batalla al montar; al salir, vuelve al latido del menú.
   useEffect(() => {
     music.setMode("battle");
@@ -140,9 +148,6 @@ export function PvpGame() {
     );
   }
 
-  const rivalIcon = CLASS_ICON[view.rival.gameClass] ?? Swords;
-  const myIcon = CLASS_ICON[view.you.gameClass] ?? Swords;
-  const RivalIcon = rivalIcon;
 
   return (
     <div className="app-frame relative overflow-hidden text-zinc-100">
@@ -157,62 +162,9 @@ export function PvpGame() {
         />
       )}
 
-      {/* ══ FRANJA RIVAL (compacta, esquina superior) ══ */}
-      <div className="relative z-30 flex items-center justify-between gap-2 border-b border-rose-900/40 bg-gradient-to-b from-rose-950/60 to-zinc-950/90 px-2 py-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rose-500/50 bg-rose-950/50">
-            <RivalIcon className="h-3.5 w-3.5 text-rose-300" strokeWidth={2.2} />
-            {bossActive ? (
-              <Skull className="absolute -bottom-1 -right-1.5 h-3 w-3 text-rose-400 drop-shadow" />
-            ) : (
-              <span
-                className={cn(
-                  "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-zinc-950",
-                  (mode === "historia" || view.rival.connected) ? "bg-emerald-400" : "bg-zinc-600"
-                )}
-                title={mode === "historia" ? "Bot local" : view.rival.connected ? "Conectado" : "Sin señal…"}
-              />
-            )}
-          </div>
-          <div className="min-w-0 leading-none">
-            <div className="truncate text-[10px] font-black uppercase tracking-wider text-rose-200">
-              {view.rival.name}
-            </div>
-            <div className="text-[7px] font-bold uppercase tracking-widest text-rose-400/70">
-              {CLASS_META[view.rival.gameClass].label}
-            </div>
-          </div>
-        </div>
-
-        {/* Mano del rival (solo cantidad) + energía + mazo */}
-        <div className="flex items-center gap-2.5">
-          <span className="flex items-center gap-1 rounded-full border border-zinc-700/70 bg-black/40 px-1.5 py-0.5" title="Cartas en mano del rival">
-            <Hand className="h-3 w-3 text-zinc-400" />
-            <span className="text-xs font-black tabular-nums text-zinc-100">{view.rival.handCount}</span>
-          </span>
-          <span className="flex items-center gap-1 rounded-full border border-amber-700/50 bg-black/40 px-1.5 py-0.5" title="Energía del rival">
-            <Zap className="h-3 w-3 text-amber-400" />
-            <span className="text-xs font-black tabular-nums text-amber-300">{view.rival.energy}</span>
-          </span>
-          {/* REGLAS V3 — PC del rival (Asesino): lee el peligro de su ráfaga */}
-          {view.rival.gameClass === "asesino" && view.rival.rivalComboPoints > 0 && (
-            <span
-              className="flex items-center gap-1 rounded-full border border-fuchsia-700/60 bg-black/40 px-1.5 py-0.5"
-              title="Marca de ejecución del rival: PC acumulados (+2 de poder por PC al jugar en carril con debuff)"
-            >
-              <Sword className="h-3 w-3 text-fuchsia-400" />
-              <span className="text-xs font-black tabular-nums text-fuchsia-300">{view.rival.rivalComboPoints}</span>
-            </span>
-          )}
-          <span className="hidden items-center gap-1 rounded-full border border-zinc-700/70 bg-black/40 px-1.5 py-0.5 sm:flex" title="Mazo del rival">
-            <Layers className="h-3 w-3 text-zinc-500" />
-            <span className="text-[10px] font-black tabular-nums text-zinc-300">{view.rival.drawPileCount}</span>
-          </span>
-          <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-            T{view.turn}/{view.maxTurns}
-          </span>
-        </div>
-      </div>
+      {/* ══ FRANJA RIVAL (compacta, esquina superior) — memo'd: solo se repinta
+          cuando cambian los datos del rival o el turno (PERF Task 46) ══ */}
+      <PvpRivalStrip bossActive={bossActive} mode={mode} />
 
       {/* Aviso de conexión */}
       <AnimatePresence>
@@ -267,8 +219,8 @@ export function PvpGame() {
 
       {/* ══ BARRA DE MANO PROPIA ══ */}
       <PvpHandBar
-        onOpenRegistro={() => setRegistroOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenRegistro={openRegistro}
+        onOpenSettings={openSettings}
       />
 
       {/* ══ Overlays ══
@@ -298,15 +250,15 @@ export function PvpGame() {
         <HistoriaEndOverlay
           open={view.phase === "ended"}
           rewards={pendingRewards}
-          onRematch={() => { sfx.click(); requestRematch(); }}
-          onExit={() => { sfx.click(); exitToMenu(); }}
+          onRematch={onRematchCb}
+          onExit={onExitCb}
         />
       ) : (
         <PvpGameOverModal
           open={view.phase === "ended"}
           rewards={pendingRewards}
-          onRematch={() => { sfx.click(); requestRematch(); }}
-          onExit={() => { sfx.click(); exitToMenu(); }}
+          onRematch={onRematchCb}
+          onExit={onExitCb}
         />
       )}
 
@@ -811,6 +763,90 @@ function RivalPlayAnnouncerImpl({
   );
 }
 const RivalPlayAnnouncer = memo(RivalPlayAnnouncerImpl);
+
+// ══ FRANJA RIVAL (Task 46) — extraída y memo'd con snapshot ESTRECHO: se
+// repinta solo cuando cambian los datos del rival o el turno. Antes vivía
+// inline en PvpGame y se reconciliaba con CADA acción (mano/energía propias,
+// floats…) aunque el rival no se moviera.
+const PvpRivalStrip = memo(function PvpRivalStrip({
+  bossActive,
+  mode,
+}: {
+  bossActive: boolean;
+  mode: string;
+}) {
+  const strip = usePvpStore(
+    useShallow((s) => {
+      const v = s.view;
+      if (!v) return null;
+      return {
+        rival: v.rival,
+        turn: v.turn,
+        maxTurns: v.maxTurns,
+      };
+    })
+  );
+  if (!strip) return null;
+  const { rival, turn, maxTurns } = strip;
+  const RivalIcon = CLASS_ICON[rival.gameClass] ?? Swords;
+  return (
+    <div className="relative z-30 flex items-center justify-between gap-2 border-b border-rose-900/40 bg-gradient-to-b from-rose-950/60 to-zinc-950/90 px-2 py-1">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rose-500/50 bg-rose-950/50">
+          <RivalIcon className="h-3.5 w-3.5 text-rose-300" strokeWidth={2.2} />
+          {bossActive ? (
+            <Skull className="absolute -bottom-1 -right-1.5 h-3 w-3 text-rose-400 drop-shadow" />
+          ) : (
+            <span
+              className={cn(
+                "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-zinc-950",
+                (mode === "historia" || rival.connected) ? "bg-emerald-400" : "bg-zinc-600"
+              )}
+              title={mode === "historia" ? "Bot local" : rival.connected ? "Conectado" : "Sin señal…"}
+            />
+          )}
+        </div>
+        <div className="min-w-0 leading-none">
+          <div className="truncate text-[10px] font-black uppercase tracking-wider text-rose-200">
+            {rival.name}
+          </div>
+          <div className="text-[7px] font-bold uppercase tracking-widest text-rose-400/70">
+            {CLASS_META[rival.gameClass].label}
+          </div>
+        </div>
+      </div>
+
+      {/* Mano del rival (solo cantidad) + energía + mazo */}
+      <div className="flex items-center gap-2.5">
+        <span className="flex items-center gap-1 rounded-full border border-zinc-700/70 bg-black/40 px-1.5 py-0.5" title="Cartas en mano del rival">
+          <Hand className="h-3 w-3 text-zinc-400" />
+          <span className="text-xs font-black tabular-nums text-zinc-100">{rival.handCount}</span>
+        </span>
+        <span className="flex items-center gap-1 rounded-full border border-amber-700/50 bg-black/40 px-1.5 py-0.5" title="Energía del rival">
+          <Zap className="h-3 w-3 text-amber-400" />
+          <span className="text-xs font-black tabular-nums text-amber-300">{rival.energy}</span>
+        </span>
+        {/* REGLAS V3 — PC del rival (Asesino): lee el peligro de su ráfaga */}
+        {rival.gameClass === "asesino" && rival.rivalComboPoints > 0 && (
+          <span
+            className="flex items-center gap-1 rounded-full border border-fuchsia-700/60 bg-black/40 px-1.5 py-0.5"
+            title="Marca de ejecución del rival: PC acumulados (+2 de poder por PC al jugar en carril con debuff)"
+          >
+            <Sword className="h-3 w-3 text-fuchsia-400" />
+            <span className="text-xs font-black tabular-nums text-fuchsia-300">{rival.rivalComboPoints}</span>
+          </span>
+        )}
+        <span className="hidden items-center gap-1 rounded-full border border-zinc-700/70 bg-black/40 px-1.5 py-0.5 sm:flex" title="Mazo del rival">
+          <Layers className="h-3 w-3 text-zinc-500" />
+          <span className="text-[10px] font-black tabular-nums text-zinc-300">{rival.drawPileCount}</span>
+        </span>
+        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+          T{turn}/{maxTurns}
+        </span>
+      </div>
+    </div>
+  );
+});
 
 // ──────────────────────────────────────────────────────────────
 // Números flotantes (misma mecánica que solitario, data del store PvP)

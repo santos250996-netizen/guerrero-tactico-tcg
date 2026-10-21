@@ -33,6 +33,7 @@ import type {
 } from "./types";
 import { CLASS_META, KEYWORD_META, LANE_BONUS_POOL, LANE_META } from "./types";
 import type { FxEvent } from "./fx";
+import { recordKeyword, recordKeywordNoop } from "./keyword-stats";
 import { v4 as uuidv4 } from "uuid";
 
 export type Board = Record<LaneId, LaneState>;
@@ -473,6 +474,7 @@ function applyEffectLogic(
     case "fervor": {
       if (x > 0 && (ctx.card.trigger ?? "start_turn") === "on_play") {
         accum.bonusPower += x;
+        recordKeyword("fervor", x);
       }
       break;
     }
@@ -483,7 +485,8 @@ function applyEffectLogic(
         const target = lowestPowerCard(allyLane);
         if (target) {
           accum.mutations.push({ side, lane, uid: target.uid, powerDelta: x });
-        }
+          recordKeyword("insignia", x);
+        } else recordKeywordNoop("insignia");
       }
       break;
     }
@@ -502,6 +505,7 @@ function applyEffectLogic(
               uid: target.uid,
               reason: "remate",
             });
+            recordKeyword("remate", 0, 1);
           } else {
             accum.mutations.push({
               side: enemySide,
@@ -510,8 +514,9 @@ function applyEffectLogic(
               powerDelta: -x,
               viaDebuff: true,
             });
+            recordKeyword("remate", x);
           }
-        }
+        } else recordKeywordNoop("remate");
       }
       break;
     }
@@ -524,7 +529,8 @@ function applyEffectLogic(
         const target = highestPowerCard(enemyLane);
         if (target) {
           accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -x });
-        }
+          recordKeyword("hender_armadura", x);
+        } else recordKeywordNoop("hender_armadura");
       }
       break;
     }
@@ -536,6 +542,8 @@ function applyEffectLogic(
         for (const ally of allyLane) {
           accum.mutations.push({ side, lane, uid: ally.uid, powerDelta: 0, shieldDelta: x });
         }
+        if (allyLane.length > 0) recordKeyword("amparo", x * allyLane.length);
+        else recordKeywordNoop("amparo");
       }
       break;
     }
@@ -543,7 +551,9 @@ function applyEffectLogic(
     // ---- ÍMPETU [X]: +X por cada carta jugada este turno (incluida esta) ----
     case "impetu": {
       if (x > 0) {
-        accum.bonusPower += x * Math.max(1, ctx.playsThisTurn ?? 1);
+        const gained = x * Math.max(1, ctx.playsThisTurn ?? 1);
+        accum.bonusPower += gained;
+        recordKeyword("impetu", gained);
       }
       break;
     }
@@ -551,7 +561,10 @@ function applyEffectLogic(
     // ---- CONVERGENCIA [X]: +X por cada carta propia ya en el carril ----
     case "convergencia": {
       if (x > 0) {
-        accum.bonusPower += x * allyLane.length;
+        const gained = x * allyLane.length;
+        accum.bonusPower += gained;
+        if (gained > 0) recordKeyword("convergencia", gained);
+        else recordKeywordNoop("convergencia"); // primera del carril: entra sin bonus
       }
       break;
     }
@@ -560,6 +573,7 @@ function applyEffectLogic(
     case "sobrecarga": {
       if (x > 0) {
         accum.bonusPower += 2 * x;
+        recordKeyword("sobrecarga", 2 * x);
       }
       break;
     }
@@ -573,6 +587,8 @@ function applyEffectLogic(
             side: enemySide, lane, uid: enemy.uid, powerDelta: -x, viaDebuff: true,
           });
         }
+        if (enemyLane.length > 0) recordKeyword("llamarada", x * enemyLane.length);
+        else recordKeywordNoop("llamarada");
       }
       break;
     }
@@ -580,7 +596,10 @@ function applyEffectLogic(
     // ---- REFRIEGA [X]: +X por cada carta ENEMIGA ya en el carril ----
     case "refriega": {
       if (x > 0) {
-        accum.bonusPower += x * enemyLane.length;
+        const gained = x * enemyLane.length;
+        accum.bonusPower += gained;
+        if (gained > 0) recordKeyword("refriega", gained);
+        else recordKeywordNoop("refriega");
       }
       break;
     }
@@ -593,7 +612,8 @@ function applyEffectLogic(
           accum.mutations.push({
             side: enemySide, lane, uid: target.uid, powerDelta: -x, viaDebuff: true,
           });
-        }
+          recordKeyword("golpe_certero", x);
+        } else recordKeywordNoop("golpe_certero");
       }
       break;
     }
@@ -602,12 +622,16 @@ function applyEffectLogic(
     case "emboscada": {
       if (x > 0) {
         const first = (ctx.playsThisTurn ?? 1) === 1;
-        accum.bonusPower += first ? 2 * x : x;
+        const gained = first ? 2 * x : x;
+        accum.bonusPower += gained;
+        recordKeyword("emboscada", gained);
       }
       break;
     }
 
-    // ---- PURGA [X]: destruye la carta enemiga MÁS DÉBIL con poder ≤ X ----
+    // ---- PURGA [X]: destruye la carta enemiga MÁS DÉBIL con poder ≤ X.
+    // Task 46 (97% noop medido): si no hay presa pequeña, la cuchilla heriría
+    // a la presa GRANDE — reduce X al más fuerte (perfora escudos). Nunca muerta.
     case "purga": {
       if (x > 0) {
         const candidates = enemyLane.filter((c) => c.currentPower <= x);
@@ -619,6 +643,13 @@ function applyEffectLogic(
             uid: target.uid,
             reason: "purga",
           });
+          recordKeyword("purga", 0, 1);
+        } else {
+          const big = highestPowerCard(enemyLane);
+          if (big) {
+            accum.mutations.push({ side: enemySide, lane, uid: big.uid, powerDelta: -x });
+            recordKeyword("purga", x);
+          } else recordKeywordNoop("purga");
         }
       }
       break;
@@ -631,6 +662,7 @@ function applyEffectLogic(
         for (const ally of allyLane) {
           accum.mutations.push({ side, lane, uid: ally.uid, powerDelta: x });
         }
+        recordKeyword("orden_batalla", x * (1 + allyLane.length));
       }
       break;
     }
@@ -647,6 +679,7 @@ function applyEffectLogic(
             side: enemySide, lane, uid: target.uid, powerDelta: -x, viaDebuff: true,
           });
         }
+        recordKeyword("drenar_poder", x); // el +X propio es incondicional
       }
       break;
     }
@@ -654,21 +687,25 @@ function applyEffectLogic(
     // ---- RUPTURA GLACIAL [X]: −X al enemigo con MÁS reducciones acumuladas ----
     // Mutación directa: perfora escudos (rompe la barrera congelada).
     // Empate de reducciones → el MÁS FUERTE (finisher del desgaste).
+    // Task 46 (79% noop medido): si nadie está agrietado, la maza golpea al
+    // más fuerte directamente — misma perforación, nunca muerta.
     case "ruptura_glacial": {
       if (x > 0) {
         const cracked = enemyLane.filter((c) => (c.debuffTaken ?? 0) > 0);
-        if (cracked.length > 0) {
-          let target = cracked[0];
-          for (const c of cracked) {
-            if (
-              (c.debuffTaken ?? 0) > (target.debuffTaken ?? 0) ||
-              ((c.debuffTaken ?? 0) === (target.debuffTaken ?? 0) && c.currentPower > target.currentPower)
-            ) {
-              target = c;
-            }
+        let target: BoardCard | undefined = cracked[0];
+        for (const c of cracked) {
+          if (
+            (c.debuffTaken ?? 0) > (target.debuffTaken ?? 0) ||
+            ((c.debuffTaken ?? 0) === (target.debuffTaken ?? 0) && c.currentPower > target.currentPower)
+          ) {
+            target = c;
           }
-          accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -x });
         }
+        if (!target) target = highestPowerCard(enemyLane) ?? undefined;
+        if (target) {
+          accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -x });
+          recordKeyword("ruptura_glacial", x);
+        } else recordKeywordNoop("ruptura_glacial");
       }
       break;
     }
@@ -679,6 +716,8 @@ function applyEffectLogic(
         for (const enemy of enemyLane) {
           accum.mutations.push({ side: enemySide, lane, uid: enemy.uid, powerDelta: -x });
         }
+        if (enemyLane.length > 0) recordKeyword("miasma", x * enemyLane.length);
+        else recordKeywordNoop("miasma");
       }
       break;
     }
@@ -688,7 +727,9 @@ function applyEffectLogic(
       if (x > 0) {
         const target = highestPowerCard(enemyLane);
         const preyed = !!target && target.currentPower > card.power;
-        accum.bonusPower += preyed ? 2 * x : x;
+        const gained = preyed ? 2 * x : x;
+        accum.bonusPower += gained;
+        recordKeyword("caza_mayor", gained);
       }
       break;
     }
@@ -699,6 +740,15 @@ function applyEffectLogic(
     // legado / combustion / detonacion → on_death
     // coraza → escudo inicial otorgado en playCard (init del BoardCard)
     // conspiracion → buff de mano aplicado en playCard (sobre la nueva mano)
+    case "duelista": {
+      // Task 46 (66% noop medido): el Duelista ahora AFILA AL ENTRAR — +X
+      // garantizado al jugar, y el crecimiento por estar solo sigue en start_turn.
+      if (x > 0 && (ctx.card.trigger ?? "start_turn") !== "on_play") {
+        accum.bonusPower += x;
+        recordKeyword("duelista", x);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -945,6 +995,9 @@ export function playCard(
     powerDecay: keyword === "sobrecarga" ? (handCard.keywordValue ?? 0) : undefined,
     debuffTaken: 0,
   };
+  if (keyword === "coraza" && (handCard.keywordValue ?? 0) > 0) {
+    recordKeyword("coraza", handCard.keywordValue ?? 0); // escudo inicial otorgado
+  }
   newBoard[lane][side] = [...newBoard[lane][side], newCard];
 
   // Build a NEW hand (without the played card) — Conspiración buffa el resto.
@@ -953,6 +1006,8 @@ export function playCard(
     .map((c) => ({ ...c }));
   if (keyword === "conspiracion" && (handCard.keywordValue ?? 0) > 0) {
     const conspirX = handCard.keywordValue ?? 0;
+    if (newHand.length > 0) recordKeyword("conspiracion", conspirX * newHand.length);
+    else recordKeywordNoop("conspiracion"); // última carta: nadie recibe el buff
     newHand = newHand.map((c) => ({
       ...c,
       handBonus: (c.handBonus ?? 0) + conspirX,
@@ -1372,6 +1427,7 @@ export function applyStartTurnEffects(
             applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Fervor)`, "start_turn");
             logs.push({ side, text: `🌅 ${card.name} (Fervor): +${x} permanente` });
             fx.push({ kind: "keyword", keyword: "fervor", lane, side, targetUids: [card.uid], value: x });
+            recordKeyword("fervor", x);
           }
           break;
         }
@@ -1382,6 +1438,9 @@ export function applyStartTurnEffects(
             applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Duelista)`, "start_turn");
             logs.push({ side, text: `⚔️ ${card.name} (Duelista): +${x} (única carta del carril)` });
             fx.push({ kind: "keyword", keyword: "duelista", lane, side, targetUids: [card.uid], value: x });
+            recordKeyword("duelista", x);
+          } else if (x > 0) {
+            recordKeywordNoop("duelista"); // ya no está sola: la condición la mata
           }
           break;
         }
@@ -1410,6 +1469,21 @@ export function applyStartTurnEffects(
               text: `✨ ${card.name} (Purificación): restauró ${restored} puntos a ${restoredNames.join(", ")}`,
             });
             fx.push({ kind: "keyword", keyword: "purificacion", lane, side, targetUids: restoredUids, value: restored });
+            recordKeyword("purificacion", restored);
+          } else {
+            // Task 46 (68% noop medido): la oración sin nada que limpiar sigue
+            // protegiendo — el aliado más débil del carril gana escudo 2.
+            const weakest = lowestPowerCard(ownLane);
+            if (weakest) {
+              const idx = newBoard[lane][side].findIndex((c) => c.uid === weakest.uid);
+              const before = newBoard[lane][side][idx].shieldRemaining ?? 0;
+              newBoard[lane][side][idx] = { ...newBoard[lane][side][idx], shieldRemaining: before + 2 };
+              logs.push({ side, text: `✨ ${card.name} (Purificación): nada que limpiar — ${weakest.name} gana escudo 2` });
+              fx.push({ kind: "keyword", keyword: "purificacion", lane, side, targetUids: [weakest.uid], value: 2 });
+              recordKeyword("purificacion", 2);
+            } else {
+              recordKeywordNoop("purificacion");
+            }
           }
           break;
         }
@@ -1426,6 +1500,9 @@ export function applyStartTurnEffects(
               if (after > before) {
                 logs.push({ side, text: `❄️ ${card.name} (Escarcha): escudo restaurado a ${after}` });
                 fx.push({ kind: "keyword", keyword: "escarcha", lane, side, targetUids: [card.uid], value: after - before });
+                recordKeyword("escarcha", after - before);
+              } else {
+                recordKeywordNoop("escarcha"); // escudo ya al tope
               }
             }
           }
@@ -1450,15 +1527,28 @@ export function applyStartTurnEffects(
               if (rulesOut && poisonRes.appliedDelta < 0) grantCombo(rulesOut, side, 1);
               logs.push({ side, text: `🧪 ${card.name} (Veneno): −${x} a ${target.name} (perfora escudos)` });
               fx.push({ kind: "keyword", keyword: "veneno", lane, side: enemySideOf(side), targetUids: [target.uid], value: x });
+              recordKeyword("veneno", x);
+            } else {
+              recordKeywordNoop("veneno"); // sin enemigos en el carril
             }
           }
           break;
         }
 
-        // ---- CUSTODIA [X]: escudo del aliado más débil restaurado hasta X ----
+        // ---- CUSTODIA [X]: el escudo MÁS BAJO del carril sube hasta X ----
+        // Task 46 (50% noop medido): antes apuntaba al aliado más DÉBIL EN PODER
+        // (que solía ser el mismo escudo ya al tope). Ahora busca el escudo más
+        // dañado/ausente — el trabajo real de una custodia.
         case "custodia": {
           if (x > 0) {
-            const target = lowestPowerCard(ownLane); // incluye a la propia carta
+            // La custodia protege PRIMERO a los demás; solo se escuda a sí
+            // misma si está sola en el carril. Empate de escudo → la primera.
+            const others = newBoard[lane][side].filter((c) => c.uid !== card.uid);
+            const pool = others.length > 0 ? others : newBoard[lane][side];
+            let target = pool[0];
+            for (const ally of pool) {
+              if ((ally.shieldRemaining ?? 0) < (target.shieldRemaining ?? 0)) target = ally;
+            }
             if (target) {
               const before = target.shieldRemaining ?? 0;
               const after = Math.min(x, before + x);
@@ -1467,6 +1557,9 @@ export function applyStartTurnEffects(
               if (after > before) {
                 logs.push({ side, text: `🛡️ ${card.name} (Custodia): escudo de ${target.name} restaurado a ${after}` });
                 fx.push({ kind: "keyword", keyword: "custodia", lane, side, targetUids: [target.uid], value: after - before });
+                recordKeyword("custodia", after - before);
+              } else {
+                recordKeywordNoop("custodia"); // todos los escudos ya ≥ X
               }
             }
           }
@@ -1482,6 +1575,9 @@ export function applyStartTurnEffects(
               applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Desafío)`, "start_turn");
               logs.push({ side, text: `🔥 ${card.name} (Desafío): +${x} (el carril es desafiable)` });
               fx.push({ kind: "keyword", keyword: "desafio", lane, side, targetUids: [card.uid], value: x });
+              recordKeyword("desafio", x);
+            } else {
+              recordKeywordNoop("desafio"); // ya va ganando el carril
             }
           }
           break;
@@ -1574,6 +1670,7 @@ export function applyEndTurnEffects(
             }
             logs.push({ side, text: `🏰 ${card.name} (Fortaleza): +${x} a ${newBoard[lane][side].length} carta(s) del carril` });
             fx.push({ kind: "keyword", keyword: "fortaleza", lane, side, targetUids: allyUids, value: x });
+            recordKeyword("fortaleza", x * newBoard[lane][side].length);
           }
           break;
         }
@@ -1599,16 +1696,23 @@ export function applyEndTurnEffects(
               if (res.absorbedByShield > 0 && res.appliedDelta === 0) {
                 logs.push({ side, text: `🎯 ${card.name} (Crueldad): BLOQUEADO por escudo de ${target.name}` });
                 fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
+                recordKeywordNoop("crueldad"); // bloqueada: no hizo nada real
               } else {
                 const absorbedNote = res.absorbedByShield > 0 ? ` (${res.absorbedByShield} absorbido por escudo)` : "";
                 logs.push({ side, text: `🎯 ${card.name} (Crueldad): ${res.appliedDelta} a ${target.name}${absorbedNote}` });
                 fx.push({ kind: "keyword", keyword: "crueldad", lane, side: enemySide, targetUids: [target.uid], value: x });
+                recordKeyword("crueldad", Math.abs(res.appliedDelta));
                 if (res.absorbedByShield > 0) {
                   fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
                 }
               }
             } else {
-              logs.push({ side, text: `🎯 ${card.name} (Crueldad): sin objetivo — el carril no tiene cartas con poder.` });
+              // Task 46 (44% noop medido): FURIA sin presa no se calma — la carta
+              // se enfurece y crece +X (permanente). El carril vacío no la apaga.
+              applyPowerDelta(newBoard, side, lane, card.uid, x, `${card.name} (Crueldad)`, "end_turn");
+              logs.push({ side, text: `🎯 ${card.name} (Crueldad): sin presa — se enfurece y gana +${x}` });
+              fx.push({ kind: "keyword", keyword: "crueldad", lane, side, targetUids: [card.uid], value: x });
+              recordKeyword("crueldad", x);
             }
           }
           break;
@@ -1642,43 +1746,45 @@ export function applyEndTurnEffects(
         if (rulesOut && blizzardHits > 0) grantCombo(rulesOut, side, blizzardHits);
         logs.push({ side, text: `❄️ ${card.name} (Ventisca): −${x} a ${newBoard[lane][enemySide].length} enemigo(s) del carril` });
         fx.push({ kind: "keyword", keyword: "ventisca", lane, side: enemySide, targetUids: enemyUids, value: x });
+        recordKeyword("ventisca", x * blizzardHits);
+        if (blizzardHits === 0) recordKeywordNoop("ventisca");
       }
     }
 
-    // ---- CONTAGIO [X]: −X al enemigo con MÁS reducciones acumuladas ----
+    // ---- CONTAGIO [X]: −X a TODAS las cartas enemigas CON reducciones ----
+    // Task 46 (0.3 poder/juego medido): antes picaba a UNA carta con X pequeño.
+    // La plaga se EXTIENDE a todo lo infectado del carril (multi-objetivo).
+    // Pasa por applyDebuff: los escudos absorben su parte.
     for (const card of newBoard[lane][side]) {
       if (card.trigger !== "end_turn" || card.keyword !== "contagio") continue;
       const x = card.keywordValue ?? 0;
       const poisoned = newBoard[lane][enemySide].filter((c) => (c.debuffTaken ?? 0) > 0);
       if (x > 0 && poisoned.length > 0) {
-        // Más veneno acumulado; empate → el más débil (remátalo antes)
-        let target = poisoned[0];
-        for (const c of poisoned) {
-          if (
-            (c.debuffTaken ?? 0) > (target.debuffTaken ?? 0) ||
-            ((c.debuffTaken ?? 0) === (target.debuffTaken ?? 0) && c.currentPower < target.currentPower)
-          ) {
-            target = c;
+        const uids: string[] = [];
+        let appliedTotal = 0;
+        let hits = 0;
+        for (const target of poisoned) {
+          const res = applyDebuff(
+            newBoard,
+            enemySide,
+            lane,
+            target.uid,
+            -x,
+            `${card.name} (Contagio)`,
+            "end_turn"
+          );
+          if (rulesOut && res.appliedDelta < 0) grantCombo(rulesOut, side, 1);
+          uids.push(target.uid);
+          if (res.appliedDelta < 0) {
+            appliedTotal += Math.abs(res.appliedDelta);
+            hits++;
           }
         }
-        const res = applyDebuff(
-          newBoard,
-          enemySide,
-          lane,
-          target.uid,
-          -x,
-          `${card.name} (Contagio)`,
-          "end_turn"
-        );
-        if (rulesOut && res.appliedDelta < 0) grantCombo(rulesOut, side, 1);
-        const blockedNote = res.absorbedByShield > 0 && res.appliedDelta === 0 ? " (BLOQUEADO por escudo)" : "";
-        logs.push({ side, text: `🧪 ${card.name} (Contagio): ${res.appliedDelta} a ${target.name}${blockedNote}` });
-        if (res.appliedDelta < 0 || res.absorbedByShield > 0) {
-          fx.push({ kind: "keyword", keyword: "contagio", lane, side: enemySide, targetUids: [target.uid], value: x });
-          if (res.absorbedByShield > 0) {
-            fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
-          }
-        }
+        const blockedNote = hits < poisoned.length ? ` (${poisoned.length - hits} bloqueada(s) por escudo)` : "";
+        logs.push({ side, text: `🧪 ${card.name} (Contagio): −${x} a ${poisoned.length} infectado(s) del carril${blockedNote}` });
+        fx.push({ kind: "keyword", keyword: "contagio", lane, side: enemySide, targetUids: uids, value: x });
+        if (appliedTotal > 0) recordKeyword("contagio", appliedTotal);
+        else recordKeywordNoop("contagio"); // todos bloqueados por escudos
       }
     }
   }
@@ -1695,6 +1801,7 @@ export function applyEndTurnEffects(
         }
         logs.push({ side, text: `⚡ ${card.name}: Sobrecarga se disipa (−${decay})` });
         fx.push({ kind: "keyword", keyword: "sobrecarga", lane, side, targetUids: [card.uid], value: decay });
+        recordKeyword("sobrecarga", -decay); // el coste de la ráfaga
       }
     }
   }
@@ -1754,6 +1861,9 @@ export function applyOnDeathEffects(
       applyPowerDelta(newBoard, side, lane, target.uid, x, `${deadCard.name} (Legado)`, "on_death");
       logs.push({ side, text: `💀 ${deadCard.name} (Legado): +${x} a ${target.name}` });
       fx.push({ kind: "keyword", keyword: "legado", lane, side, sourceUid: deadCard.uid, targetUids: [target.uid], value: x });
+      recordKeyword("legado", x);
+    } else {
+      recordKeywordNoop("legado"); // murió sin aliados: el legado se pierde
     }
   }
 
@@ -1769,6 +1879,9 @@ export function applyOnDeathEffects(
       }
       logs.push({ side, text: `🔥 ${deadCard.name} (Combustión): −${2 * x} a ${target.name} (explota, perfora escudos)` });
       fx.push({ kind: "keyword", keyword: "combustion", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: [target.uid], value: 2 * x });
+      recordKeyword("combustion", 2 * x);
+    } else {
+      recordKeywordNoop("combustion"); // explotó sin enemigos delante
     }
   }
 
@@ -1787,6 +1900,10 @@ export function applyOnDeathEffects(
       if (rulesOut && detonationHits > 0) grantCombo(rulesOut, side, detonationHits);
       logs.push({ side, text: `💥 ${deadCard.name} (Detonación): −${x} a ${enemies.length} enemigo(s) del carril` });
       fx.push({ kind: "keyword", keyword: "detonacion", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: uids, value: x });
+      recordKeyword("detonacion", x * detonationHits);
+      if (detonationHits === 0) recordKeywordNoop("detonacion");
+    } else {
+      recordKeywordNoop("detonacion");
     }
   }
 

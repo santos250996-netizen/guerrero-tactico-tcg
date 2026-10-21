@@ -12,6 +12,7 @@
 
 import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 import type { LaneId } from "@/lib/game/types";
 import { LANE_META } from "@/lib/game/types";
 import { usePvpStore } from "@/store/pvpStore";
@@ -38,48 +39,68 @@ interface PvpLaneProps {
 }
 
 export function PvpLaneImpl({ position, side }: PvpLaneProps) {
-  const view = usePvpStore((s) => s.view);
-  const selectedCardUid = usePvpStore((s) => s.selectedCardUid);
+  // PERF Task 46: snapshot ESTRECHO por carril (useShallow) — el memo del
+  // componente solo se abre cuando cambia ALGO de ESTE carril (cartas, bono,
+  // turno, selección, highlight). Antes leía el objeto `view` entero: cada
+  // acción re-renderizaba los 6 carriles aunque nada suyo hubiera cambiado.
+  const lane = usePvpStore(
+    useShallow((s) => {
+      const v = s.view;
+      if (!v) return null;
+      const myLaneId = v.you.lanes[position];
+      const rivalLaneId = v.rival.lanes[position];
+      return {
+        myLaneId,
+        rivalLaneId,
+        posState: v.board[myLaneId],
+        bonusMine: v.you.laneBonuses[myLaneId] ?? null,
+        bonusRival: v.rival.laneBonuses[rivalLaneId] ?? null,
+        yourTurn: v.yourTurn,
+        energy: v.you.energy,
+        hand: v.you.hand,
+        gameClass: v.you.gameClass,
+        lastSpec: v.you.lastSpec,
+        rivalName: v.rival.name,
+        selectedCardUid: s.selectedCardUid,
+        highlightUid: s.highlightUid,
+      };
+    })
+  );
   const sendPlay = usePvpStore((s) => s.sendPlay);
-  const highlightUid = usePvpStore((s) => s.highlightUid);
 
-  if (!view) return null;
+  if (!lane) return null;
 
-  const myLaneId: LaneId = view.you.lanes[position];
-  const rivalLaneId: LaneId = view.rival.lanes[position];
-  // El id del carril que PINTA esta componente es el del propietario de la fila.
+  const { myLaneId, rivalLaneId, posState } = lane;
   const laneId = side === "me" ? myLaneId : rivalLaneId;
   const meta = LANE_META[laneId];
   const colors = LANE_COLOR_CLASSES[meta.color];
   const hex = LANE_HEX[meta.color] ?? "#fbbf24";
 
-  // Datos de la posición (tablero con mis claves):
-  const posState = view.board[myLaneId];
   const myCards = posState.player;
   const rivalCards = posState.enemy;
   const cards = side === "me" ? myCards : rivalCards;
-  const bonus = (side === "me" ? view.you.laneBonuses[myLaneId] : view.rival.laneBonuses[rivalLaneId]) ?? null;
+  const bonus = (side === "me" ? lane.bonusMine : lane.bonusRival) ?? null;
 
   const myScore = myCards.reduce((a, c) => a + c.currentPower, 0);
   const rivalScore = rivalCards.reduce((a, c) => a + c.currentPower, 0);
 
   const maxCards = getLaneMaxCards(bonus);
-  const myTurn = view.yourTurn;
-  const selectedCard = selectedCardUid ? view.you.hand.find((c) => c.uid === selectedCardUid) ?? null : null;
+  const myTurn = lane.yourTurn;
+  const selectedCard = lane.selectedCardUid ? lane.hand.find((c) => c.uid === lane.selectedCardUid) ?? null : null;
 
   // REGLAS V3 — visibilidad compacta de las reglas sistémicas:
   //  · RES (Mago): este carril es tu última jugada del turno → otra carta aquí
   //    entra +2 y cuesta −1.
   //  · FORM (Guerrero): 2+ cartas propias → al cerrar el turno todas ganan +1.
-  const resonanciaAqui = view.you.gameClass === "mago" && view.you.lastSpec === myLaneId;
-  const formacionAqui = view.you.gameClass === "guerrero" && myCards.length >= 2;
+  const resonanciaAqui = lane.gameClass === "mago" && lane.lastSpec === myLaneId;
+  const formacionAqui = lane.gameClass === "guerrero" && myCards.length >= 2;
 
   const canDrop =
     side === "me" &&
     myTurn &&
     selectedCard !== null &&
     isCardCostAllowed(selectedCard.cost, bonus) &&
-    getEffectiveCost(selectedCard.cost, bonus) - (resonanciaAqui ? 1 : 0) <= view.you.energy &&
+    getEffectiveCost(selectedCard.cost, bonus) - (resonanciaAqui ? 1 : 0) <= lane.energy &&
     myCards.length < maxCards;
 
   // Coste EFECTIVO de la carta seleccionada EN ESTE carril (bono aplicado).
@@ -202,7 +223,7 @@ export function PvpLaneImpl({ position, side }: PvpLaneProps) {
                 key={card.uid}
                 card={card}
                 side={side === "me" ? "player" : "enemy"}
-                justPlayed={card.uid === highlightUid}
+                justPlayed={card.uid === lane.highlightUid}
                 onPreview={(bc) =>
                   usePvpStore.getState().setPreviewCard({
                     id: bc.defId,
@@ -261,7 +282,7 @@ export function PvpLaneImpl({ position, side }: PvpLaneProps) {
               </span>
             )}
             <div className="text-right leading-none">
-              <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">{view.rival.name}</div>
+              <div className="text-[7px] font-bold uppercase tracking-widest text-zinc-400">{lane.rivalName}</div>
               <div
                 className={cn(
                   "text-[12px] font-black tabular-nums leading-none",
@@ -287,23 +308,23 @@ export function PvpLaneImpl({ position, side }: PvpLaneProps) {
         </div>
       )}
 
-      {/* Overlay "esperando" cuando no es mi turno (solo fila propia) */}
-      <AnimatePresence>
-        {side === "me" && !myTurn && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="pointer-events-none absolute inset-0 z-20 bg-black/25"
-          />
+      {/* Overlay "esperando" cuando no es mi turno (solo fila propia).
+          PERF Task 46: antes era AnimatePresence+motion (montaje/desmontaje de
+          3 nodos por pase, 2 veces por ciclo); ahora es un toggle de clase CSS
+          con transición de opacidad — mismo look, cero montajes. */}
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 z-20 bg-black/25 transition-opacity duration-200",
+          side === "me" && !myTurn ? "opacity-100" : "opacity-0"
         )}
-      </AnimatePresence>
+      />
     </section>
   );
 }
 
-// memo: los props (position/side) son strings estables — así los re-renders del
-// padre por banner/floats/anuncio/choque NO re-pintan los 6 carriles con sus
-// cartas (el jank del cambio de turno). Las suscripciones internas (view,
-// selección, highlight) siguen disparando re-render cuando TOCA.
+// memo + snapshot estrecho: los props (position/side) son strings estables y
+// la suscripción interna ya solo mira ESTE carril (con reconcileView las refs
+// internas no cambian si el carril no cambió) → una acción del rival no
+// re-pinta ni este carril ni sus minis.
 export const PvpLane = memo(PvpLaneImpl);
