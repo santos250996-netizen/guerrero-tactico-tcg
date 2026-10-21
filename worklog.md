@@ -1055,3 +1055,23 @@ Stage Summary:
 - Balance de clases verificado con sims a N=250 dentro de banda; bot=player intacto (solo cambió el catálogo, no el engine)
 - scripts/test-no-gemelas.ts es ahora guardián permanente: Regla A/B en 0, PTP 84/84 y textos fieles a la rareza
 - Pendiente vigente: Rush de Jefes (Task 39), menú de mejoras a elección, APK overwrite (investigación pendiente del lote de pulido)
+
+---
+Task ID: 49
+Agent: Z (principal)
+Task: cerrar la investigación pendiente del lote de pulido — APK que no se instala encima de la anterior (overwrite), con diagnóstico visible en el dispositivo
+
+Work Log:
+- AUDITORÍA DE LA CADENA DE ACTUALIZACIÓN (los 4 eslabones, verificados uno a uno): (1) applicationId ESTABLE com.guerrero.tactico en build.gradle; (2) keystore COMMITTEADO android/app/pacto-guerra.keystore (SHA-256 CD:A1:85:F6…, válido PKCS12, existe desde tanda 40 — commit 1172c39) y usado por release Y debug; (3) CI build-apk.yml compila assembleRelease con -PversionCode=github.run_number → SIEMPRE creciente; (4) backup rules full-backup-content + data_extraction_rules cubren app_webview (localStorage) + Exportar/Importar en Ajustes como red de seguridad. Cadena CORRECTA desde tanda 40.
+- CAUSA RAÍZ IDENTIFICADA: cualquier APK instalada ANTES de tanda 40 (pre-keystore-estable) tiene firma efímera del runner → Android rechaza la nueva con «App no instalada» y exige desinstalar UNA vez (la firma NO se puede cruzar, es seguridad del SO, no un bug). Segundo escenario posible: instalar un artefacto con run_number MAYOR y luego intentar uno menor → INSTALL_FAILED_VERSION_DOWNGRADE. Tercero: Play Protect bloqueando sideload → «Instalar de todos modos».
+- FIX DE VISIBILIDAD (el jugador no podía distinguir estos casos desde el móvil): fila «VERSIÓN INSTALADA» en Ajustes → sección Progreso, lee la versión REAL vía @capacitor/app App.getInfo() (v{versionName} · build {versionCode}); en web/PWA hace fallback a «navegador» (getInfo lanza unimplemented). Debajo, guía de 1 línea: exportar → desinstalar → instalar → importar (solo hace falta UNA vez). El build N queda visible para comparar con el artefacto nuevo y detectar downgrades sin adb.
+- Sincronizado el pie del menú: v2.5 → v2.6 (coincide con versionName de build.gradle).
+- NOTA: appId de capacitor.config (com.pacto.guerra) ≠ applicationId nativo (com.guerrero.tactico) — no se toca: el nativo manda en la instalación y cambiarlo AHORA instalaría como app nueva perdiendo progreso. El plugin lee el packageName real.
+- scripts/e2e-t49.sh NUEVO (Galaxy S25): menú → engranaje Opciones → modal Ajustes → Exportar/Importar intactos → fila «Versión instalada» = «navegador» (fallback web correcto; en APK será v2.6 · build N).
+- Verificación: tsc 0 · lint 0 · 14 suites = 786 asserts 0 fallos · build estático RC=0 · E2E 3/3 OK (scripts/e2e-t49-version.png)
+- Commit + push a main (CI genera APK v2.6 · build run_number)
+
+Stage Summary:
+- La cadena de actualización está verificada extremo a extremo: desde tanda 40 todas las APK comparten firma y versionCode monótono → se instalan encima conservando progreso
+- El caso «no se instala» ya es diagnosticable desde el propio juego: Ajustes muestra la versión/build instalada y el procedimiento de rescate (exportar → desinstalar → importar), sin adb ni suposiciones
+- Pendiente vigente: Rush de Jefes, menú de mejoras a elección

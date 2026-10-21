@@ -11,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useCollectionStore } from "@/store/collectionStore";
 import { music } from "@/lib/music";
 import { haptic } from "@/lib/haptics";
@@ -87,6 +87,25 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
   const [importText, setImportText] = useState("");
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const importAreaRef = useRef<HTMLTextAreaElement>(null);
+  // DIAGNÓSTICO DE ACTUALIZACIÓN (petición del jugador: el APK no se instalaba
+  // encima del anterior). Muestra la versión/build REALMENTE instalada: si el
+  // build nuevo es MENOR que el instalado, Android bloquea el downgrade; si la
+  // firma no coincide (APK previa a tanda 40), exige desinstalar UNA vez.
+  const [appVer, setAppVer] = useState<{ v: string; b: string; native: boolean } | null>(null);
+  useEffect(() => {
+    if (!open || appVer) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        const info = await App.getInfo();
+        if (alive) setAppVer({ v: info.version, b: String(info.build), native: true });
+      } catch {
+        if (alive) setAppVer({ v: "web", b: "—", native: false });
+      }
+    })();
+    return () => { alive = false; };
+  }, [open, appVer]);
   const resetCollection = useCollectionStore((s) => s.resetAll);
   // Reset de confirmaciones al CERRAR (evento, no effect — evita cascada de renders).
   const handleOpenChange = (o: boolean) => {
@@ -395,6 +414,23 @@ export function SettingsModal({ open, onOpenChange, showExitToMenu = false }: Se
               <p className="px-2 text-[9px] leading-snug text-zinc-600">
                 Respalda ANTES de instalar una actualización: el código trae TODO tu avance.
               </p>
+
+              {/* VERSIÓN INSTALADA — comparar con el build del APK nuevo */}
+              <div className="mt-1 flex flex-col gap-1 rounded-lg border border-zinc-800/60 bg-zinc-950/60 px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                    Versión instalada
+                  </span>
+                  <span className="font-mono text-[10px] text-zinc-300">
+                    {appVer ? (appVer.native ? `v${appVer.v} · build ${appVer.b}` : "navegador") : "…"}
+                  </span>
+                </div>
+                {appVer?.native && (
+                  <p className="text-[9px] leading-snug text-zinc-600">
+                    Si el APK nuevo NO se instala: exporta tu progreso → desinstala → instala el nuevo → importa el código. Solo hace falta UNA vez (APKs antiguas tenían firma distinta); después todas se actualizan encima.
+                  </p>
+                )}
+              </div>
             </div>
           </Section>
 

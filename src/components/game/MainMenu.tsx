@@ -221,7 +221,7 @@ export function MainMenu() {
         className="absolute inset-x-0 bottom-2.5 z-20 flex justify-center px-8"
       >
         <p className="text-center text-[7px] font-bold uppercase tracking-[0.35em] text-amber-700/60">
-          v2.5 · niveles · mítica · jefes temáticos
+          v2.6 · niveles · mítica · jefes temáticos
         </p>
       </motion.div>
 
