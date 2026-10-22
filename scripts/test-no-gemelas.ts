@@ -101,13 +101,16 @@ section("Cada familia de keyword es una escalera (X distintos o triggers distint
   }
 }
 
-section("Pool de clase intacto: 28 cartas, ids únicos");
+section("Pool de clase intacto: 36 (base, con ampliación tanda 30) / 28 (V3), ids únicos");
 {
   for (const cls of CLASSES) {
     if (!poolReady(cls)) continue;
     const cards = classCardsOf(cls);
-    check(`${cls}: 28 cartas`, cards.length === 28, `n=${cards.length}`);
-    check(`${cls}: ids únicos`, new Set(cards.map((c) => c.id)).size === 28);
+    // V3.0 · tanda 30: las clases BASE pasan a 36 (mazos I/II + jefe + 8 de
+    // la ampliación); las clases V3 se quedan en 28.
+    const esperado = BASE_CLASSES.includes(cls) ? 36 : 28;
+    check(`${cls}: ${esperado} cartas`, cards.length === esperado, `n=${cards.length}`);
+    check(`${cls}: ids únicos`, new Set(cards.map((c) => c.id)).size === esperado);
   }
   // V3.0: el catálogo CRECE por tandas (84 → 112 → 140 → 168). El guardián
   // es la UNICIDAD total, no un número fijo.
@@ -142,6 +145,13 @@ section("Coherencia texto↔X en las 17 cartas retocadas (texto cita SU valor)")
     ["paves_de_la_muralla", "próximas 4"],
     ["juramento_de_acero", "gana +2"],
     ["aliento_gelido", "TODAS las cartas enemigas"],
+    // V3.0 · tanda 30 — los 5 rellenos retocados para caber en el pool de 36
+    // sin gemelas (Regla A/B) — el texto SIEMPRE cita su X real:
+    ["rompefilas_orco", "ganan +2 de poder permanente"],
+    ["maza_berserker", "gana +3 por cada carta"],
+    ["aprendiz_inquieto", "absorbe 1 reducción de poder"],
+    ["mantis_verde", "reduce en 3"],
+    ["navaja_de_taberna", "gana +1 por cada carta enemiga"],
   ];
   for (const [id, frag] of expect) {
     const c = ALL_CARDS_V3.find((x) => x.id === id)!;

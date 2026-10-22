@@ -266,8 +266,12 @@ section("6. MAZOS DE JEFE: 12 únicas, una sola spec, sin clonar combos");
   assert(sigiloNew.every((id) => pools.asesino.includes(id)), "cartas nuevas de SIGILO en el pool del asesino");
   assert(hieloNew.every((id) => pools.mago.includes(id)), "cartas nuevas de HIELO en el pool del mago");
   assert(protNew.every((id) => pools.guerrero.includes(id)), "cartas nuevas de PROTECCIÓN en el pool del guerrero");
-  assert(classCardsOf("asesino").length === 28 && classCardsOf("mago").length === 28 && classCardsOf("guerrero").length === 28,
-    "28 cartas por clase (24 + 4 de jefe)");
+  // V3.0 · tanda 30: las clases BASE pasan a 36 (mazos I/II + jefe + 8 de la
+  // ampliación); el pool del EDITOR sigue siendo la referencia de obtención.
+  assert(classCardsOf("asesino").length === 36 && classCardsOf("mago").length === 36 && classCardsOf("guerrero").length === 36,
+    "36 cartas por clase base (24 + 4 de jefe + 8 de la ampliación tanda 30)");
+  assert(classCardsOf("botanico").length === 28 && classCardsOf("pirata").length === 28 && classCardsOf("tinker").length === 28,
+    "28 cartas por clase V3 (sin ampliación)");
 }
 
 // ---------------------------------------------------------------------------

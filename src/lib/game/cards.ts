@@ -2627,11 +2627,11 @@ export const GUERRERO3_CARDS: CardDef[] = [
     category: "Ataque",
     subtypes: ["armas"],
     cost: 2,
-    power: 8,
-    text: "Al Jugar: esta carta y tus demás cartas de este carril ganan +1 de poder permanente.",
+    power: 7,
+    text: "Al Jugar: esta carta y tus demás cartas de este carril ganan +2 de poder permanente.",
     effectId: "orden_batalla",
     keyword: "orden_batalla",
-    keywordValue: 1,
+    keywordValue: 2,
     rarity: "common",
     trigger: "on_play",
   },
@@ -2669,12 +2669,12 @@ export const GUERRERO3_CARDS: CardDef[] = [
     name: "Maza Berserker",
     category: "Ítem",
     subtypes: ["furia"],
-    cost: 1,
-    power: 4,
-    text: "Al Jugar: gana +1 por cada carta que hayas jugado este turno (incluida esta).",
+    cost: 3,
+    power: 9,
+    text: "Al Jugar: gana +3 por cada carta que hayas jugado este turno (incluida esta).",
     effectId: "impetu",
     keyword: "impetu",
-    keywordValue: 1,
+    keywordValue: 3,
     rarity: "common",
     trigger: "on_play",
   },
@@ -2745,10 +2745,10 @@ export const MAGO3_CARDS: CardDef[] = [
     category: "Ataque",
     subtypes: ["arcana"],
     cost: 1,
-    power: 4,
-    text: "Al Jugar: gana +1 de poder y reduce en 1 el poder del enemigo más fuerte de este carril.",
-    effectId: "drenar_poder",
-    keyword: "drenar_poder",
+    power: 5,
+    text: "Al Jugar: gana un escudo que absorbe 1 reducción de poder.",
+    effectId: "coraza",
+    keyword: "coraza",
     keywordValue: 1,
     rarity: "common",
     trigger: "on_play",
@@ -2863,11 +2863,11 @@ export const ASESINO3_CARDS: CardDef[] = [
     category: "Ataque",
     subtypes: ["veneno"],
     cost: 1,
-    power: 4,
-    text: "Fin de Turno: reduce en 1 el poder de TODAS las cartas enemigas de este carril que ya tengan reducciones.",
+    power: 1,
+    text: "Fin de Turno: reduce en 3 el poder de TODAS las cartas enemigas de este carril que ya tengan reducciones.",
     effectId: "contagio",
     keyword: "contagio",
-    keywordValue: 1,
+    keywordValue: 3,
     rarity: "common",
     trigger: "end_turn",
   },
@@ -2905,11 +2905,11 @@ export const ASESINO3_CARDS: CardDef[] = [
     name: "Navaja de Taberna",
     category: "Ítem",
     subtypes: ["combate"],
-    cost: 2,
-    power: 8,
-    text: "Al Jugar: reduce en 1 el poder del enemigo más fuerte de este carril. Los escudos lo absorben.",
-    effectId: "golpe_certero",
-    keyword: "golpe_certero",
+    cost: 1,
+    power: 5,
+    text: "Al Jugar: gana +1 por cada carta enemiga que ya esté en este carril.",
+    effectId: "refriega",
+    keyword: "refriega",
     keywordValue: 1,
     rarity: "common",
     trigger: "on_play",
@@ -3042,7 +3042,21 @@ export const NEUTRAL_KEYWORD_IDS: ReadonlySet<string> = new Set([
   "fervor", "coraza", "insignia", "remate", "legado", "fortaleza",
 ]);
 
-/** Las 28 cartas de una clase (mazo I + mazo II + las 4 de su JEFE). */
+/**
+ * V3.0 · Tanda 30 (plan-expansion-v3 §2.4) — ampliación de las clases BASE
+ * (pool 28→36): las 24 cartas nuevas entran a colección/drops/editor, pero
+ * NINGÚN mazo oficial cambia (mazos I/II y el del jefe siguen en 12; el
+ * editor elige 12 y la curva la decide el jugador). Las clases V3 no tienen
+ * ampliación: su pool sigue siendo 28.
+ */
+const EXTRA_CLASS_CARDS: Partial<Record<GameClass, CardDef[]>> = {
+  guerrero: GUERRERO3_CARDS,
+  mago: MAGO3_CARDS,
+  asesino: ASESINO3_CARDS,
+};
+
+/** Cartas jugables de una clase: mazo I + mazo II + las 4 de su JEFE + las
+ *  8 EXTRA de la ampliación en clases base (36) — 28 en las clases V3. */
 export function classCardsOf(cls: GameClass): CardDef[] {
   return [
     ...CLASS_DECKS[cls],
@@ -3050,6 +3064,7 @@ export function classCardsOf(cls: GameClass): CardDef[] {
     ...BOSS_DECKS[cls].filter(
       (c) => !CLASS_DECKS[cls].some((d) => d.id === c.id) && !CLASS_DECKS_SECOND[cls].some((d) => d.id === c.id)
     ),
+    ...(EXTRA_CLASS_CARDS[cls] ?? []),
   ];
 }
 
