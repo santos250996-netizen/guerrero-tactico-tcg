@@ -144,6 +144,16 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   sobrecalentar: 1.4, // media +2X/+X condicionada a otro Ítem (Emboscada 1.5)
   torreta: 1.8, // −X/turno al MÁS FUERTE honesto (Crueldad 2.0 pica al más débil)
   descarga: 1.5, // −X one-shot a los 2 más débiles (Llamarada 1.5 AoE completo)
+  // --- V3.0 · Tanda 30 — ampliación clases base (auditados vs las 51) ---
+  estandarte: 1.2, // +X AoE al carril ADYACENTE (Orden 1.2 incluye a sí misma; scope 1.4 compensa)
+  muralla: 0.6, // escudo X a TODOS tus carriles al morir (Amparo 0.8 por aliado, aquí cuenta toda la guarnición)
+  atropello: 1.4, // neto +X con doble filo propio (+2X a sí, −X al aliado débil; Sobrecarga 1.5 sin víctima)
+  eco: 0.9, // +X por carta en mano al jugar (Convergencia 1.0 por carta EN carril, más fiable)
+  ceniza: 1.2, // −X al morir a los 2 más débiles (Detonación 1.2 AoE completo)
+  esquirla: 1.0, // +X por punto de reducción enemiga (condicional: sin debuffs no cosecha)
+  corrosion: 1.3, // funde escudos o perfora al más fuerte (Hender 1.2; utilidad anti-escudo extra)
+  finta: 1.3, // neto +X diferido (−X ahora, +2X el próximo turno; Sobrecarga 1.5 es inmediato)
+  octava: 0.9, // +X por propia en los OTROS carriles (Convergencia 1.0 por propia en SU carril)
 };
 
 export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): number {

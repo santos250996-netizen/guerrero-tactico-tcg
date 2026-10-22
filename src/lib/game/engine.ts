@@ -949,6 +949,120 @@ function applyEffectLogic(
       break;
     }
 
+    // ---- ESTANDARTE [X]: +X a tus cartas del carril ADYACENTE ----
+    // Tanda 30 (armas). Coordina la línea vecina (Orden de Batalla buffa la
+    // SUYA; el estandarte ondea para el flanco). Buff directo (permanente).
+    case "estandarte": {
+      if (x > 0) {
+        let hits = 0;
+        for (const adj of LANE_ADJACENT[lane] ?? []) {
+          for (const ally of ctx.board[adj][side]) {
+            accum.mutations.push({ side, lane: adj, uid: ally.uid, powerDelta: x });
+            hits++;
+          }
+        }
+        if (hits > 0) recordKeyword("estandarte", x * hits);
+        else recordKeywordNoop("estandarte"); // el flanco está vacío
+      }
+      break;
+    }
+
+    // ---- ATROPELLO [X]: +2X a sí misma, −X a tu aliado más débil ----
+    // Tanda 30 (furia). Doble filo propio: la carga salvaje no distingue.
+    // Sin aliados que arrollar, solo carga con +X (honesto anti-noop).
+    case "atropello": {
+      if (x > 0) {
+        const victim = lowestPowerCard(allyLane);
+        if (victim) {
+          accum.bonusPower += 2 * x;
+          accum.mutations.push({ side, lane, uid: victim.uid, powerDelta: -x, viaDebuff: true });
+          recordKeyword("atropello", 2 * x);
+        } else {
+          accum.bonusPower += x; // carril vacío: la carga no encuentra a quien arrollar
+          recordKeyword("atropello", x);
+        }
+      }
+      break;
+    }
+
+    // ---- ECO [X]: +X por cada carta que queda en tu mano ----
+    // Tanda 30 (arcana). ctx.hand ya EXCLUYE la carta jugada (ver playCard).
+    case "eco": {
+      if (x > 0) {
+        const n = ctx.hand.length;
+        if (n > 0) {
+          accum.bonusPower += x * n;
+          recordKeyword("eco", x * n);
+        } else recordKeywordNoop("eco"); // última carta: el eco no tiene a quien resonar
+      }
+      break;
+    }
+
+    // ---- ESQUIRLA [X]: +X por CADA punto de reducción de los enemigos ----
+    // Tanda 30 (hielo). Cosecha las grietas (sin debuffs previos no recolecta).
+    case "esquirla": {
+      if (x > 0) {
+        const total = enemyLane.reduce((sum, e) => sum + (e.debuffTaken ?? 0), 0);
+        if (total > 0) {
+          accum.bonusPower += x * total;
+          recordKeyword("esquirla", x * total);
+        } else recordKeywordNoop("esquirla"); // hielo liso: nada que astillar
+      }
+      break;
+    }
+
+    // ---- CORROSIÓN [X]: disuelve X del escudo MÁS GRANDE; si no hay, perfora ----
+    // Tanda 30 (veneno). Anti-bunker: el ácido busca la muralla más gorda.
+    // El escudo se funde directo (la corrosión no «golpea»); sin escudos,
+    // muerde el poder del más fuerte SIN pasar por applyDebuff (perfora).
+    case "corrosion": {
+      if (x > 0) {
+        const shielded = enemyLane.filter((c) => (c.shieldRemaining ?? 0) > 0);
+        if (shielded.length > 0) {
+          let target = shielded[0];
+          for (const c of shielded) {
+            if ((c.shieldRemaining ?? 0) > (target.shieldRemaining ?? 0)) target = c;
+          }
+          const hit = Math.min(x, target.shieldRemaining ?? 0);
+          accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: 0, shieldDelta: -hit });
+          recordKeyword("corrosion", hit);
+        } else {
+          const target = highestPowerCard(enemyLane);
+          if (target) {
+            accum.mutations.push({ side: enemySide, lane, uid: target.uid, powerDelta: -x });
+            recordKeyword("corrosion", x);
+          } else recordKeywordNoop("corrosion");
+        }
+      }
+      break;
+    }
+
+    // ---- FINTA [X]: −X a sí misma (se expone); el +2X cobra en start_turn ----
+    // Tanda 30 (combate). El cobro diferido viaja en pendingBonus (playCard)
+    // y se paga en applyStartTurnEffects del PRÓXIMO turno del dueño.
+    case "finta": {
+      if (x > 0) {
+        accum.bonusPower -= x;
+        recordKeyword("finta", -x); // el coste de exponerse (patrón Sobrecarga)
+      }
+      break;
+    }
+
+    // ---- OCTAVA [X]: +X por cada carta propia en tus OTROS carriles ----
+    // Tanda 30 (sigilo). La red de sombras opera en todos los frentes.
+    case "octava": {
+      if (x > 0) {
+        const others = classLanesOf(lane).filter((l) => l !== lane);
+        let count = 0;
+        for (const l of others) count += ctx.board[l][side].length;
+        if (count > 0) {
+          accum.bonusPower += x * count;
+          recordKeyword("octava", x * count);
+        } else recordKeywordNoop("octava"); // operando en solitario
+      }
+      break;
+    }
+
     // ---- Keywords que disparan en OTROS triggers (no-op aquí) ----
     // fervor / duelista / purificacion / escarcha / veneno / custodia / desafio → start_turn
     // fortaleza / crueldad / ventisca / contagio → end_turn
@@ -1218,8 +1332,20 @@ export function playCard(
         : undefined,
     // Sobrecarga: pending one-shot decay charged at end of turn
     powerDecay: keyword === "sobrecarga" ? (handCard.keywordValue ?? 0) : undefined,
+    // Finta (tanda 30): cobro diferido — +2X al iniciar el PRÓXIMO turno del dueño
+    pendingBonus:
+      keyword === "finta"
+        ? { turnsLeft: 1, amount: 2 * (handCard.keywordValue ?? 0) }
+        : undefined,
     debuffTaken: 0,
   };
+  if (keyword === "finta" && (handCard.keywordValue ?? 0) > 0) {
+    // Mutación COSMÉTICA del cobro diferido: el float del +2X llegará con el
+    // fx "finta" en start_turn (patrón Duelista — aquí solo dejamos el rastro).
+    newCard.powerLog = [
+      { source: KEYWORD_META.finta.label, delta: -(handCard.keywordValue ?? 0), kind: "debuff" },
+    ];
+  }
   if (keyword === "coraza" && (handCard.keywordValue ?? 0) > 0) {
     recordKeyword("coraza", handCard.keywordValue ?? 0); // escudo inicial otorgado
   }
@@ -1770,6 +1896,27 @@ export function applyStartTurnEffects(
     }
   }
 
+  // ── FINTA (combate, tanda 30): cobro diferido. La carta que se expuso al
+  // jugar cobra +2X al iniciar el turno del dueño (turnsLeft llega a 0).
+  for (const lane of lanes) {
+    for (const card of [...newBoard[lane][side]]) {
+      const pb = card.pendingBonus;
+      if (!pb) continue;
+      const idx = newBoard[lane][side].findIndex((c) => c.uid === card.uid);
+      if (idx < 0) continue;
+      if (pb.turnsLeft - 1 <= 0) {
+        applyPowerDelta(newBoard, side, lane, card.uid, pb.amount, `${card.name} (Finta)`, "start_turn");
+        const after = newBoard[lane][side][idx];
+        newBoard[lane][side][idx] = { ...after, pendingBonus: undefined };
+        logs.push({ side, text: `⏳ ${card.name} (Finta): cobra el +${pb.amount} prometido` });
+        fx.push({ kind: "keyword", keyword: "finta", lane, side, targetUids: [card.uid], value: pb.amount });
+        recordKeyword("finta", pb.amount);
+      } else {
+        newBoard[lane][side][idx] = { ...card, pendingBonus: { ...pb, turnsLeft: pb.turnsLeft - 1 } };
+      }
+    }
+  }
+
   for (const lane of lanes) {
     for (const card of newBoard[lane][side]) {
       if (card.trigger !== "start_turn") continue;
@@ -2310,6 +2457,17 @@ function enemySideOf(side: "player" | "enemy"): "player" | "enemy" {
 }
 
 /**
+ * Los 3 carriles de la clase a la que pertenece un LaneId (derivado de
+ * CLASS_META — muralla/octava de la tanda 30 operan multi-carril propio).
+ */
+function classLanesOf(lane: LaneId): LaneId[] {
+  for (const meta of Object.values(CLASS_META)) {
+    if (meta.lanes.includes(lane)) return meta.lanes;
+  }
+  return [lane];
+}
+
+/**
  * Fire ON_DEATH effects when a card is destroyed. The caller passes the
  * dying card and its location; this function dispatches its keyword.
  * Keywords: Legado (+X al aliado más débil, V2) · Combustión (−2X al enemigo
@@ -2449,6 +2607,56 @@ export function applyOnDeathEffects(
       recordKeyword("chatarra", x);
     } else {
       recordKeywordNoop("chatarra"); // murió sin heredero: la chatarra se pierde
+    }
+  }
+
+  // ---- MURALLA [X]: al morir, TODAS tus cartas (los 3 carriles) ganan escudo X ----
+  // Tanda 30 (protección). La guarnición cae cubriendo la retirada: blindaje
+  // GLOBAL propio (única muerte que protege más allá de su carril).
+  if (deadCard.keyword === "muralla" && x > 0) {
+    const ownLanes = classLanesOf(lane);
+    const uids: string[] = [];
+    for (const ln of ownLanes) {
+      for (const ally of [...newBoard[ln][side]]) {
+        const idx = newBoard[ln][side].findIndex((c) => c.uid === ally.uid);
+        if (idx < 0) continue;
+        newBoard[ln][side][idx] = {
+          ...newBoard[ln][side][idx],
+          shieldRemaining: (newBoard[ln][side][idx].shieldRemaining ?? 0) + x,
+        };
+        uids.push(ally.uid);
+        fx.push({ kind: "keyword", keyword: "muralla", lane: ln, side, sourceUid: deadCard.uid, targetUids: [ally.uid], value: x });
+      }
+    }
+    if (uids.length > 0) {
+      logs.push({ side, text: `🏰 ${deadCard.name} (Muralla): escudo ${x} a ${uids.length} carta(s) de tu línea` });
+      recordKeyword("muralla", x * uids.length);
+    } else {
+      recordKeywordNoop("muralla"); // murió sin guarnición a la que amparar
+    }
+  }
+
+  // ---- CENIZA [X]: al morir, −X a los DOS enemigos más débiles del carril ----
+  // Tanda 30 (fuego). Espejo de Descarga (que pica al jugar): las brasas
+  // finales escogen a los dos más frágiles. Honest: applyDebuff (escudos).
+  if (deadCard.keyword === "ceniza" && x > 0) {
+    const sorted = [...newBoard[lane][enemySideOf(side)]]
+      .sort((a, b) => a.currentPower - b.currentPower)
+      .slice(0, 2);
+    if (sorted.length > 0) {
+      const uids: string[] = [];
+      let hits = 0;
+      for (const t of sorted) {
+        const res = applyDebuff(newBoard, enemySideOf(side), lane, t.uid, -x, `${deadCard.name} (Ceniza)`, "on_death");
+        if (res.appliedDelta < 0) hits++;
+        uids.push(t.uid);
+      }
+      logs.push({ side, text: `🌫️ ${deadCard.name} (Ceniza): −${x} a ${sorted.length} enemigo(s) más débil(es)` });
+      fx.push({ kind: "keyword", keyword: "ceniza", lane, side: enemySideOf(side), sourceUid: deadCard.uid, targetUids: uids, value: x });
+      recordKeyword("ceniza", x * hits);
+      if (hits === 0) recordKeywordNoop("ceniza"); // todo bloqueado por escudos
+    } else {
+      recordKeywordNoop("ceniza"); // se apagó sin enemigos delante
     }
   }
 

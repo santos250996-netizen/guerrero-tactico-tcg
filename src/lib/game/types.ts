@@ -10,6 +10,8 @@ import {
   // V3.0 — Botánico · Pirata · Tinker
   TreePine, Flower2, Biohazard, Anchor, Package, Wrench, Cog, Ship, Leaf,
   Coins, Users, Crown, Recycle,
+  // V3.0 · Tanda 30 (ampliación clases base)
+  FlagTriangleRight, Repeat, Gem, Hourglass, Network,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -273,7 +275,17 @@ export type Keyword =
   | "engranaje" // Inicio de Turno: +X mientras haya un Ítem propio en el carril (maquinaria)
   | "sobrecalentar" // Al Jugar: +2X si hay otro Ítem propio en el carril; si no +X (maquinaria)
   | "torreta" // Fin de Turno: −X al enemigo MÁS FUERTE del carril (chispa)
-  | "descarga"; // Al Jugar: −X a los DOS enemigos más débiles del carril (chispa)
+  | "descarga" // Al Jugar: −X a los DOS enemigos más débiles del carril (chispa)
+  // --- V3.0 · TANDA 30 — ampliación clases base (+1×spec, auditoría Regla A) ---
+  | "estandarte" // Al Jugar: tus cartas del carril ADYACENTE ganan +X (armas)
+  | "muralla" // Último Aliento: TODAS tus cartas (los 3 carriles) ganan escudo X (protección)
+  | "atropello" // Al Jugar: +2X a sí misma y −X a tu aliado más débil del carril (furia)
+  | "eco" // Al Jugar: +X por cada carta en tu mano (arcana)
+  | "ceniza" // Último Aliento: −X a los DOS enemigos más débiles del carril (fuego)
+  | "esquirla" // Al Jugar: +X por cada punto de reducción acumulada de los enemigos (hielo)
+  | "corrosion" // Al Jugar: corroe X de escudo al enemigo con MÁS escudo; si no hay, −X perforante al más fuerte (veneno)
+  | "finta" // Al Jugar: −X a sí misma; Inicio de tu próximo turno: +2X (combate)
+  | "octava"; // Al Jugar: +X por cada carta propia en tus OTROS carriles (sigilo)
 
 /**
  * El effectId de una carta coincide con su keyword (mismo string) — el engine
@@ -636,6 +648,61 @@ export const KEYWORD_META: Record<
     trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "chispa",
   },
+  // --- V3.0 · Tanda 30 — ampliación clases base (auditados vs las 51) ---
+  estandarte: {
+    label: "Estandarte", short: "ESTD", icon: FlagTriangleRight, color: "text-amber-300",
+    description: "Al Jugar: tus cartas del carril ADYACENTE ganan +X de poder permanente. El estandarte coordina la línea vecina.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL_ADYACENTE",
+    exclusiveSubtype: "armas",
+  },
+  muralla: {
+    label: "Muralla", short: "MURA", icon: Castle, color: "text-sky-300",
+    description: "Último Aliento: al morir, TODAS tus cartas (los 3 carriles) ganan un escudo de X puntos. La guarnición cae cubriendo la retirada.",
+    trigger: "on_death", hasValue: true, scope: "GLOBAL",
+    exclusiveSubtype: "proteccion",
+  },
+  atropello: {
+    label: "Atropello", short: "ATRO", icon: Axe, color: "text-rose-300",
+    description: "Al Jugar: gana +2X de poder, pero arrolla a tu aliado más débil de este carril (−X, los escudos lo absorben). Sin aliados, solo gana +X.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "furia",
+  },
+  eco: {
+    label: "Eco", short: "ECO", icon: Repeat, color: "text-violet-300",
+    description: "Al Jugar: gana +X por cada carta que quede en tu mano. El conjuro resuena con el resto de tu grimorio.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "arcana",
+  },
+  ceniza: {
+    label: "Ceniza", short: "CENI", icon: CloudFog, color: "text-orange-300",
+    description: "Último Aliento: al morir, reduce en X el poder de los DOS enemigos más débiles de este carril. Los escudos absorben su parte.",
+    trigger: "on_death", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "fuego",
+  },
+  esquirla: {
+    label: "Esquirla", short: "ESQ", icon: Gem, color: "text-cyan-300",
+    description: "Al Jugar: gana +X por CADA punto de reducción acumulada que tengan los enemigos de este carril. El hielo cosecha las grietas.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "hielo",
+  },
+  corrosion: {
+    label: "Corrosión", short: "CORR", icon: Droplets, color: "text-lime-300",
+    description: "Al Jugar: disuelve X puntos de escudo del enemigo con MÁS escudo de este carril. Si nadie tiene escudo, reduce X al más fuerte perforándolo.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "veneno",
+  },
+  finta: {
+    label: "Finta", short: "FINT", icon: Hourglass, color: "text-yellow-200",
+    description: "Al Jugar: se expone (−X de poder). Inicio de tu PRÓXIMO turno: cobra con +2X. Riesgo calculado: primero se abre, después golpea.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "combate",
+  },
+  octava: {
+    label: "Octava", short: "OCT", icon: Network, color: "text-fuchsia-300",
+    description: "Al Jugar: gana +X por cada carta propia que tengas en tus OTROS carriles. La red de sombras opera en todos los frentes.",
+    trigger: "on_play", hasValue: true, scope: "CARRIL_LOCAL",
+    exclusiveSubtype: "sigilo",
+  },
 };
 
 export type Rarity = "common" | "rare" | "epic" | "legendary" | "mythic";
@@ -709,6 +776,8 @@ export interface BoardCard {
   formation?: number;
   /** Running total of debuff points taken from the enemy — Purificación restores exactly this. */
   debuffTaken?: number;
+  /** FINTA (combate, tanda 30) — cobro diferido: gana `amount` cuando `turnsLeft` llega a 0 (próximo turno propio). */
+  pendingBonus?: { turnsLeft: number; amount: number };
   /** Log of all power changes applied to this card (for the Registro button in preview). */
   powerLog?: PowerLogEntry[];
 }

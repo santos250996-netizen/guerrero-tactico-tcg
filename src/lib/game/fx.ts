@@ -157,6 +157,19 @@ export const KEYWORD_FX: Record<Keyword, FxRecipe | null> = {
   sobrecalentar: "overload_burst",
   torreta: "crosshair",
   descarga: "clash_multi",
+  // --- V3.0 · Tanda 30 (reutilizan recetas existentes — sin trabajo en FxLayer) ---
+  // estandarte→fortify_sweep · muralla→shield_ring · atropello→rage_burst
+  // eco→buff_up · ceniza→explosion · esquirla→shatter
+  // corrosion→poison_spread · finta→shadow_blink · octava→buff_up
+  estandarte: "fortify_sweep",
+  muralla: "shield_ring",
+  atropello: "rage_burst",
+  eco: "buff_up",
+  ceniza: "explosion",
+  esquirla: "shatter",
+  corrosion: "poison_spread",
+  finta: "shadow_blink",
+  octava: "buff_up",
 };
 
 // ---------------------------------------------------------------------------
