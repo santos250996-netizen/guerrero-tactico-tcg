@@ -24,6 +24,7 @@
 import type { GameClass, Rarity } from "./types";
 import { CLASS_META } from "./types";
 import { nextRarity } from "./balance";
+import { isAdminOn } from "./admin";
 
 /** Longitud de la escalera (escalones por vuelta de campaña). */
 export const CAMPAIGN_STEPS = 15;
@@ -172,6 +173,8 @@ export const CLASS_UNLOCK_STEP: Record<GameClass, number> = {
 
 /** ¿Está jugable esta clase con X escalones superados? */
 export function classUnlocked(cls: GameClass, stepsCleared: number): boolean {
+  // MODO ADMIN (oculto, del propietario): todas las clases jugables al instante.
+  if (isAdminOn()) return true;
   return stepsCleared >= CLASS_UNLOCK_STEP[cls];
 }
 

@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { ChevronLeft, Sparkles, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
@@ -159,6 +159,11 @@ export function CollectionScreen() {
             <span className="font-bold text-zinc-200">12 mejores cartas</span> de la clase. Empiezas con las neutrales;
             el resto se desbloquea jugando.
           </p>
+          <p className="mt-1 border-t border-zinc-800 pt-1.5">
+            <span className="font-black text-rose-300">★ Completada:</span> una carta que llega a{" "}
+            <span className="font-bold text-rose-200">MÍTICO</span> ya no vuelve a aparecer en el botín de{" "}
+            <span className="font-bold text-zinc-200">NINGUNA rareza</span> — sus duplicados serían inservibles.
+          </p>
         </div>
 
         {/* Lista de cartas de la clase */}
@@ -184,7 +189,17 @@ export function CollectionScreen() {
                 />
                 {/* Nombre + stats efectivos */}
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[11px] font-bold text-zinc-200">{card.name}</div>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span className="truncate text-[11px] font-bold text-zinc-200">{card.name}</span>
+                    {tier === "mythic" && (
+                      <span
+                        className="flex shrink-0 items-center gap-0.5 rounded-full border border-rose-400/60 bg-rose-950/60 px-1 py-px text-[7px] font-black uppercase tracking-widest text-rose-300"
+                        title="Carta completada: ya no aparece en el botín de ninguna rareza"
+                      >
+                        <Crown className="h-2 w-2" /> Completada
+                      </span>
+                    )}
+                  </div>
                   {total > 0 ? (
                     <div className="text-[9px] text-zinc-500">
                       Tu mejor copia:{" "}

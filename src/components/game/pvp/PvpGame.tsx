@@ -24,6 +24,7 @@ import type { LucideIcon } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
+import { useCollectionStore } from "@/store/collectionStore";
 import {
   CAMPAIGN_STEPS,
   isBossStep,
@@ -680,7 +681,11 @@ function HistoriaEndOverlay({
               </>
             )}
             {loot.length === 0 && (
-              <p className="mt-2 text-[10px] text-zinc-500">Sin botín esta vez…</p>
+              <p className="mt-2 text-[10px] text-zinc-500">
+                {useCollectionStore.getState().allCompleted()
+                  ? "Colección COMPLETADA: todas las cartas ya son MÍTICAS — no hay botín que dar"
+                  : "Sin botín esta vez…"}
+              </p>
             )}
             {!won && rushActive && loot.length > 0 && (
               <p className="mt-1 text-[9px] uppercase tracking-widest text-rose-200/70">
@@ -1104,6 +1109,15 @@ function PvpGameOverModal({ open, rewards, onRematch, onExit }: {
                 +{result === "WIN" ? XP_WIN : result === "LOSS" ? XP_LOSS : XP_DRAW} XP · 3 iguales del tier → fusión
               </p>
             </div>
+          )}
+
+          {/* Botín vacío — colección 100% mítico (regla completada) o caso extremo */}
+          {rewards && rewards.length === 0 && (
+            <p className="text-center text-[10px] text-zinc-500">
+              {useCollectionStore.getState().allCompleted()
+                ? "Colección COMPLETADA: todas las cartas ya son MÍTICAS — no hay botín que dar"
+                : "Sin botín esta vez…"}
+            </p>
           )}
 
           {/* Revancha */}

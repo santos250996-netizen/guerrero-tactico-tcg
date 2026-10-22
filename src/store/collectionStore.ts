@@ -90,6 +90,16 @@ interface CollectionState {
   grantedClasses: GameClass[];
   wins: number;
 
+  /** REGLA MÍTICO-COMPLETADA: ¿tiene esta carta ya una copia MÍTICA?
+   *  Una carta completada NO recibe más botín de NINGUNA rareza — los
+   *  duplicados serían inservibles (mítico ya es el tope de fusión), así
+   *  que se excluye del pool de drops/picks y del mazo inicial. */
+  isCompleted: (id: string) => boolean;
+  /** ¿TODAS las cartas del juego están completadas (mítico)? */
+  allCompleted: () => boolean;
+  /** Sustituye el estado completo (solo el MODO ADMIN: activar/desactivar). */
+  replaceAll: (copies: Record<string, Copies>, grantedClasses: GameClass[], wins: number) => void;
+
   /** Regala el mazo inicial (12 cartas: las neutrales de la clase + relleno), una sola vez. */
   grantStarterDeck: (cls: GameClass) => boolean;
   /**
@@ -139,6 +149,9 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     const next = { ...copies };
     for (const card of starterDeckFor(cls)) {
       const cur = next[card.id] ?? {};
+      // Carta COMPLETADA (ya tiene mítico): no recibe copias nuevas de
+      // ninguna rareza — coherente con la regla del botín.
+      if ((cur.mythic ?? 0) > 0) continue;
       next[card.id] = { ...cur, common: (cur.common ?? 0) + 1 };
     }
     const granted = [...grantedClasses, cls];
@@ -149,7 +162,10 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
 
   addRewards: (n = 2, opts) => {
     const { copies } = get();
-    const pool = ALL_CARDS_V3;
+    // REGLA MÍTICO-COMPLETADA: las cartas con copia MÍTICA salen del pool —
+    // ninguna rareza vuelve a dropearlas (duplicado = inservible).
+    const pool = ALL_CARDS_V3.filter((c) => (copies[c.id]?.mythic ?? 0) === 0);
+    if (pool.length === 0) return []; // colección 100% mítico: no hay botín que dar
     const rewards: CardReward[] = [];
     const next = { ...copies };
     const total = n + (opts?.bonusForLevel ? bonusDropCards(useStatsStore.getState().level) : 0);
@@ -172,7 +188,9 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   //    que aplanen la progresión.
   rollPickOptions: (n = 3, rarity = "rare") => {
     const { copies } = get();
-    const pool = ALL_CARDS_V3;
+    // Misma regla que el botín: las completadas (mítico) NO se ofrecen.
+    const pool = ALL_CARDS_V3.filter((c) => (copies[c.id]?.mythic ?? 0) === 0);
+    if (pool.length === 0) return [];
     const picks: CardReward[] = [];
     const used = new Set<string>();
     let guard = 0;
@@ -187,6 +205,11 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
 
   grantPick: (option) => {
     const { copies } = get();
+    // Blindaje: si la carta se completó entre el roll y la confirmación, el
+    // pick se anula en silencio (devuelve "no nueva" SIN añadir copia).
+    if ((copies[option.id]?.mythic ?? 0) > 0) {
+      return { id: option.id, rarity: option.rarity, isNew: false };
+    }
     const next = { ...copies };
     const cur = next[option.id] ?? {};
     const isNew = copiesOf(cur) === 0;
@@ -263,6 +286,15 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   resetAll: () => {
     set({ copies: {}, grantedClasses: [], wins: 0 });
     persist({}, [], 0);
+  },
+
+  isCompleted: (id) => (get().copies[id]?.mythic ?? 0) > 0,
+
+  allCompleted: () => ALL_CARDS_V3.every((c) => (get().copies[c.id]?.mythic ?? 0) > 0),
+
+  replaceAll: (copies, grantedClasses, wins) => {
+    set({ copies, grantedClasses, wins });
+    persist(copies, grantedClasses, wins);
   },
 
   battleDeckFor: (cls) => {
