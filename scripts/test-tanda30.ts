@@ -30,13 +30,15 @@ function section(t: string): void {
 const TANDA30_IDS = new Set([...GUERRERO3_CARDS, ...MAGO3_CARDS, ...ASESINO3_CARDS].map((c) => c.id));
 
 // ── Estructura por clase: +8, carriles 11/11/14, cobertura de categorías ──
-const EXPECT: Record<GameClass, { arr: CardDef[]; lanes: [Subtype, number][]; nuevas: number }> = {
+// Clases BASE (la ampliación Tanda 30 solo toca guerrero/mago/asesino).
+type BaseClass = "guerrero" | "mago" | "asesino";
+const EXPECT: Record<BaseClass, { arr: CardDef[]; lanes: [Subtype, number][]; nuevas: number }> = {
   guerrero: { arr: GUERRERO3_CARDS, lanes: [["armas", 11], ["furia", 11], ["proteccion", 14]], nuevas: 8 },
   mago: { arr: MAGO3_CARDS, lanes: [["arcana", 11], ["fuego", 11], ["hielo", 14]], nuevas: 8 },
   asesino: { arr: ASESINO3_CARDS, lanes: [["veneno", 11], ["combate", 11], ["sigilo", 14]], nuevas: 8 },
 };
 
-for (const [cls, exp] of Object.entries(EXPECT) as [GameClass, typeof EXPECT[GameClass]][]) {
+for (const [cls, exp] of Object.entries(EXPECT) as [GameClass, (typeof EXPECT)[BaseClass]][]) {
   section(`${cls}: tanda 30`);
   const pool = cardPoolForClass(cls);
   assert(exp.arr.length === exp.nuevas, `+${exp.nuevas} cartas nuevas`);
