@@ -356,3 +356,14 @@ export function biomeForStep(step: number): Biome {
   if (step >= 6) return BIOMES.ceniza;
   return BIOMES.tierras;
 }
+
+/**
+ * Bioma del Rush de Jefes: cada jefe de la run hereda el paisaje de su muro
+ * equivalente (jefe 1 → Muralla de Hierro, 2 → Trono de Escarcha, 3 → Umbral
+ * de Sombras) — la escalada de la run se SIENTE en el splash.
+ */
+export function rushBiomeForIndex(index: number): Biome {
+  if (index <= 0) return BIOMES.hierro;
+  if (index === 1) return BIOMES.escarcha;
+  return BIOMES.sombra;
+}

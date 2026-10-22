@@ -32,12 +32,16 @@ import {
   xpBonusForStep,
   biomeForStep,
   loreForStep,
+  rushBiomeForIndex,
+  CAMPAIGN_BOSS_NAMES,
+  CAMPAIGN_BOSS_LORE,
 } from "@/lib/game/campaign";
+import { RUSH_BOSSES, RUSH_PICK_TIER_LABEL, rushBossesForCycle, rushXpForBoss } from "@/lib/game/rush";
 import { useStatsStore, xpForNext, XP_DRAW, XP_LOSS, XP_WIN } from "@/store/statsStore";
 import { useSettings } from "@/lib/settings";
 import { music } from "@/lib/music";
 import { haptic } from "@/lib/haptics";
-import { CLASS_META, LANE_META, RARITY_META } from "@/lib/game/types";
+import { CLASS_META, LANE_META, RARITY_META, type GameClass } from "@/lib/game/types";
 import { RARITY_LABEL } from "@/lib/game/balance";
 import { cardById } from "@/lib/game/cards";
 import { PvpLane } from "./PvpLane";
@@ -88,6 +92,10 @@ export function PvpGame() {
   const battleIntro = usePvpStore((s) => s.battleIntro);
   const bossPickOptions = usePvpStore((s) => s.bossPickOptions);
   const dismissBattleIntro = usePvpStore((s) => s.dismissBattleIntro);
+  // RUSH DE JEFES: la run vive dentro de historia con estas banderas
+  const rushActive = usePvpStore((s) => s.rushActive);
+  const rushIndex = usePvpStore((s) => s.rushIndex);
+  const rushBossClass = usePvpStore((s) => s.rushBossClass);
 
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -237,10 +245,11 @@ export function PvpGame() {
       <Confetti trigger={view.phase === "ended" && view.finalResult?.result === "WIN"} />
 
       {/* ══ SPLASH PRE-BATALLA — lore del rival (solo LA CAMPAÑA) ══ */}
-      {mode === "historia" && campaignStep != null && (
+      {(mode === "historia" && (rushActive || campaignStep != null)) && (
         <BattleIntroSplash
           open={battleIntro && view.phase === "playing"}
-          step={campaignStep}
+          step={campaignStep ?? CAMPAIGN_STEPS}
+          rush={rushActive && rushBossClass ? { index: rushIndex, bossClass: rushBossClass } : undefined}
           onEnter={() => { sfx.click(); dismissBattleIntro(); }}
         />
       )}
@@ -334,14 +343,22 @@ function BattleIntroSplash({
   open,
   step,
   onEnter,
+  rush,
 }: {
   open: boolean;
   step: number;
   onEnter: () => void;
+  /** RUSH DE JEFES: el jefe de la run sustituye a lore/rival/bioma/chip. */
+  rush?: { index: number; bossClass: GameClass };
 }) {
-  const lore = loreForStep(step);
-  const biome = biomeForStep(step);
-  const rival = rivalNameForStep(step);
+  const lore = rush
+    ? { text: CAMPAIGN_BOSS_LORE[rush.bossClass], isBoss: true }
+    : loreForStep(step);
+  const biome = rush ? rushBiomeForIndex(rush.index) : biomeForStep(step);
+  const rival = rush ? CAMPAIGN_BOSS_NAMES[rush.bossClass] : rivalNameForStep(step);
+  const chip = rush
+    ? `RUSH DE JEFES · JEFE ${rush.index + 1}/${RUSH_BOSSES}`
+    : `${biome.name}`;
   return (
     <AnimatePresence>
       {open && (
@@ -363,12 +380,12 @@ function BattleIntroSplash({
               boxShadow: `0 0 40px rgba(${biome.hex},0.18)`,
             }}
           >
-            {/* Bioma del tramo */}
+            {/* Bioma del tramo / chip del RUSH */}
             <p
               className="text-[9px] font-black uppercase tracking-[0.4em]"
               style={{ color: `rgb(${biome.hex})`, fontFamily: "var(--font-cinzel), serif" }}
             >
-              {biome.name}
+              {chip}
             </p>
 
             {lore.isBoss ? (
@@ -395,7 +412,7 @@ function BattleIntroSplash({
             <p className="mt-3 text-[11px] leading-relaxed text-zinc-300">“{lore.text}”</p>
 
             <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.25em] text-zinc-500">
-              {stepChipLabel(step)} / {CAMPAIGN_STEPS}
+              {rush ? `Ciclo ★${useCampaignStore.getState().prestige} · mazo temático épico` : `${stepChipLabel(step)} / ${CAMPAIGN_STEPS}`}
             </p>
 
             <Button
@@ -430,15 +447,24 @@ function HistoriaEndOverlay({
   const bossActive = usePvpStore.getState().bossActive;
   const playedStep = usePvpStore.getState().campaignStep ?? 1;
   const campaignClosed = usePvpStore.getState().campaignCompleted;
+  // RUSH DE JEFES: título, chip, XP y botones propios de la run
+  const rushActive = usePvpStore.getState().rushActive;
+  const rushIndex = usePvpStore.getState().rushIndex;
+  const rushBeaten = usePvpStore.getState().rushBeaten;
+  const rushCycle = usePvpStore.getState().rushCycle;
+  const bossPickMax = usePvpStore((s) => s.bossPickMax);
   const { step: nextStep, prestige } = useCampaignStore.getState();
   // NIVEL: celebra la subida (flash del statsStore) y muestra el XP ganado
   const stats = useStatsStore.getState();
   const need = xpForNext(stats.level);
-  // Botín del JEFE a ELEGIR (3 épicas, 2 tuyas) — suscripción reactiva: al
-  // confirmar las 2 el picker desaparece y el botín completo aparece.
+  const rushBestOfCls = stats.rushBest[usePvpStore.getState().gameClass] ?? 0;
+  // Botín del JEFE a ELEGIR — suscripción reactiva: al confirmar el pick
+  // desaparece y el botín completo aparece. Rush: 1 de 3 · jefe clásico: 2 de 3.
   const bossPick = usePvpStore((s) => s.bossPickOptions);
   const bossPickSelected = usePvpStore((s) => s.bossPickSelected);
   const picking = result === "WIN" && !!bossPick?.length;
+  const pickComplete = picking && bossPickSelected.length >= bossPickMax;
+  const pickTierLabel = bossPick?.length ? RUSH_PICK_TIER_LABEL[bossPick[0].rarity as keyof typeof RUSH_PICK_TIER_LABEL] ?? "épicas" : "épicas";
   const won = result === "WIN";
   const loot = rewards ?? [];
   // FIX MODAL BLOQUEADO (reporte del jugador: «no deja continuar, hay que
@@ -467,6 +493,8 @@ function HistoriaEndOverlay({
           >
             {won && campaignClosed ? (
               <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
+            ) : won && rushActive && rushIndex >= RUSH_BOSSES - 1 ? (
+              <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
             ) : won && bossActive ? (
               <Skull className="mx-auto h-9 w-9 text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
             ) : (
@@ -480,22 +508,30 @@ function HistoriaEndOverlay({
               style={{ fontFamily: "var(--font-cinzel), serif" }}
             >
               {won
-                ? campaignClosed
-                  ? "¡Campaña completada!"
-                  : bossActive
-                    ? "¡Jefe derrotado!"
-                    : "¡Victoria!"
-                : "Derrota"}
+                ? rushActive
+                  ? rushIndex >= RUSH_BOSSES - 1
+                    ? "¡Run completada!"
+                    : `¡Jefe ${rushIndex + 1}/${RUSH_BOSSES}!`
+                  : campaignClosed
+                    ? "¡Campaña completada!"
+                    : bossActive
+                      ? "¡Jefe derrotado!"
+                      : "¡Victoria!"
+                : rushActive
+                  ? "Run terminada"
+                  : "Derrota"}
             </div>
 
-            {/* Chip del ESCALÓN jugado (+ estrellas de prestigio) */}
+            {/* Chip de contexto: ESCALÓN (campaña) o RUSH n/3 · ciclo */}
             <p
               className={cn(
                 "mt-1 text-[9px] font-black uppercase tracking-[0.25em]",
-                isBossStep(playedStep) ? "text-rose-300/90" : "text-zinc-400"
+                rushActive || isBossStep(playedStep) ? "text-rose-300/90" : "text-zinc-400"
               )}
             >
-              {stepChipLabel(playedStep)} / {CAMPAIGN_STEPS}
+              {rushActive
+                ? `RUSH · ${rushBeaten}/${RUSH_BOSSES} jefes · ciclo ★${rushCycle}`
+                : `${stepChipLabel(playedStep)} / ${CAMPAIGN_STEPS}`}
               {prestige > 0 && <span className="text-amber-300/80"> · ★ {prestige}</span>}
             </p>
 
@@ -512,7 +548,12 @@ function HistoriaEndOverlay({
             )}
             <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">
               Nivel {stats.level} · {stats.xp}/{need} XP
-              {won && <span className="text-amber-300/90"> · +{xpBonusForStep(playedStep, prestige)} XP de escalón</span>}
+              {won && rushActive && (
+                <span className="text-amber-300/90"> · +{rushXpForBoss(rushIndex, prestige)} XP ×2</span>
+              )}
+              {won && !rushActive && (
+                <span className="text-amber-300/90"> · +{xpBonusForStep(playedStep, prestige)} XP de escalón</span>
+              )}
             </p>
 
             {/* ELIGE TU BOTÍN (jefe vencido): 3 ÉPICAS, te llevas 2 —
@@ -522,7 +563,7 @@ function HistoriaEndOverlay({
               <>
                 <p className="mt-3 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-200">
                   <Skull className="h-3.5 w-3.5 shrink-0" />
-                  Elige 2 de 3 épicas
+                  Elige {bossPickMax} de 3 {pickTierLabel}
                 </p>
                 <div className="mt-3 flex justify-center gap-3">
                   {bossPick.map((opt, i) => {
@@ -565,19 +606,19 @@ function HistoriaEndOverlay({
                   })}
                 </div>
                 <p className="mt-2 text-[8px] uppercase tracking-widest text-zinc-500">
-                  {bossPickSelected.length === 2
-                    ? "Toca CONFIRMAR para llevártelas"
-                    : `Marcadas ${bossPickSelected.length}/2 — toca 2 cartas`}
+                  {pickComplete
+                    ? "Toca CONFIRMAR para llevártela"
+                    : `Marcadas ${bossPickSelected.length}/${bossPickMax} — toca ${bossPickMax === 1 ? "una carta" : "2 cartas"}`}
                 </p>
                 <Button
-                  disabled={bossPickSelected.length !== 2}
+                  disabled={!pickComplete}
                   onClick={() => {
                     haptic("success");
                     usePvpStore.getState().confirmBossPick();
                   }}
                   className={cn(
                     "mt-1.5 w-full border",
-                    bossPickSelected.length === 2
+                    pickComplete
                       ? "border-fuchsia-300/60 bg-gradient-to-b from-fuchsia-600 to-fuchsia-800 text-white hover:from-fuchsia-500 hover:to-fuchsia-700"
                       : "cursor-not-allowed border-zinc-800 bg-zinc-900 text-zinc-600"
                   )}
@@ -641,12 +682,22 @@ function HistoriaEndOverlay({
             {loot.length === 0 && (
               <p className="mt-2 text-[10px] text-zinc-500">Sin botín esta vez…</p>
             )}
-            {!won && loot.length > 0 && (
+            {!won && rushActive && loot.length > 0 && (
+              <p className="mt-1 text-[9px] uppercase tracking-widest text-rose-200/70">
+                La run acaba aquí: venciste a {rushBeaten} de {RUSH_BOSSES} jefes — igual te llevas 1 carta
+              </p>
+            )}
+            {!won && rushActive && loot.length === 0 && (
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-rose-200/70">
+                La run acaba aquí: venciste a {rushBeaten} de {RUSH_BOSSES} jefes
+              </p>
+            )}
+            {!won && !rushActive && loot.length > 0 && (
               <p className="mt-1 text-[9px] uppercase tracking-widest text-rose-200/70">
                 El bot te venció — igual te llevas 1 carta y el escalón te espera
               </p>
             )}
-            {!won && loot.length === 0 && (
+            {!won && !rushActive && loot.length === 0 && (
               <p className="mt-1 text-[10px] uppercase tracking-widest text-rose-200/70">
                 El bot te venció — afina tu mazo y reintenta
               </p>
@@ -664,15 +715,31 @@ function HistoriaEndOverlay({
                     : "border-rose-400/60 bg-gradient-to-b from-rose-700 to-rose-900 text-rose-50 hover:from-rose-600 hover:to-rose-800"
                 )}
               >
-                {won
-                  ? campaignClosed
-                    ? "Nueva Campaña ★"
-                    : isBossStep(playedStep)
-                      ? "Continuar Campaña"
-                      : "Siguiente Escalón"
-                  : "Reintentar Escalón"}
+                {rushActive
+                  ? won
+                    ? rushIndex >= RUSH_BOSSES - 1
+                      ? "Nueva Run"
+                      : "Siguiente Jefe"
+                    : "Reintentar Run"
+                  : won
+                    ? campaignClosed
+                      ? "Nueva Campaña ★"
+                      : isBossStep(playedStep)
+                        ? "Continuar Campaña"
+                        : "Siguiente Escalón"
+                    : "Reintentar Escalón"}
               </Button>
-              {won && !campaignClosed && (
+              {rushActive && won && rushIndex < RUSH_BOSSES - 1 && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Siguiente: <span className="text-zinc-300">{CAMPAIGN_BOSS_NAMES[rushBossesForCycle(rushCycle)[rushIndex + 1]]}</span>
+                </p>
+              )}
+              {rushActive && (!won || rushIndex >= RUSH_BOSSES - 1) && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Mejor run ({usePvpStore.getState().gameClass}): <span className="text-amber-300/90">{Math.max(rushBestOfCls, rushBeaten)}/3</span>
+                </p>
+              )}
+              {won && !rushActive && !campaignClosed && (
                 <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
                   Siguiente: <span className="text-zinc-300">{rivalNameForStep(nextStep)}</span>
                 </p>

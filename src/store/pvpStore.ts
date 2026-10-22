@@ -42,7 +42,15 @@ import {
   rivalDeckIndexForStep,
   rivalNameForStep,
   xpBonusForStep,
+  CAMPAIGN_BOSS_NAMES,
+  CAMPAIGN_BOSS_STEPS,
 } from "@/lib/game/campaign";
+import {
+  RUSH_BOSSES,
+  rushBossesForCycle,
+  rushPickTierForBoss,
+  rushXpForBoss,
+} from "@/lib/game/rush";
 import {
   LOCAL_PVP_PORT,
   handleLocalPvpApi,
@@ -97,8 +105,27 @@ interface PvpStoreState {
   battleIntro: boolean;
   /** Botín del JEFE a ELEGIR: 3 ÉPICAS — toma 2 (null fuera del caso). */
   bossPickOptions: CardReward[] | null;
-  /** Opciones ya marcadas del pick del jefe (índices, máx 2). */
+  /** Opciones ya marcadas del pick del jefe (índices, máx bossPickMax). */
   bossPickSelected: number[];
+  /** Cartas a ELEGIR del pick: 2 = jefe de campaña clásico · 1 = Rush. */
+  bossPickMax: number;
+  // ── RUSH DE JEFES (plan-expansion-v3 §3.2) — run de 3 jefes seguidos ──
+  /** Run de Rush en curso (el modo vive DENTRO de historia con esta bandera). */
+  rushActive: boolean;
+  /** Jefe ACTUAL de la run (0..2). */
+  rushIndex: number;
+  /** Ciclo de campaña (prestigio) al empezar la run. */
+  rushCycle: number;
+  /** ¿Nunca completó una run en este ciclo? → legendaria garantizada. */
+  rushFirstCycle: boolean;
+  /** Jefes vencidos en la run hasta ahora (modal + registro). */
+  rushBeaten: number;
+  /** Clase del jefe actual (splash del rush: lore + bioma propios). */
+  rushBossClass: GameClass | null;
+  /** RUSH: empieza una run de 3 jefes con la clase activa. */
+  startRush: (opts: { playerClass: GameClass; playerName?: string }) => void;
+  /** RUSH: encadena el siguiente jefe (tras cobrar el pick del anterior). */
+  advanceRush: () => void;
   /** La victoria acaba de CERRAR la campaña (escalón 15) → celebración ★. */
   campaignCompleted: boolean;
 
@@ -598,6 +625,60 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const result: MatchResult = won ? "WIN" : lost ? "LOSS" : "DRAW";
     const step = st.campaignStep ?? 1;
     const col = useCollectionStore.getState();
+
+    // ══ RUSH DE JEFES: la RUN manda — la campaña NO avanza y el botín sale
+    //    del escalón de la run (§3.2). XP ×2 por jefe: registerMatch(boss)
+    //    paga base 6 + jefe 10 y encima se dobla el bono de escalón. Pick
+    //    SIEMPRE 1 de 3: rara / épica / legendaria 50% (100% 1ª vez del
+    //    ciclo) — o común en el jefe 3 si no tocó. Perder CIERRA la run.
+    if (st.rushActive) {
+      const idx = st.rushIndex;
+      const prestige = useCampaignStore.getState().prestige;
+      if (won) {
+        col.registerWin();
+        useStatsStore.getState().addXp(rushXpForBoss(idx, prestige));
+        const tier = rushPickTierForBoss(idx, { firstCycleIncomplete: st.rushFirstCycle });
+        const rewards = col.addRewards(2, {
+          bonusForLevel: true,
+          floorLevel: effectiveDropLevel(useStatsStore.getState().level, CAMPAIGN_BOSS_STEPS[Math.min(idx, CAMPAIGN_BOSS_STEPS.length - 1)]),
+        });
+        set({
+          pendingRewards: rewards,
+          bossPickOptions: col.rollPickOptions(3, tier),
+          bossPickSelected: [],
+          bossPickMax: 1,
+          rushBeaten: idx + 1,
+        });
+      } else {
+        const rewards = col.addRewards(1); // la derrota nunca deja manos vacías
+        set({ pendingRewards: rewards, rushBeaten: idx });
+      }
+      try {
+        useStatsStore.getState().registerMatch(result, {
+          cls: st.gameClass,
+          online: false,
+          boss: won,
+        });
+        useStatsStore.getState().registerRush({
+          cls: st.gameClass,
+          beaten: won ? idx + 1 : idx,
+          completed: won && idx >= RUSH_BOSSES - 1,
+          cycle: st.rushCycle,
+        });
+        const ms = useMissionStore.getState();
+        if (won) ms.progress("win-games");
+        if (won) ms.progress("win-class", 1, st.gameClass);
+        if (won) ms.progress("beat-boss");
+        if (final) {
+          const laneWins = final.laneOutcomes.filter((o) => o.winner === "player").length;
+          if (laneWins > 0) ms.progress("win-lanes", laneWins);
+        }
+      } catch {
+        // noop
+      }
+      return;
+    }
+
     if (won) {
       col.registerWin();
       if (st.bossActive) {
@@ -650,6 +731,74 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     }
   }
 
+  // ═══════════════ RUSH DE JEFES — montaje de cada jefe de la run ═══════════
+
+  /** Monta el jefe `index` de la run EN CURSO (mismo motor de historia: el
+   *  bot juega como un player — mazo temático materializado al tier del
+   *  ciclo + jugada gratis + 3 bonos). Sin curación entre peleas: cada
+   *  combate es una partida fresca pero la run sigue viva (rushActive). */
+  function startRushFight(index: number): void {
+    const st = get();
+    cancelBotTimer();
+    get().stopPolling();
+    if (get().hostingLocal) void stopLocalPvpServer();
+    onlineEndNoted = false;
+    useStatsStore.getState().clearLevelUpFlash();
+
+    const col = useCollectionStore.getState();
+    col.grantStarterDeck(st.gameClass);
+    const deck: CardDef[] = useCollectionStore.getState().battleDeckFor(st.gameClass);
+
+    const state = createPvpState("RUSH", {
+      name: st.playerName || "Tú",
+      gameClass: st.gameClass,
+      deck,
+    });
+    const prestige = useCampaignStore.getState().prestige;
+    const bossClass = rushBossesForCycle(st.rushCycle)[Math.min(Math.max(0, index), RUSH_BOSSES - 1)];
+    const botDeck = BOSS_DECKS[bossClass].map((c) => materializeCard(c, bossTierForPrestige(prestige)));
+    joinBotPvpState(state, {
+      name: CAMPAIGN_BOSS_NAMES[bossClass],
+      gameClass: bossClass,
+      deck: botDeck,
+    });
+    enableBossMode(state);
+
+    set({
+      mode: "historia",
+      localState: state,
+      botClass: bossClass,
+      pendingRewards: null,
+      battleIntro: true,
+      bossPickOptions: null,
+      bossPickSelected: [],
+      bossPickMax: 1, // rush: el pick SIEMPRE es 1 de 3
+      mySide: "a",
+      code: "RUSH",
+      token: null,
+      screen: "game",
+      lastActionSeq: 0,
+      selectedCardUid: null,
+      invalidPlayMsg: null,
+      connectionLost: false,
+      error: null,
+      gameClass: st.gameClass,
+      bossActive: true,
+      campaignStep: null,
+      campaignCompleted: false,
+      rivalPlay: null,
+      highlightUid: null,
+      rushActive: true,
+      rushIndex: index,
+      rushBossClass: bossClass,
+    });
+    import("@/store/gameStore").then(({ useGameStore }) => {
+      useGameStore.getState().setView("pvp");
+    });
+    applyView(buildClientView(state, "a"));
+    scheduleBotIfNeeded();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
 
   return {
@@ -665,6 +814,13 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     battleIntro: false,
     bossPickOptions: null,
     bossPickSelected: [],
+    bossPickMax: 2,
+    rushActive: false,
+    rushIndex: 0,
+    rushCycle: 0,
+    rushFirstCycle: false,
+    rushBeaten: 0,
+    rushBossClass: null,
     bossActive: false,
     campaignStep: null,
     campaignCompleted: false,
@@ -725,6 +881,13 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         battleIntro: false,
         bossPickOptions: null,
         bossPickSelected: [],
+        bossPickMax: 2,
+        rushActive: false,
+        rushIndex: 0,
+        rushCycle: 0,
+        rushFirstCycle: false,
+        rushBeaten: 0,
+        rushBossClass: null,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -757,6 +920,13 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         battleIntro: false,
         bossPickOptions: null,
         bossPickSelected: [],
+        bossPickMax: 2,
+        rushActive: false,
+        rushIndex: 0,
+        rushCycle: 0,
+        rushFirstCycle: false,
+        rushBeaten: 0,
+        rushBossClass: null,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -787,7 +957,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         set({ bossPickSelected: sel.filter((i) => i !== index) });
         return;
       }
-      if (sel.length >= 2) return; // 2 de 3 — ni una más
+      if (sel.length >= get().bossPickMax) return; // 2 (jefe) o 1 (rush) — ni una más
       set({ bossPickSelected: [...sel, index] });
     },
 
@@ -852,6 +1022,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         battleIntro: true, // splash de lore — se cierra con «¡A LUCHAR!»
         bossPickOptions: null,
         bossPickSelected: [],
+        bossPickMax: 2, // jefe de campaña clásico: ELIGE 2 de 3 épicas
+        rushActive: false,
+        rushBeaten: 0,
+        rushBossClass: null,
         mySide: "a",
         code: "HIST",
         token: null,
@@ -874,6 +1048,26 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       });
       applyView(buildClientView(state, "a"));
       scheduleBotIfNeeded();
+    },
+
+    startRush: ({ playerClass, playerName }) => {
+      const cycle = useCampaignStore.getState().prestige;
+      const firstCycle = !useStatsStore.getState().rushCyclesDone.includes(cycle);
+      set({
+        gameClass: playerClass,
+        playerName: playerName ?? get().playerName,
+        rushActive: true,
+        rushCycle: cycle,
+        rushFirstCycle: firstCycle,
+        rushBeaten: 0,
+      });
+      startRushFight(0);
+    },
+
+    advanceRush: () => {
+      const st = get();
+      if (!st.rushActive) return;
+      startRushFight(st.rushIndex + 1);
     },
 
     createRoom: async () => {
@@ -1120,6 +1314,19 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
     requestRematch: async () => {
       const st = get();
+      // RUSH: victoria intermedia → SIGUIENTE JEFE (sin pausa). Run completa
+      // o derrota → NUEVA RUN completa con la misma clase.
+      if (st.mode === "historia" && st.rushActive && st.localState) {
+        cancelBotTimer();
+        const f = st.localState.finalResultA;
+        const wonRush = f ? f.playerWins > f.enemyWins : false;
+        if (wonRush && st.rushIndex < RUSH_BOSSES - 1) {
+          get().advanceRush();
+        } else {
+          get().startRush({ playerClass: st.gameClass, playerName: st.localState.players.a.name });
+        }
+        return;
+      }
       // Historia — LA CAMPAÑA: la revancha es el ESCALÓN ACTUAL de la escalera.
       // Tras una victoria el campaignStore ya avanzó → esto encadena el
       // siguiente escalón; tras una derrota repite el mismo (sin retroceder).

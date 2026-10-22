@@ -99,23 +99,33 @@ interface StatsState {
   xp: number;
   /** Última subida de nivel (para celebrarla en UI; null si ya se vio). */
   levelUpFlash: { from: number; to: number } | null;
+  // ── RUSH DE JEFES (plan-expansion-v3 §3.2) ──
+  /** Mejor run por clase: jefes vencidos en una sola run (0..3). */
+  rushBest: Partial<Record<GameClass, number>>;
+  /** Runs de Rush jugadas (stat de perfil). */
+  rushRuns: number;
+  /** Ciclos de campaña (prestigio) con al menos UNA run completa — la 1ª
+   *  vez que completas un ciclo el jefe 3 paga legendaria garantizada. */
+  rushCyclesDone: number[];
   registerMatch: (
     result: MatchResult,
     opts: { cls?: GameClass | null; online: boolean; boss?: boolean }
   ) => void;
+  /** Registra el cierre de una run de Rush (victoria parcial, derrota o run
+   *  completa): mejor run por clase, contador de runs y ciclos completados. */
+  registerRush: (opts: { cls: GameClass; beaten: number; completed: boolean; cycle: number }) => void;
   /** Suma XP (misiones, hitos) y devuelve el nivel resultante. */
   addXp: (amount: number) => { level: number; leveledUp: boolean };
   clearLevelUpFlash: () => void;
   resetStats: () => void;
 }
 
-function load(): Pick<StatsState, "perClass" | "streak" | "bestWinStreak" | "rankPoints" | "onlineGames" | "bossWins" | "level" | "xp"> {
-  if (typeof window === "undefined") {
-    return { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0 };
-  }
+function load(): Pick<StatsState, "perClass" | "streak" | "bestWinStreak" | "rankPoints" | "onlineGames" | "bossWins" | "level" | "xp" | "rushBest" | "rushRuns" | "rushCyclesDone"> {
+  const empty = { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0, rushBest: {}, rushRuns: 0, rushCyclesDone: [] as number[] };
+  if (typeof window === "undefined") return empty;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0 };
+    if (!raw) return empty;
     const p = JSON.parse(raw) as Partial<StatsState>;
     return {
       perClass: p.perClass ?? {},
@@ -126,9 +136,12 @@ function load(): Pick<StatsState, "perClass" | "streak" | "bestWinStreak" | "ran
       bossWins: p.bossWins ?? 0,
       level: p.level ?? 1,
       xp: p.xp ?? 0,
+      rushBest: p.rushBest ?? {},
+      rushRuns: p.rushRuns ?? 0,
+      rushCyclesDone: Array.isArray(p.rushCyclesDone) ? p.rushCyclesDone : [],
     };
   } catch {
-    return { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0 };
+    return empty;
   }
 }
 
@@ -146,6 +159,9 @@ function persist(s: StatsState): void {
         bossWins: s.bossWins,
         level: s.level,
         xp: s.xp,
+        rushBest: s.rushBest,
+        rushRuns: s.rushRuns,
+        rushCyclesDone: s.rushCyclesDone,
       })
     );
   } catch {
@@ -205,18 +221,20 @@ export const useStatsStore = create<StatsState>((set, get) => ({
       leveledUp = true;
     }
     set({ xp, level, levelUpFlash: leveledUp ? { from: s.level, to: level } : s.levelUpFlash });
-    const st = get();
-    persist({
-      perClass: st.perClass,
-      streak: st.streak,
-      bestWinStreak: st.bestWinStreak,
-      rankPoints: st.rankPoints,
-      onlineGames: st.onlineGames,
-      bossWins: st.bossWins,
-      level: st.level,
-      xp: st.xp,
-    } as StatsState);
+    persist(get() as StatsState);
     return { level, leveledUp };
+  },
+
+  registerRush: ({ cls, beaten, completed, cycle }) => {
+    const s = get();
+    const prev = s.rushBest[cls] ?? 0;
+    const rushBest = { ...s.rushBest, [cls]: Math.max(prev, beaten) };
+    const rushCyclesDone = completed && !s.rushCyclesDone.includes(cycle)
+      ? [...s.rushCyclesDone, cycle]
+      : s.rushCyclesDone;
+    const next = { ...s, rushBest, rushRuns: s.rushRuns + 1, rushCyclesDone };
+    set(next);
+    persist(next);
   },
 
   clearLevelUpFlash: () => {
@@ -224,7 +242,7 @@ export const useStatsStore = create<StatsState>((set, get) => ({
   },
 
   resetStats: () => {
-    const empty = { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0, levelUpFlash: null };
+    const empty = { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0, levelUpFlash: null, rushBest: {}, rushRuns: 0, rushCyclesDone: [] } as unknown as StatsState;
     set(empty);
     persist({ ...empty } as StatsState);
   },

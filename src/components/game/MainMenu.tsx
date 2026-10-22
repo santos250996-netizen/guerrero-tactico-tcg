@@ -2,10 +2,12 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
+import { usePvpStore } from "@/store/pvpStore";
+import { useStatsStore } from "@/store/statsStore";
 import { sfx } from "@/lib/sound";
 import { music } from "@/lib/music";
 import { useState, useEffect } from "react";
-import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X, ClipboardPaste } from "lucide-react";
+import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X, ClipboardPaste, Skull } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 import { isFreshInstall, applyProgressCode, readClipboardText } from "@/lib/progress-backup";
 import { haptic } from "@/lib/haptics";
@@ -50,6 +52,7 @@ export function MissionToast() {
 
 export function MainMenu() {
   const setView = useGameStore((s) => s.setView);
+  const gameClass = useGameStore((s) => s.gameClass);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [misionesOpen, setMisionesOpen] = useState(false);
@@ -70,6 +73,9 @@ export function MainMenu() {
   const [restoreBanner, setRestoreBanner] = useState(false);
   const [restoreMsg, setRestoreMsg] = useState<string | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
+  // RUSH DE JEFES: mejor run de la clase activa (pintada SOLO tras hidratar —
+  // mismo patrón anti-mismatch que el contador de misiones de arriba).
+  const [rushReady, setRushReady] = useState(false);
   const missions = useMissionStore((s) => s.missions);
   const ensureToday = useMissionStore((s) => s.ensureToday);
 
@@ -81,6 +87,7 @@ export function MainMenu() {
     Promise.resolve().then(() => {
       if (!alive) return;
       setReady(true);
+      setRushReady(true);
       const brief = loadStoredProfileBrief();
       setAvatarCardId(brief?.avatarCardId ?? null);
       setAvatarBroken(false);
@@ -102,6 +109,11 @@ export function MainMenu() {
     // `new Audio("/click.mp3")` which 404'd because the asset never existed.
     sfx.click();
   };
+  // Etiqueta del Rush: mejor run de la clase activa («· mejor 2/3») o nada.
+  const rushBestLabel = (() => {
+    const best = useStatsStore.getState().rushBest[gameClass] ?? 0;
+    return best > 0 ? `mejor ${best}/3` : "3 jefes";
+  })();
 
   const goToProfile = () => {
     click();
@@ -269,7 +281,7 @@ export function MainMenu() {
           </span>
         </motion.button>
 
-        {/* COLECCIÓN + PVP LOCAL — misma fila, mismo estilo de pill */}
+        {/* COLECCIÓN + PVP LOCAL + RUSH DE JEFES — misma fila, mismo estilo de pill */}
         <div className="flex items-center justify-center gap-2">
           <div className="pointer-events-auto">
             <CollectionMenuButton />
@@ -280,6 +292,18 @@ export function MainMenu() {
             style={{ fontFamily: "var(--font-cinzel), serif" }}
           >
             <Wifi className="h-3 w-3" /> PvP Local
+          </button>
+          <button
+            onClick={() => {
+              click();
+              haptic("light");
+              usePvpStore.getState().startRush({ playerClass: gameClass });
+            }}
+            className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-rose-400/50 bg-gradient-to-b from-rose-800/80 to-zinc-950/90 px-3.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-rose-200 transition-colors hover:border-rose-300/70"
+            style={{ fontFamily: "var(--font-cinzel), serif" }}
+            title="3 jefes seguidos · XP ×2 · botín por escalón — se juega con el mazo de la clase activa"
+          >
+            <Skull className="h-3 w-3" /> Rush{rushReady ? ` · ${rushBestLabel}` : ""}
           </button>
         </div>
 
@@ -302,7 +326,7 @@ export function MainMenu() {
         className="absolute inset-x-0 bottom-2.5 z-20 flex justify-center px-8"
       >
         <p className="text-center text-[7px] font-bold uppercase tracking-[0.35em] text-amber-700/60">
-          v3.0 · 6 clases · 168 cartas · 61 keywords
+          v3.1 · 6 clases · 192 cartas · rush de jefes
         </p>
       </motion.div>
 
