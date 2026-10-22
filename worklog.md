@@ -1232,3 +1232,18 @@ Work Log:
 Stage Summary:
 - T-D COMPLETE (Tinker jugable, 168 artes) y las 6 clases VISIBLES en UI con selector compacta+detalle.
 - Pendiente del plan V3.0: T-E (ampliación +8 cartas ×3 clases base + 9 keywords), T-F restante (Rush de Jefes), T-G (versionName 3.0 + banner + APK).
+
+---
+Task ID: 53-h (T-G release: v3.0 + APK)
+Agent: Z.ai main agent
+Task: Cerrar el release V3.0 SIN Rush de Jefes ni T-E (pospuestos a petición del jugador: «termina, deja el rush de jefes para después» / «comitea y después continúa para yo ir probando la APK»)
+
+Work Log:
+- Verificación previa al push: npx tsc --noEmit ✓ (0 errores) · 20 suites en verde: campana 139✓ · clases-v3 66✓ · collection-historia 69✓ · fx 51✓ · keywords-t47 39✓ · v2 39✓ · v3 33✓ · v4 71✓ · local-pvp 32✓ · no-gemelas 52✓ · pvp-engine 62✓ · pvp-turn-flow 27✓ · tanda28 37✓ · tanda29 84✓ · tanda30 82✓ · v3-fundamentos 59✓ · v3-clase botanico/pirata/tinker 34✓×3.
+- Rescate de trabajo tanda30 huérfano del corte de sesión: 2 commits UUID del gateway (bd2230b código: cards.ts +384, engine.ts +208, types.ts +71, fx/balance + test-tanda30/slots-tanda30/dump-keywords; 605304e artes PNG de las 11 cartas de la tanda + gen-card-art-v12) — verificados verdes y incluidos en el push.
+- RELEASE V3.0: android/app/build.gradle versionName «2.7»→«3.0»; footer del menú actualizado a «v3.0 · 6 clases · 168 cartas · 61 keywords» (cifras reales contadas por script sobre classCardsOf×6 clases: 168 únicas; KEYWORD_META: 61). El banner de release queda materializado en el footer del menú; Rush de Jefes NO incluido (queda como hito V3.1).
+- Commit 801812c + push ca53147..801812c → CI run 39699550618 (Build APK) disparado y monitoreado hasta artefacto guerrero-tactico-apk.
+
+Stage Summary:
+- V3.0 RELEASED: 6 clases jugables y visibles (incl. pirata/tinker/botánico), 168 cartas, 61 keywords, selector compacta+detalle, APK generada por CI para prueba del jugador.
+- Pospuesto explícitamente por el jugador: T-F Rush de Jefes (3 jefes en cadena, XP×2, best run) y T-E (+8 cartas por clase base + 9 keywords) → apuntados como V3.1.
