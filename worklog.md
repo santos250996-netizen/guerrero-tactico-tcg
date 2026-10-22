@@ -1247,3 +1247,25 @@ Work Log:
 Stage Summary:
 - V3.0 RELEASED: 6 clases jugables y visibles (incl. pirata/tinker/botánico), 168 cartas, 61 keywords, selector compacta+detalle, APK generada por CI para prueba del jugador.
 - Pospuesto explícitamente por el jugador: T-F Rush de Jefes (3 jefes en cadena, XP×2, best run) y T-E (+8 cartas por clase base + 9 keywords) → apuntados como V3.1.
+
+---
+Task ID: 53-i (V3.1: T-E completo + Rush de Jefes)
+Agent: Z.ai main agent
+Task: Terminar lo pendiente del plan V3.0 con petición explícita del jugador («termina lo pendiente, arte y demás»): T-E (cableado de las 24 cartas + 24 artes) y T-F restante (Rush de Jefes §3.2)
+
+Work Log:
+- RECON: docs/plan-expansion-v3.md recuperado — las 24 cartas tanda30 (+8×3 clases base, keywords muralla/estandarte/orden_batalla/atropello/eco/ceniza/octava) ya estaban en cards.ts/engine/types (commits gateway bd2230b+605304e) pero SIN cablear a los pools (classCardsOf seguía en 28) y con 0/24 webp (11 PNG intermedios).
+- T-E CABLEADO: EXTRA_CLASS_CARDS en cards.ts → classCardsOf base 28→36 (mazos I/II y BOSS_DECKS intactos: slice(0,12) ya protegía). Verificado por script: pools 36/36/36+28/28/28, ids únicos, starter 12, boss 12 sin cartas nuevas.
+- GEMELAS REGLA A/B (test-no-gemelas las cazó al crecer el pool): 5 rellenos retocados con resolvedor propio (scripts/fix-tanda30-gemelas.ts) manteniendo sabor+PTP±0.5 — rompefilas_orco orden_batalla X2 p7 · maza_berserker impetu X3 c3 p9 · aprendiz_inquieto coraza X1 c1 p5 · mantis_verde contagio X3 c1 p1 · navaja_de_taberna refriega X1 c1 p5. Textos actualizados citando su X (guardián de coherencia ampliado con los 5).
+- GUARDIANES PARAMÉTRICOS: no-gemelas (36 base/28 V3) y tanda29 (36/36/36 + 28 V3). slots-tanda30.ts actualizado a valores finales y auto-excluyente (seguible post-integración).
+- ARTE: gen-card-art-v12 completó las 13 faltantes (0 fallos) → fix-card-art-resolution (24→432×576) → png-to-webp → 192 webp total, 0 PNG sueltos, 9.0MB. Verificación visual de 4 (navaja/mantis/colosal/rompefilas): full-bleed, Ítem sin gente, acción legible.
+- RUSH DE JEFES (§3.2 + principios Task 39: el bot juega como player, botín con decisión): src/lib/game/rush.ts NUEVO (rushBossesForCycle: ciclo 0 clásicos, 1 V3, 2+ intercalado determinista · rushXpForBoss = ×2 bono escalón 10/20/30 · rushPickTierForBoss: rara→épica→legendaria 50%/100% 1ª vez del ciclo) · rushBiomeForIndex en campaign.ts (Hierro→Escarcha→Sombras).
+- STORES: statsStore +rushBest/rushRuns/rushCyclesDone + registerRush (persistidos); pvpStore +rushActive/rushIndex/rushCycle/rushFirstCycle/rushBeaten/rushBossClass/bossPickMax + startRush/advanceRush/startRushFight (motor historia, enableBossMode, BOSS_DECKS al tier del ciclo) + rama rush en checkHistoriaEnd (botín 2+pick 1 de 3, XP ×2, registerMatch boss:true, NO avanza campaña, derrota paga 1) + requestRematch rush-aware (Siguiente Jefe / Nueva Run / Reintentar Run) + resets en openSetup/exitToMenu.
+- UI: BattleIntroSplash con prop rush (chip «RUSH DE JEFES · JEFE n/3», lore y bioma del jefe) · HistoriaEndOverlay rush-aware (títulos ¡Jefe n/3!/¡Run completada!/Run terminada, chip RUSH n/3 · ciclo ★, XP ×2, pick «Elige 1 de 3 {tier}», botón Siguiente Jefe con nombre del próximo, Mejor run n/3) · MainMenu: pill «Rush · mejor n/3» (Skull, rosa) junto a PvP Local, arranca con la clase activa.
+- TESTS: scripts/test-rush.ts NUEVO 44✓ (ciclos deterministas, XP exacta, tiers con roll inyectado, registerRush/best run/ciclos sin duplicados, toggle tope 1, startRush/advanceRush montan Korgath→Nyx). Barrido completo: tsc ✓ · eslint ✓ · next build ✓ · 21 suites verdes (no-gemelas 56, tanda29 85, tanda30 82, fundamentos, v3-clase×3, rush 44...).
+- RELEASE 3.1: versionName 3.0→3.1 · footer «v3.1 · 6 clases · 192 cartas · rush de jefes» (cifras reales: catálogo 192, base 36×3, V3 28×3). Commits 465d480 (T-E) + cf9149a (Rush+release) push a main → CI runs 39699550618-heredados OK, 39703964206 SUCCESS en ~4 min → artefacto guerrero-tactico-apk 14.1 MB (expira 2027-01-20).
+
+Stage Summary:
+- V3.1 RELEASED: plan-expansion-v3 COMPLETO al 100% — 6 clases (base 36 cartas, V3 28), 192 cartas, 61 keywords, Rush de Jefes jugable con botín por escalón y best run persistente, APK v3.1 generada por CI para prueba.
+- El formato Rush respeta las decisiones del jugador: bot como player real, pick 1 de 3 (decisión > azar), legendaria 100% la 1ª vez de cada ciclo y 50% después.
+- Sin deudas pendientes del plan V3: T-A..T-G todos cerrados. Siguientes hitos posibles (no comprometidos): rotación de jefes V3 en los MUROS de campaña (hoy solo rush/rotación de rush los usan), stats del Rush en ProfileScreen.
