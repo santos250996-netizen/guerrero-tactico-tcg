@@ -124,7 +124,7 @@ const zai = await ZAI.create();
 let ok = 0;
 for (const item of list) {
   if (await genOne(zai, item)) ok++;
-  await new Promise((r) => setTimeout(r, 8000)); // pausa anti-429 entre fondos
+  await new Promise((r) => setTimeout(r, 3000)); // pausa anti-429 entre fondos
 }
 console.log(`\nGenerados: ${ok}/${list.length}`);
 if (ok < list.length) process.exitCode = 1;
