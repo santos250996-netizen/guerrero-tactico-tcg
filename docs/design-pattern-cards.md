@@ -213,3 +213,48 @@ tríada exclusiva de §8 (script `gen-card-art-v8.mjs`):
 - [ ] ¿Composición EXCLUSIVA: plano+ángulo+momento distintos de las demás cartas de su spec? (§8)
 - [ ] ¿SIN marco dibujado dentro del arte (full-bleed real, algo recortado por el borde)? (§8)
 - [ ] ¿El id es el slug del nombre (`snake_case`, sin acentos) y existe `public/cards/{id}.png`?
+
+## 11. Arquitectura del motor: keywords como canon + escape hatch CardScript
+
+### 11.1 Decisión de diseño (por qué NO scripts individuales para todo)
+
+La propuesta «EdoPro» (un script por carta con `onPlay/onEvent/canPlay` + registro
+central) es el patrón correcto para juegos con efectos caóticos únicos, pero como
+BASE degradaría el activo más valioso del proyecto: el motor data-driven de
+KEYWORDS. Con keywords declarativas en `cards.ts` es posible auditar balance en
+masa (`audit-balance.ts`), medir cobertura (`keyword-stats.ts`) y correr suites de
+regresión que simulan partidas enteras (`test-keywords-v3/v4`). Migrar 108 cartas
+a scripts sueltos rompería esa cadena de herramientas para siempre.
+
+El resto de la propuesta ya estaba cubierto con otros nombres:
+
+| Concepto propuesto | Equivalente en el proyecto |
+|--------------------|---------------------------|
+| `core/entities+enums+types` | `src/lib/game/types.ts` (Card, GameState, LaneId, trampas) |
+| `core/systems` | `engine.ts` (pipeline keywords + reglas clase V3), `pvp.ts`, `rush.ts` |
+| Instancia vs dato estático (UUID) | `cards.ts` define; el motor instancia con `uid` |
+| EventBus pub/sub | Zustand (estado→UI) + `fx.ts` `emitFx/subscribeFx` (canal de VFX) |
+| Serialización JSON | los 6 stores persisten JSON; estado = objeto plano |
+| `CardRegistry` | `CARD_SCRIPTS` (ver 11.2) — antes: el `switch` de keywords |
+
+### 11.2 Escape hatch: `card-scripts.ts` (estilo EdoPro, quirúrgico)
+
+Para el día en que una carta NECESITE un efecto que ninguna keyword expresa,
+existe `src/lib/game/card-scripts.ts`: interfaz `CardScript` con 3 hooks
+opcionales y registro central `CARD_SCRIPTS: Record<defId, CardScript>`.
+
+- `canPlay(ctx)` — validación EXTRA; corre en `playCard` ANTES de la Marca de
+  Ejecución (denegar no consume PC ni Resonancia).
+- `onPlay(ctx)` — corre en `playCard` DESPUÉS de todo el pipeline de keywords.
+  VFX visible = patrón Duelista (push en `mutations` + `powerLog`).
+- `onEvent(ctx)` — despachado al FINAL de `applyStartTurnEffects`
+  (`start_turn`), `applyEndTurnEffects` (`end_turn`) y `applyOnDeathEffects`
+  (`on_death`, cualquier muerte, con `deadCard` como `extraSelf`).
+
+Reglas de oro del contrato: los ctx entregan copias frescas (mutar en lugar es
+seguro); NUNCA re-aplicar poder que una keyword ya aplica; nada de azar en
+`onEvent` (determinismo de replays PvP); el registro VACÍO es el estado canónico
+— lookup O(1) fallido, coste cero, las 108 cartas intactas.
+
+Estrenar un script = 1 entrada en `CARD_SCRIPTS` + su carta apuntando al efecto
+único. Smoke test end-to-end: `bun scripts/smoke-card-scripts.ts`.

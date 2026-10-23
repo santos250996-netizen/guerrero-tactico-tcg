@@ -1269,3 +1269,21 @@ Stage Summary:
 - V3.1 RELEASED: plan-expansion-v3 COMPLETO al 100% — 6 clases (base 36 cartas, V3 28), 192 cartas, 61 keywords, Rush de Jefes jugable con botín por escalón y best run persistente, APK v3.1 generada por CI para prueba.
 - El formato Rush respeta las decisiones del jugador: bot como player real, pick 1 de 3 (decisión > azar), legendaria 100% la 1ª vez de cada ciclo y 50% después.
 - Sin deudas pendientes del plan V3: T-A..T-G todos cerrados. Siguientes hitos posibles (no comprometidos): rotación de jefes V3 en los MUROS de campaña (hoy solo rush/rotación de rush los usan), stats del Rush en ProfileScreen.
+
+---
+Task ID: 60
+Agent: Z.ai (principal)
+Task: «haz lo q si crees q esta bien» — evaluar propuesta de arquitectura TCG (estilo EdoPro) y ejecutar lo que aporte de verdad
+
+Work Log:
+- VEREDICTO: el proyecto ya cubre ~85% de la propuesta (types/engine/pvp = core; cards.ts = data+sets; components/game = ui; Zustand = pub/sub; 6 stores JSON = serialización; uid por instancia). Se descartaron: renombrar directorios (churn) y migrar 108 cartas a scripts individuales (rompería audit-balance/keyword-stats/test-keywords).
+- ADOPTADO (lo único que faltaba): escape hatch híbrido — NUEVO src/lib/game/card-scripts.ts con CardScript {canPlay, onPlay, onEvent} + registro central CARD_SCRIPTS (VACÍO = estado canónico, coste O(1) fallido). Imports type-only desde engine → sin ciclo runtime.
+- INTEGRACIÓN engine.ts (7 costuras): (1) import; (2) canPlay en playCard tras validación de carril, ANTES de la Marca de Ejecución (denegar no consume PC/Resonancia); (3) onPlay al final de playCard, DESPUÉS del pipeline de keywords, con copias frescas mutables (patrón Duelista para VFX); (4) helper dispatchCardScriptEvents tras triggerResult(); (5-7) despacho onEvent al final de applyStartTurnEffects (start_turn con turnNumber), applyEndTurnEffects (end_turn) y applyOnDeathEffects (on_death para CUALQUIER muerte, deadCard como extraSelf).
+- REGRESIÓN: tsc --noEmit limpio · test-keywords-v3 33/33 · test-keywords-v4 71/71 · audit-balance ok (botanico/pirata/tinker 12/12 ok) · SMOKE end-to-end NUEVO scripts/smoke-card-scripts.ts: canPlay deniega con throw, onPlay muta (+5 visible con patrón Duelista), onEvent start_turn escribe log+fx, registro vuelve a vacío. Los 3 hooks disparan de verdad.
+- NOTA del smoke: fixture sin handBonus → NaN (8+undefined). NO es bug del motor: el juego real instancia HandCard con handBonus numérico; el smoke ahora lo setea (handBonus: 0).
+- DOCS: docs/design-pattern-cards.md nueva §11 (decisión de diseño, tabla equivalencias propuesta↔proyecto, contrato del escape hatch, reglas de oro, cómo estrenar un script).
+- COMMIT LOCAL sin push (regla del jugador: CI/APK solo bajo orden expresa).
+
+Stage Summary:
+- Motor híbrido completo: keywords = canon para las 108 cartas; CardScript = válvula de escape para efectos únicos futuros, con registro vacío y prueba end-to-end de los 3 hooks. Documentado en §11 del design pattern.
+- Arte (Task 59) sigue en pausa por 429 del API — 9 cartas pendientes, comando de reanudación en el worklog de Task 59.

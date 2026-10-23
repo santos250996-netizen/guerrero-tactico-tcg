@@ -34,6 +34,7 @@ import type {
 import { CLASS_META, KEYWORD_META, LANE_ADJACENT, LANE_BONUS_POOL, LANE_META } from "./types";
 import type { FxEvent } from "./fx";
 import { recordKeyword, recordKeywordNoop } from "./keyword-stats";
+import { CARD_SCRIPTS, type CardScriptEvent, type CardScriptLogEntry } from "./card-scripts";
 import { v4 as uuidv4 } from "uuid";
 
 export type Board = Record<LaneId, LaneState>;
@@ -1199,6 +1200,18 @@ export function playCard(
     throw new Error(`Carril ${lane} lleno (máximo ${maxCards} carta(s) por bando).`);
   }
 
+  // 4. SCRIPT DE CARTA (escape hatch EdoPro — Task 60): validación extra
+  //    definida por carta. Registro vacío → lookup undefined → no-op.
+  //    Denegar aquí lanza como las demás validaciones (NO consume PC ni
+  //    Resonancia: corre ANTES de la Marca de Ejecución).
+  const cardScript = CARD_SCRIPTS[handCard.id];
+  if (
+    cardScript?.canPlay &&
+    !cardScript.canPlay({ board, hand, energy, side, lane, laneBonus, rules })
+  ) {
+    throw new Error(`${handCard.name}: su script no permite jugarla ahora.`);
+  }
+
   // Marca de ejecución: validaciones superadas → consumir PC si procede.
   if (
     rules &&
@@ -1439,10 +1452,28 @@ export function playCard(
     rulesOut.lastSpec[side] = lane;
   }
 
+  const remainingEnergy = energy - effectiveCost;
+
+  // ── SCRIPT DE CARTA (escape hatch EdoPro — Task 60) ────────────────────────
+  // Efecto único DESPUÉS del pipeline de keywords. newBoard/newHand/rulesOut
+  // son copias frescas de playCard → el script puede mutar en lugar.
+  // VFX = patrón Duelista (mutations push + powerLog); NUNCA re-aplicar poder.
+  if (cardScript?.onPlay) {
+    cardScript.onPlay({
+      board: newBoard,
+      hand: newHand,
+      side,
+      lane,
+      self: newCard,
+      mutations: effect.mutations,
+      rules: rulesOut,
+    });
+  }
+
   return {
     board: newBoard,
     hand: newHand,
-    remainingEnergy: energy - effectiveCost,
+    remainingEnergy,
     playedCard: newCard,
     mutations: effect.mutations,
     removedCards: allRemoved,
@@ -1844,6 +1875,45 @@ function triggerResult(board: Board): TriggerResult {
   return { board, logs: [], fx: [] };
 }
 
+// ---------------------------------------------------------------------------
+// SCRIPTS DE CARTA (escape hatch EdoPro — Task 60)
+// ---------------------------------------------------------------------------
+/**
+ * Despacha `onEvent` a todos los scripts registrados en el tablero (y a
+ * `extraSelf` — la carta muerta en on_death — si el caller ya la retiró).
+ * Registro vacío = bucle con lookups undefined → coste ~0, cero mutaciones.
+ * Se llama SIEMPRE al final de cada trigger, nunca antes de las keywords.
+ */
+function dispatchCardScriptEvents(
+  board: Board,
+  event: CardScriptEvent,
+  logs: CardScriptLogEntry[],
+  fx: FxEvent[],
+  rules?: ClassRulesState,
+  extraSelf?: BoardCard
+): void {
+  const lanes = Object.keys(board) as LaneId[];
+  for (const laneId of lanes) {
+    for (const cardSide of ["player", "enemy"] as const) {
+      for (const card of board[laneId][cardSide]) {
+        const script = CARD_SCRIPTS[card.defId];
+        script?.onEvent?.({ board, self: card, event, logs, fx, rules });
+      }
+    }
+  }
+  if (extraSelf) {
+    const script = CARD_SCRIPTS[extraSelf.defId];
+    const stillOnBoard = lanes.some(
+      (l) =>
+        board[l].player.some((c) => c.uid === extraSelf.uid) ||
+        board[l].enemy.some((c) => c.uid === extraSelf.uid)
+    );
+    if (!stillOnBoard) {
+      script?.onEvent?.({ board, self: extraSelf, event, logs, fx, rules });
+    }
+  }
+}
+
 /**
  * Fire all START_TURN effects on the board for the given side.
  * Keywords: Fervor, Duelista, Purificación (V2) · Escarcha, Veneno (V3) ·
@@ -2151,6 +2221,15 @@ export function applyStartTurnEffects(
     rulesOut = rulesRef.v;
   }
 
+  // SCRIPTS DE CARTA (escape hatch — Task 60): start_turn DESPUÉS de keywords.
+  dispatchCardScriptEvents(
+    newBoard,
+    { kind: "start_turn", side, turnNumber, lane: null, deadCard: null },
+    result.logs,
+    result.fx,
+    rulesOut
+  );
+
   if (rulesOut) result.rulesOut = rulesOut;
   return result;
 }
@@ -2449,6 +2528,16 @@ export function applyEndTurnEffects(
     result.rulesOut = rulesOut;
   }
 
+  // SCRIPTS DE CARTA (escape hatch — Task 60): end_turn DESPUÉS de keywords,
+  // decay y barrido — el script ve el tablero ya cerrado del lado.
+  dispatchCardScriptEvents(
+    newBoard,
+    { kind: "end_turn", side, turnNumber: 0, lane: null, deadCard: null },
+    result.logs,
+    result.fx,
+    rulesOut
+  );
+
   return result;
 }
 
@@ -2485,6 +2574,18 @@ export function applyOnDeathEffects(
   const result = triggerResult(newBoard);
   const { logs, fx } = result;
   const rulesOut: ClassRulesState | undefined = rules ? cloneRules(rules) : undefined;
+
+  // SCRIPTS DE CARTA (escape hatch — Task 60): on_death se despacha para
+  // CUALQUIER muerte (no solo cartas con keyword on_death); deadCard viaja
+  // como extraSelf por si el caller ya la retiró del tablero.
+  dispatchCardScriptEvents(
+    newBoard,
+    { kind: "on_death", side, turnNumber: 0, lane, deadCard },
+    result.logs,
+    result.fx,
+    rulesOut,
+    deadCard
+  );
 
   if (deadCard.trigger !== "on_death") {
     return result;
