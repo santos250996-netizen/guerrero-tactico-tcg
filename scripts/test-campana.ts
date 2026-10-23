@@ -1,9 +1,9 @@
 // ============================================================================
-// Tests de LA CAMPAÑA (escalera de guerra) — bun scripts/test-campana.ts
-// 1) Lógica pura de la escalera (jefes, tiers, botín, XP, nombres)
+// Tests de LA TORRE DE LOS MUROS (modo de escalada) — bun scripts/test-campana.ts
+// 1) Lógica pura de la torre (6 jefes, tiers, botín, XP, nombres)
 // 2) Store de campaña: advance / prestigio / sin retroceso
-// 3) Integración: startHistoria-equivalente por escalón (decks y bossMode)
-// 4) Mesas de drops con floorLevel (el escalón mejora el botín)
+// 3) Integración: startHistoria-equivalente por piso (decks y bossMode)
+// 4) Mesas de drops con floorLevel (el piso mejora el botín)
 // ============================================================================
 
 import {
@@ -55,65 +55,73 @@ function section(t: string) {
 }
 
 // ===========================================================================
-section("1. Estructura de la escalera: jefes, rival determinista, títulos");
+section("1. Estructura de la torre: 6 jefes, rival determinista, títulos");
 {
-  assert(CAMPAIGN_STEPS === 15, "15 escalones");
+  assert(CAMPAIGN_STEPS === 18, "18 pisos");
   assert(
-    JSON.stringify(CAMPAIGN_BOSS_STEPS) === JSON.stringify([5, 10, 15]),
-    "jefes en los escalones 5/10/15"
+    JSON.stringify(CAMPAIGN_BOSS_STEPS) === JSON.stringify([3, 6, 9, 12, 15, 18]),
+    "jefes en los pisos 3/6/9/12/15/18 — UNO POR CLASE"
   );
-  assert(isBossStep(5) && isBossStep(10) && isBossStep(15), "isBossStep marca 5/10/15");
-  assert(!isBossStep(4) && !isBossStep(6) && !isBossStep(14), "isBossStep NO marca escalones normales");
+  assert(
+    isBossStep(3) && isBossStep(6) && isBossStep(9) && isBossStep(12) && isBossStep(15) && isBossStep(18),
+    "isBossStep marca los 6 muros"
+  );
+  assert(!isBossStep(4) && !isBossStep(5) && !isBossStep(17), "isBossStep NO marca pisos normales");
 
-  assert(bossClassForStep(5) === "guerrero", "escalón 5 = Korgath (guerrero)");
-  assert(bossClassForStep(10) === "mago", "escalón 10 = Nyx (mago)");
-  assert(bossClassForStep(15) === "asesino", "escalón 15 = Vharos (asesino)");
-  assert(bossClassForStep(7) === null, "escalón normal → sin jefe");
+  assert(bossClassForStep(3) === "guerrero", "piso 3 = Korgath (guerrero)");
+  assert(bossClassForStep(6) === "botanico", "piso 6 = Yggra (botánico)");
+  assert(bossClassForStep(9) === "pirata", "piso 9 = Kaela (pirata)");
+  assert(bossClassForStep(12) === "mago", "piso 12 = Nyx (mago)");
+  assert(bossClassForStep(15) === "tinker", "piso 15 = Dorvik (tinker)");
+  assert(bossClassForStep(18) === "asesino", "piso 18 = Vharos (asesino) — la corona");
+  assert(bossClassForStep(7) === null, "piso normal → sin jefe");
 
   // Rotación determinista de rivales normales
-  assert(rivalClassForStep(1) === "guerrero", "escalón 1 → rival guerrero");
-  assert(rivalClassForStep(2) === "mago", "escalón 2 → rival mago");
-  assert(rivalClassForStep(3) === "asesino", "escalón 3 → rival asesino");
-  assert(rivalClassForStep(4) === rivalClassForStep(1), "la rotación se repite cada 3");
+  assert(rivalClassForStep(1) === "guerrero", "piso 1 → rival guerrero");
+  assert(rivalClassForStep(2) === "mago", "piso 2 → rival mago");
+  assert(rivalClassForStep(4) === "guerrero", "piso 4 → rival guerrero");
+  assert(rivalClassForStep(5) === rivalClassForStep(2), "la rotación se repite cada 3");
   for (let s = 1; s <= CAMPAIGN_STEPS; s++) {
     if (!isBossStep(s)) {
       const cls = rivalClassForStep(s);
       const decks = classDecksOf(cls);
       const deck = decks[rivalDeckIndexForStep(s)];
-      assert(deck.length === 12, `escalón ${s}: mazo del rival (${cls}) tiene 12 cartas`);
+      assert(deck.length === 12, `piso ${s}: mazo del rival (${cls}) tiene 12 cartas`);
     }
   }
 
-  assert(botTitleForStep(1) === "Aprendiz" && botTitleForStep(4) === "Aprendiz", "tramo 1-4 = Aprendiz");
-  assert(botTitleForStep(6) === "Veterano" && botTitleForStep(9) === "Veterano", "tramo 6-9 = Veterano");
-  assert(botTitleForStep(11) === "Campeón" && botTitleForStep(14) === "Campeón", "tramo 11-14 = Campeón");
+  assert(botTitleForStep(1) === "Aprendiz" && botTitleForStep(6) === "Aprendiz", "tramo 1-6 = Aprendiz");
+  assert(botTitleForStep(7) === "Veterano" && botTitleForStep(11) === "Veterano", "tramo 7-12 = Veterano");
+  assert(botTitleForStep(13) === "Campeón" && botTitleForStep(17) === "Campeón", "tramo 13-17 = Campeón");
 
-  assert(rivalNameForStep(1) === "Bram, Aprendiz de Guerrero", "nombre escalón 1 completo");
-  assert(rivalNameForStep(7).includes("Veterano"), "nombre escalón 7 con título Veterano");
-  assert(rivalNameForStep(5).startsWith("Korgath"), "nombre del jefe en el escalón 5");
+  assert(rivalNameForStep(1) === "Bram, Aprendiz de Guerrero", "nombre piso 1 completo");
+  assert(rivalNameForStep(7).includes("Veterano"), "nombre piso 7 con título Veterano");
+  assert(rivalNameForStep(3).startsWith("Korgath"), "nombre del jefe en el piso 3");
+  assert(rivalNameForStep(6).startsWith("Yggra"), "Yggra guarda el piso 6");
+  assert(rivalNameForStep(18).startsWith("Vharos"), "Vharos corona el piso 18");
   assert(
-    rivalNameForStep(3) === rivalNameForStep(3) && rivalNameForStep(3) === "Kess, Aprendiz de Asesino",
-    "rival determinista (siempre el mismo en el escalón 3)"
+    rivalNameForStep(4) === rivalNameForStep(4) && rivalNameForStep(4) === "Bram, Aprendiz de Guerrero",
+    "rival determinista (siempre el mismo en el piso 4)"
   );
 
-  assert(stepChipLabel(7) === "Escalón 7", "chip normal");
-  assert(stepChipLabel(10) === "JEFE · Escalón 10", "chip de jefe");
+  assert(stepChipLabel(7) === "Piso 7", "chip normal (Piso)");
+  assert(stepChipLabel(12) === "JEFE · Piso 12", "chip de jefe");
 }
 
 // ===========================================================================
-section("2. Dificultad: tiers de material por escalón y prestigio");
+section("2. Dificultad: tiers de material por piso y prestigio");
 {
   // Prestigio 0: común → raro → épico
-  assert(botTierForStep(1, 0) === "common", "escalón 1 → común");
-  assert(botTierForStep(4, 0) === "common", "escalón 4 → común");
-  assert(botTierForStep(6, 0) === "rare", "escalón 6 → raro");
-  assert(botTierForStep(9, 0) === "rare", "escalón 9 → raro");
-  assert(botTierForStep(11, 0) === "epic", "escalón 11 → épico");
-  assert(botTierForStep(14, 0) === "epic", "escalón 14 → épico");
+  assert(botTierForStep(1, 0) === "common", "piso 1 → común");
+  assert(botTierForStep(6, 0) === "common", "piso 6 → común");
+  assert(botTierForStep(7, 0) === "rare", "piso 7 → raro");
+  assert(botTierForStep(12, 0) === "rare", "piso 12 → raro");
+  assert(botTierForStep(13, 0) === "epic", "piso 13 → épico");
+  assert(botTierForStep(17, 0) === "epic", "piso 17 → épico");
   // Prestigio: +1 peldaño por vuelta, tope LEGENDARIA (mítica reservada al jugador)
-  assert(botTierForStep(1, 1) === "rare", "prestigio 1: escalón 1 → raro");
-  assert(botTierForStep(1, 2) === "epic", "prestigio 2: escalón 1 → épico");
-  assert(botTierForStep(1, 3) === "legendary", "prestigio 3: escalón 1 → legendaria");
+  assert(botTierForStep(1, 1) === "rare", "prestigio 1: piso 1 → raro");
+  assert(botTierForStep(1, 2) === "epic", "prestigio 2: piso 1 → épico");
+  assert(botTierForStep(1, 3) === "legendary", "prestigio 3: piso 1 → legendaria");
   assert(botTierForStep(1, 99) === "legendary", "tope: NUNCA mítica para bots");
   assert(bossTierForPrestige(0) === "epic", "jefe 1ª vuelta → épico");
   assert(bossTierForPrestige(1) === "legendary", "jefe en prestigio → legendaria");
@@ -127,23 +135,25 @@ section("2. Dificultad: tiers de material por escalón y prestigio");
 // ===========================================================================
 section("3. Botín y XP escalables (más alto = mejor pago)");
 {
-  assert(rewardCountForStep(1) === 2, "escalón 1 paga 2 cartas");
-  assert(rewardCountForStep(3) === 2, "escalón 3 paga 2");
-  assert(rewardCountForStep(4) === 3, "escalón 4 paga 3");
-  assert(rewardCountForStep(8) === 4, "escalón 8 paga 4");
-  assert(rewardCountForStep(12) === 5, "escalón 12 paga 5");
-  assert(rewardCountForStep(15) === 5, "escalón 15 paga 5");
-  assert(rewardCountForStep(1) < rewardCountForStep(15), "avanzar paga MÁS");
+  assert(rewardCountForStep(1) === 2, "piso 1 paga 2 cartas");
+  assert(rewardCountForStep(4) === 2, "piso 4 paga 2");
+  assert(rewardCountForStep(5) === 3, "piso 5 paga 3");
+  assert(rewardCountForStep(9) === 3, "piso 9 paga 3");
+  assert(rewardCountForStep(10) === 4, "piso 10 paga 4");
+  assert(rewardCountForStep(14) === 4, "piso 14 paga 4");
+  assert(rewardCountForStep(15) === 5, "piso 15 paga 5");
+  assert(rewardCountForStep(18) === 5, "piso 18 paga 5");
+  assert(rewardCountForStep(1) < rewardCountForStep(18), "avanzar paga MÁS");
 
-  assert(xpBonusForStep(1, 0) === 1, "XP extra escalón 1 = +1");
-  assert(xpBonusForStep(14, 0) === 14, "XP extra escalón 14 = +14");
+  assert(xpBonusForStep(1, 0) === 1, "XP extra piso 1 = +1");
+  assert(xpBonusForStep(17, 0) === 17, "XP extra piso 17 = +17");
   assert(xpBonusForStep(10, 1) === 15, "prestigio multiplica ×1.5 (10→15)");
-  assert(xpBonusForStep(1, 0) < xpBonusForStep(15, 0), "avanzar da MÁS XP");
+  assert(xpBonusForStep(1, 0) < xpBonusForStep(18, 0), "avanzar da MÁS XP");
 
-  assert(effectiveDropLevel(1, 1) === 3, "drops: escalón 1 → nivel efectivo 3");
-  assert(effectiveDropLevel(1, 12) === 14, "drops: escalón 12 → nivel efectivo 14");
+  assert(effectiveDropLevel(1, 1) === 3, "drops: piso 1 → nivel efectivo 3");
+  assert(effectiveDropLevel(1, 18) === 20, "drops: piso 18 → nivel efectivo 20");
   assert(effectiveDropLevel(50, 3) === 50, "nivel alto manda (no baja)");
-  // El escalón alto abre mesas con épicas/legendarias aunque seas N1
+  // El piso alto abre mesas con épicas/legendarias aunque seas N1
   const lowTable = dropTableFor(1);
   const highTable = dropTableFor(effectiveDropLevel(1, 13));
   assert(lowTable.every(([r]) => r === "common"), "N1 mesa 100% común");
@@ -161,15 +171,15 @@ section("4. Store de campaña: advance, prestigio y sin retroceso");
   assert(r.step === 2 && !r.completed, "ganar el 1 → avanzar al 2");
   assert(useCampaignStore.getState().step === 2, "step persistido en el store");
 
-  // Ganar en cadena hasta el 15 y cerrar la campaña
-  for (let i = 0; i < 13; i++) useCampaignStore.getState().advance();
+  // Ganar en cadena hasta el 18 y cerrar la torre
+  for (let i = 0; i < 16; i++) useCampaignStore.getState().advance();
   st = useCampaignStore.getState();
-  assert(st.step === 15 && st.prestige === 0, "cadena hasta el 15 sin prestigio");
+  assert(st.step === 18 && st.prestige === 0, "cadena hasta el 18 sin prestigio");
   r = st.advance();
-  assert(r.completed === true && r.step === 1, "el 15 vencido CIERRA la campaña");
+  assert(r.completed === true && r.step === 1, "el 18 vencido CIERRA la torre");
   st = useCampaignStore.getState();
-  assert(st.prestige === 1 && st.step === 1, "★ prestigio 1 y escalera al 1");
-  assert(st.stepsCleared === 15, "15 escalones superados en total");
+  assert(st.prestige === 1 && st.step === 1, "★ prestigio 1 y torre al 1");
+  assert(st.stepsCleared === 18, "18 pisos superados en total");
 
   // Vuelta de prestigio: el jugador concretamente NO retrocede al perder
   // (no hay acción de retroceso — solo advance() tras victoria, por diseño).
@@ -198,7 +208,7 @@ section("5. Integración con el motor: cada escalón arma su partida");
       : classDecksOf(botClass)[rivalDeckIndexForStep(step)].map((c) =>
           materializeCard(c, botTierForStep(step, prestige))
         );
-    assert(botDeck.length === 12, `escalón ${step}: 12 cartas de rival (${boss ? "JEFE" : rivalClassForStep(step)})`);
+    assert(botDeck.length === 12, `piso ${step}: 12 cartas de rival (${boss ? "JEFE" : rivalClassForStep(step)})`);
 
     const state = createPvpState("HIST", {
       name: "Tú",
@@ -209,14 +219,14 @@ section("5. Integración con el motor: cada escalón arma su partida");
     if (boss) enableBossMode(state);
     assert(
       state.bossMode === boss,
-      `escalón ${step}: bossMode ${boss ? "ACTIVO (jugada gratis + 3 bonos)" : "inactivo"}`
+      `piso ${step}: bossMode ${boss ? "ACTIVO (jugada gratis + 3 bonos)" : "inactivo"}`
     );
     // El mazo rival respeta el tier de material esperado
     if (!boss && !bossClass) {
       const expected: Rarity = botTierForStep(step, prestige);
       assert(
         botDeck.every((c) => c.power >= 0),
-        `escalón ${step}: mazo rival materializado (${expected}) jugable`
+        `piso ${step}: mazo rival materializado (${expected}) jugable`
       );
     }
   }
@@ -252,25 +262,34 @@ section("7. Lore + biomas + botín del JEFE a ELEGIR (3 raras)");
     classes.every((c) => CAMPAIGN_BOSS_LORE[c].length > 10),
     "lore de jefes: línea propia por clase"
   );
-  assert(!loreForStep(1).isBoss && loreForStep(1).text.length > 10, "lore escalón 1 = rival normal");
-  assert(loreForStep(7).text.length > 10 && !loreForStep(7).isBoss, "lore escalón 7 (Veterano) = rival normal");
-  assert(loreForStep(5).isBoss && loreForStep(10).isBoss && loreForStep(15).isBoss, "lore escalones 5/10/15 = JEFE");
-  // Biomas: la escalera cruza 3 tramos + muro propio por jefe
-  const expect: Record<number, string> = { 1: "tierras", 4: "tierras", 5: "hierro", 6: "ceniza", 9: "ceniza", 10: "escarcha", 11: "hielo", 14: "hielo", 15: "sombra" };
+  assert(!loreForStep(1).isBoss && loreForStep(1).text.length > 10, "lore piso 1 = rival normal");
+  assert(loreForStep(7).text.length > 10 && !loreForStep(7).isBoss, "lore piso 7 (Veterano) = rival normal");
+  assert(
+    loreForStep(3).isBoss && loreForStep(6).isBoss && loreForStep(9).isBoss && loreForStep(12).isBoss && loreForStep(15).isBoss && loreForStep(18).isBoss,
+    "lore de los 6 muros = JEFE"
+  );
+  // Biomas: la torre cruza 9 regiones — cada guardián tiene la suya
+  const expect: Record<number, string> = { 1: "tierras", 2: "tierras", 3: "hierro", 4: "jardin", 5: "jardin", 6: "jardin", 7: "puerto", 9: "puerto", 10: "ceniza", 11: "ceniza", 12: "escarcha", 13: "hielo", 14: "hielo", 15: "forja", 16: "sombra", 17: "sombra", 18: "sombra" };
   assert(
     Object.entries(expect).every(([s, id]) => biomeForStep(Number(s)).id === id),
     "bioma correcto por tramo y por muro de jefe"
   );
   assert(biomeForStep(3).tint.includes("radial-gradient") && biomeForStep(3).hex.length > 0, "bioma lleva tinte CSS + color de acento");
-  // DESBLOQUEO de clases (tanda 40): mago al vencer el jefe 5 · asesino el 10
-  assert(CLASS_UNLOCK_STEP.guerrero === 0 && CLASS_UNLOCK_STEP.mago === 5 && CLASS_UNLOCK_STEP.asesino === 10, "umbrales de desbloqueo correctos (0/5/10)");
-  assert(classUnlocked("guerrero", 0) && !classUnlocked("mago", 0) && !classUnlocked("asesino", 4), "solo guerrero está abierta al empezar");
-  assert(classUnlocked("mago", 5) && !classUnlocked("asesino", 5), "vencer Korgath abre MAGO (y solo mago)");
-  assert(classUnlocked("mago", 9) && !classUnlocked("asesino", 9), "9 escalones NO abren al asesino");
-  assert(classUnlocked("asesino", 10), "vencer Nyx abre ASESINO");
+  // DESBLOQUEO de clases: cada jefe vencido recluta a la siguiente clase
+  assert(
+    CLASS_UNLOCK_STEP.guerrero === 0 && CLASS_UNLOCK_STEP.mago === 3 && CLASS_UNLOCK_STEP.botanico === 6 && CLASS_UNLOCK_STEP.pirata === 9 && CLASS_UNLOCK_STEP.asesino === 12 && CLASS_UNLOCK_STEP.tinker === 15,
+    "umbrales de desbloqueo correctos (0/3/6/9/12/15)"
+  );
+  assert(classUnlocked("guerrero", 0) && !classUnlocked("mago", 2) && !classUnlocked("botanico", 5), "solo guerrero está abierta al empezar");
+  assert(classUnlocked("mago", 3) && !classUnlocked("mago", 2) && !classUnlocked("botanico", 3), "vencer Korgath abre MAGO (y solo mago)");
+  assert(classUnlocked("botanico", 6) && !classUnlocked("pirata", 6), "vencer Yggra abre BOTÁNICO");
+  assert(classUnlocked("pirata", 9) && !classUnlocked("asesino", 9), "vencer Kaela abre PIRATA");
+  assert(classUnlocked("asesino", 12) && !classUnlocked("tinker", 12), "vencer Nyx abre ASESINO");
+  assert(classUnlocked("tinker", 15), "vencer Dorvik abre TINKER");
   assert(classUnlockHint("guerrero") === null, "guerrero no necesita pista de desbloqueo");
-  assert((classUnlockHint("mago") ?? "").includes("Korgath") && (classUnlockHint("mago") ?? "").includes("5"), "pista de mago apunta a Korgath · Escalón 5");
-  assert((classUnlockHint("asesino") ?? "").includes("Nyx") && (classUnlockHint("asesino") ?? "").includes("10"), "pista de asesino apunta a Nyx · Escalón 10");
+  assert((classUnlockHint("mago") ?? "").includes("Korgath") && (classUnlockHint("mago") ?? "").includes("3"), "pista de mago apunta a Korgath · Piso 3");
+  assert((classUnlockHint("asesino") ?? "").includes("Nyx") && (classUnlockHint("asesino") ?? "").includes("12"), "pista de asesino apunta a Nyx · Piso 12");
+  assert((classUnlockHint("tinker") ?? "").includes("Dorvik") && (classUnlockHint("tinker") ?? "").includes("15"), "pista de tinker apunta a Dorvik · Piso 15");
   // Botín del JEFE (tanda 40): 3 opciones ÉPICAS distintas y se llevan 2 (isNew real)
   useCollectionStore.getState().resetAll();
   const col = useCollectionStore.getState();

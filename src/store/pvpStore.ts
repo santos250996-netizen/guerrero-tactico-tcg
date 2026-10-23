@@ -17,8 +17,17 @@ import {
   enableBossMode,
   joinBotPvpState,
   reconcileView,
+  setForcedPositionBonuses,
   startPvpMatch,
 } from "@/lib/game/pvp";
+import {
+  STORY_CHAPTERS,
+  chapterAt,
+  resolveFight,
+  fightCry,
+  storyXpForFight,
+  isLastFight,
+} from "@/lib/game/story";
 import { LANE_META, type CardDef, type GameClass } from "@/lib/game/types";
 import { BOSS_DECKS, classDecksOf } from "@/lib/game/cards";
 import { materializeCard } from "@/lib/game/balance";
@@ -31,6 +40,7 @@ import { useCollectionStore, type CardReward } from "./collectionStore";
 import { useStatsStore, type MatchResult } from "./statsStore";
 import { useMissionStore } from "./missionStore";
 import { useCampaignStore } from "./campaignStore";
+import { useStoryStore } from "./storyStore";
 import {
   botTierForStep,
   bossTierForPrestige,
@@ -47,6 +57,7 @@ import {
 } from "@/lib/game/campaign";
 import {
   RUSH_BOSSES,
+  RUSH_EQUIV_STEPS,
   rushBossesForCycle,
   rushPickTierForBoss,
   rushXpForBoss,
@@ -126,6 +137,23 @@ interface PvpStoreState {
   startRush: (opts: { playerClass: GameClass; playerName?: string }) => void;
   /** RUSH: encadena el siguiente jefe (tras cobrar el pick del anterior). */
   advanceRush: () => void;
+  // ── MODO HISTORIA «EL PACTO DE GUERRA» — capítulos con guion (patrón Rush:
+  //    el modo vive DENTRO de historia con esta bandera) ──
+  /** Pelea de capítulo en curso (null fuera del modo). */
+  storyActive: boolean;
+  /** Capítulo 0-based en curso. */
+  storyChapter: number | null;
+  /** Pelea 0-based del capítulo en curso. */
+  storyFight: number | null;
+  /** La victoria acaba de CERRAR un capítulo (la UI vuelve al mapa: epílogo
+   *  + decisión pendiente). Se recalcula en cada fin de pelea. */
+  storyChapterClosed: boolean;
+  /** La victoria acaba de CERRAR LA HISTORIA COMPLETA (c7 vencido). */
+  storyCompletedFlag: boolean;
+  /** HISTORIA: monta la pelea (capítulo, pelea) con su regla de capítulo. */
+  startStoryFight: (chapterIdx: number, fightIdx: number) => void;
+  /** HISTORIA: vuelve al MAPA de la historia (tras cerrar capítulo o salir). */
+  exitToStoryMap: () => void;
   /** La victoria acaba de CERRAR la campaña (escalón 15) → celebración ★. */
   campaignCompleted: boolean;
 
@@ -626,6 +654,54 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     const step = st.campaignStep ?? 1;
     const col = useCollectionStore.getState();
 
+    // ══ MODO HISTORIA «EL PACTO DE GUERRA»: el GUION manda — la campaña NO
+    //    avanza. Victoria de pelea: paga botín chico + XP fija y AVANZA el
+    //    progreso del storyStore. Última pelea del capítulo: paga el botín
+    //    del capítulo y cierra (la UI vuelve al mapa: epílogo/decisión).
+    //    Derrota: paga 1 carta (el farming sigue vivo) y NO retrocede.
+    if (st.storyActive && st.storyChapter != null && st.storyFight != null) {
+      const chapter = chapterAt(st.storyChapter);
+      const last = isLastFight(chapter, st.storyFight);
+      const story = useStoryStore.getState();
+      if (won) {
+        col.registerWin();
+        if (last) {
+          const rewards = col.addRewards(chapter.rewardCards, {
+            bonusForLevel: true,
+            floorLevel: effectiveDropLevel(useStatsStore.getState().level, 4 + st.storyChapter * 2),
+          });
+          const done = story.advance().completed; // cierra capítulo (o la historia)
+          set({ pendingRewards: rewards, storyChapterClosed: true, storyCompletedFlag: done });
+        } else {
+          const rewards = col.addRewards(2, { bonusForLevel: true });
+          story.advance(); // pelea → pelea dentro del capítulo
+          set({ pendingRewards: rewards, storyChapterClosed: false });
+        }
+        useStatsStore.getState().addXp(storyXpForFight(st.storyChapter));
+      } else {
+        const rewards = col.addRewards(1); // la derrota nunca deja manos vacías
+        set({ pendingRewards: rewards, storyChapterClosed: false });
+      }
+      try {
+        useStatsStore.getState().registerMatch(result, {
+          cls: st.gameClass,
+          online: false,
+          boss: st.bossActive,
+        });
+        const ms = useMissionStore.getState();
+        if (won) ms.progress("win-games");
+        if (won) ms.progress("win-class", 1, st.gameClass);
+        if (won && st.bossActive) ms.progress("beat-boss");
+        if (final) {
+          const laneWins = final.laneOutcomes.filter((o) => o.winner === "player").length;
+          if (laneWins > 0) ms.progress("win-lanes", laneWins);
+        }
+      } catch {
+        // noop
+      }
+      return;
+    }
+
     // ══ RUSH DE JEFES: la RUN manda — la campaña NO avanza y el botín sale
     //    del escalón de la run (§3.2). XP ×2 por jefe: registerMatch(boss)
     //    paga base 6 + jefe 10 y encima se dobla el bono de escalón. Pick
@@ -640,7 +716,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         const tier = rushPickTierForBoss(idx, { firstCycleIncomplete: st.rushFirstCycle });
         const rewards = col.addRewards(2, {
           bonusForLevel: true,
-          floorLevel: effectiveDropLevel(useStatsStore.getState().level, CAMPAIGN_BOSS_STEPS[Math.min(idx, CAMPAIGN_BOSS_STEPS.length - 1)]),
+          floorLevel: effectiveDropLevel(useStatsStore.getState().level, RUSH_EQUIV_STEPS[Math.min(idx, RUSH_EQUIV_STEPS.length - 1)]),
         });
         set({
           pendingRewards: rewards,
@@ -821,6 +897,11 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     rushFirstCycle: false,
     rushBeaten: 0,
     rushBossClass: null,
+    storyActive: false,
+    storyChapter: null,
+    storyFight: null,
+    storyChapterClosed: false,
+    storyCompletedFlag: false,
     bossActive: false,
     campaignStep: null,
     campaignCompleted: false,
@@ -927,6 +1008,11 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         rushFirstCycle: false,
         rushBeaten: 0,
         rushBossClass: null,
+        storyActive: false,
+        storyChapter: null,
+        storyFight: null,
+        storyChapterClosed: false,
+        storyCompletedFlag: false,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -946,6 +1032,52 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       // vuelve al menú principal (gameStore)
       import("@/store/gameStore").then(({ useGameStore }) => {
         useGameStore.getState().setView("main-menu");
+      });
+    },
+
+    exitToStoryMap: () => {
+      cancelBotTimer();
+      get().stopPolling();
+      onlineEndNoted = false;
+      set({
+        screen: "setup",
+        code: null,
+        token: null,
+        mySide: null,
+        view: null,
+        mode: "online",
+        localState: null,
+        botClass: null,
+        pendingRewards: null,
+        battleIntro: false,
+        bossPickOptions: null,
+        bossPickSelected: [],
+        bossPickMax: 2,
+        rushActive: false,
+        rushIndex: 0,
+        rushCycle: 0,
+        rushFirstCycle: false,
+        rushBeaten: 0,
+        rushBossClass: null,
+        storyActive: false,
+        storyChapter: null,
+        storyFight: null,
+        storyChapterClosed: false,
+        storyCompletedFlag: false,
+        joinCode: "",
+        error: null,
+        lastActionSeq: 0,
+        resumed: false,
+        selectedCardUid: null,
+        rivalPlay: null,
+        highlightUid: null,
+        bossActive: false,
+        campaignStep: null,
+        campaignCompleted: false,
+      });
+      // vuelve al MAPA DE LA HISTORIA (gameStore)
+      import("@/store/gameStore").then(({ useGameStore }) => {
+        useGameStore.getState().setView("story");
       });
     },
 
@@ -1068,6 +1200,78 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       const st = get();
       if (!st.rushActive) return;
       startRushFight(st.rushIndex + 1);
+    },
+
+    startStoryFight: (chapterIdx, fightIdx) => {
+      cancelBotTimer();
+      get().stopPolling();
+      if (get().hostingLocal) void stopLocalPvpServer();
+      onlineEndNoted = false;
+      useStatsStore.getState().clearLevelUpFlash();
+
+      const col = useCollectionStore.getState();
+      col.grantStarterDeck(get().gameClass);
+      const deck: CardDef[] = useCollectionStore.getState().battleDeckFor(get().gameClass);
+
+      // El guion manda: variante por decisiones + regla de capítulo
+      const chapter = chapterAt(chapterIdx);
+      const fight = resolveFight(chapter.fights[Math.min(Math.max(0, fightIdx), chapter.fights.length - 1)], useStoryStore.getState().flags);
+
+      const state = createPvpState("HIST", {
+        name: get().playerName || "Tú",
+        gameClass: get().gameClass,
+        deck,
+      });
+      const botDeck = fight.bossDeck
+        ? BOSS_DECKS[fight.rivalClass].map((c) => materializeCard(c, fight.tier))
+        : classDecksOf(fight.rivalClass)[fight.deckIndex ?? 0].map((c) => materializeCard(c, fight.tier));
+      joinBotPvpState(state, {
+        name: fight.rival,
+        gameClass: fight.rivalClass,
+        deck: botDeck,
+      });
+      if (fight.bossMode) enableBossMode(state);
+      // REGLA DE CAPÍTULO: los bonos del guion sobreescriben los sorteados
+      if (fight.forcedBonuses) setForcedPositionBonuses(state, fight.forcedBonuses);
+
+      set({
+        mode: "historia",
+        localState: state,
+        botClass: fight.rivalClass,
+        pendingRewards: null,
+        battleIntro: true, // splash de lore — se cierra con «¡A LUCHAR!»
+        bossPickOptions: null,
+        bossPickSelected: [],
+        bossPickMax: 1,
+        mySide: "a",
+        code: "HIST",
+        token: null,
+        screen: "game",
+        lastActionSeq: 0,
+        selectedCardUid: null,
+        invalidPlayMsg: null,
+        connectionLost: false,
+        error: null,
+        bossActive: !!fight.bossMode,
+        campaignStep: null,
+        campaignCompleted: false,
+        rivalPlay: null,
+        highlightUid: null,
+        rushActive: false,
+        rushIndex: 0,
+        rushBeaten: 0,
+        rushBossClass: null,
+        storyActive: true,
+        storyChapter: chapterIdx,
+        storyFight: Math.min(Math.max(0, fightIdx), chapter.fights.length - 1),
+        storyChapterClosed: false,
+        storyCompletedFlag: false,
+      });
+      import("@/store/gameStore").then(({ useGameStore }) => {
+        useGameStore.getState().setView("pvp");
+      });
+      applyView(buildClientView(state, "a"));
+      scheduleBotIfNeeded();
     },
 
     createRoom: async () => {
@@ -1314,6 +1518,25 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
 
     requestRematch: async () => {
       const st = get();
+      // HISTORIA «EL PACTO DE GUERRA»: victoria intermedia → SIGUIENTE PELEA
+      // (el storyStore ya avanzó). Capítulo cerrado → AL MAPA (epílogo +
+      // decisión pendiente). Derrota → REPITE la misma pelea.
+      if (st.mode === "historia" && st.storyActive && st.localState) {
+        cancelBotTimer();
+        const f = st.localState.finalResultA;
+        const wonStory = f ? f.playerWins > f.enemyWins : false;
+        if (wonStory) {
+          if (st.storyChapterClosed) {
+            get().exitToStoryMap();
+            return;
+          }
+          const story = useStoryStore.getState();
+          get().startStoryFight(story.chapter, story.fight);
+        } else {
+          get().startStoryFight(st.storyChapter ?? 0, st.storyFight ?? 0);
+        }
+        return;
+      }
       // RUSH: victoria intermedia → SIGUIENTE JEFE (sin pausa). Run completa
       // o derrota → NUEVA RUN completa con la misma clase.
       if (st.mode === "historia" && st.rushActive && st.localState) {

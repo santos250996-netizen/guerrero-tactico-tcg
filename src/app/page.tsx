@@ -8,6 +8,7 @@ import { CollectionScreen } from "@/components/game/CollectionScreen";
 import { ProfileScreen } from "@/components/game/ProfileScreen";
 import { DeckEditor } from "@/components/game/DeckEditor";
 import { PvpRoot } from "@/components/game/pvp/PvpRoot";
+import { StoryMap } from "@/components/game/story/StoryMap";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -23,6 +24,7 @@ export default function Home() {
 
   if (view === "coleccion") return <CollectionScreen />;
   if (view === "class-select") return <ClassSelect />;
+  if (view === "story") return <StoryMap />;
   if (view === "profile") return <ProfileScreen />;
   if (view === "editor") return <DeckEditor />;
   if (view === "pvp") return <PvpRoot />;

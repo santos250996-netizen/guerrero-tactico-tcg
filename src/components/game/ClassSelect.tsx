@@ -1,15 +1,15 @@
 "use client";
 
 // ============================================================================
-// Entrada del MODO HISTORIA — LA CAMPAÑA (escalera de guerra).
+// Entrada de LA TORRE DE LOS MUROS — el modo de ESCALADA (18 pisos, 6 jefes).
 // Diseño COMPACTA + DETALLE (aprobado para V3.0 — plan-expansion-v3 §4):
-//  • Tira de progreso de la escalera (15 segmentos, cráneos en 5/10/15).
+//  • Tira de progreso de la torre (18 segmentos, cráneos en los 6 muros).
 //  • 6 CHIPS compactos en cuadrícula 2×3 — toda la oferta visible de un
 //    vistazo, sin scroll. Tap = selecciona; los bloqueados enseñan candado.
 //  • UN panel de detalle de la clase seleccionada: icono, lema, sus 3
 //    carriles, regla sistémica (lore tras tap) y acciones MAZO / JUGAR.
 // La selección recuerda la última clase usada (localStorage). Un solo botón
-// arranca la campaña en el escalón pendiente — los JEFES emergen solos.
+// arranca la torre en el piso pendiente — los JEFES emergen solos.
 // ============================================================================
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -155,9 +155,9 @@ const COLOR_MAP: Record<ClassDef["color"], {
 const LAST_CLASS_KEY = "pacto:cls-select:last";
 
 // ─────────────────────────────────────────────────────────────
-// LA CAMPAÑA — tira VISUAL de una línea: 15 segmentos (cráneos en los
-// muros 5/10/15), ★ prestigio y chip del escalón. Cero texto explicativo:
-// la escalera se lee sola. Persistente y GLOBAL entre clases.
+// LA TORRE — tira VISUAL de una línea: 18 segmentos (cráneos en los
+// 6 muros), ★ prestigio y chip del piso. Cero texto explicativo:
+// la torre se lee sola. Persistente y GLOBAL entre clases.
 // ─────────────────────────────────────────────────────────────
 function CampaignStrip({ step, prestige }: { step: number; prestige: number }) {
   const nextIsBoss = isBossStep(step);
@@ -178,7 +178,7 @@ function CampaignStrip({ step, prestige }: { step: number; prestige: number }) {
         </span>
       )}
 
-      {/* La escalera — superados en ámbar, jefes como cráneos, actual latiendo */}
+      {/* La torre — superados en ámbar, jefes como cráneos, actual latiendo */}
       <div className="flex min-w-0 flex-1 items-center gap-[3px]" aria-hidden>
         {Array.from({ length: CAMPAIGN_STEPS }, (_, i) => {
           const s = i + 1;
@@ -225,7 +225,7 @@ function CampaignStrip({ step, prestige }: { step: number; prestige: number }) {
         )}
       >
         {nextIsBoss && <Skull className="mr-0.5 inline h-2.5 w-2.5" />}
-        ESC {step}/{CAMPAIGN_STEPS}
+        PISO {step}/{CAMPAIGN_STEPS}
       </span>
     </motion.div>
   );
@@ -238,10 +238,10 @@ export function ClassSelect() {
   const deckLoading = useGameStore((s) => s.deckLoading);
   const setDeckEditorReturn = useGameStore((s) => s.setDeckEditorReturn);
   const startHistoria = usePvpStore((s) => s.startHistoria);
-  // LA CAMPAÑA — escalera persistente (global entre clases)
+  // LA TORRE — escalada persistente (global entre clases)
   const campaignStep = useCampaignStore((s) => s.step);
   const prestige = useCampaignStore((s) => s.prestige);
-  // DESBLOQUEO: mago = jefe del escalón 5 · asesino = el del 10 · V3: 3/8/13.
+  // DESBLOQUEO: cada jefe vencido recluta a la siguiente clase (0/3/6/9/12/15).
   const stepsCleared = useCampaignStore((s) => s.stepsCleared);
 
   // Clase seleccionada (chips) — recuerda la última usada; cae a GUERRERO.
@@ -276,7 +276,7 @@ export function ClassSelect() {
   };
 
   // JUGAR → LA CAMPAÑA en el ESCALÓN PENDIENTE (jefes incluidos: emergen
-  // solos de la escalera — sin botón aparte).
+  // solos de la torre — sin botón aparte).
   const startCampaign = async (cls: GameClass) => {
     if (!classUnlocked(cls, stepsCleared)) return;
     selectClass(cls);
@@ -333,7 +333,7 @@ export function ClassSelect() {
       </motion.h2>
 
       <main className="app-main relative z-10 mx-auto flex w-full max-w-md flex-col justify-center gap-2.5 px-3 pb-4 pt-16">
-        {/* LA CAMPAÑA — una tira, cero párrafos */}
+        {/* LA TORRE — una tira, cero párrafos */}
         <CampaignStrip step={campaignStep} prestige={prestige} />
 
         {/* ── CHIPS COMPACTOS (2×3): toda la oferta sin scroll. ── */}
@@ -461,7 +461,7 @@ export function ClassSelect() {
               <ClassRuleBadge gameClass={sel.id} />
             </div>
 
-            {/* Actions: MAZO (secondary) + JUGAR (único botón de campaña) */}
+            {/* Actions: MAZO (secondary) + JUGAR (único botón de la torre) */}
             <div className="border-t border-zinc-800/60 bg-black/30 p-2.5">
               {!selUnlocked ? (
                 /* CLASE BLOQUEADA — candado + qué jefe la abre. Sin trampas:

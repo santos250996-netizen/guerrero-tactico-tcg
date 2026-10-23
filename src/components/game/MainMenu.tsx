@@ -3,11 +3,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { usePvpStore } from "@/store/pvpStore";
+import { useStoryStore } from "@/store/storyStore";
 import { useStatsStore } from "@/store/statsStore";
 import { sfx } from "@/lib/sound";
 import { music } from "@/lib/music";
 import { useState, useEffect, useRef } from "react";
-import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X, ClipboardPaste, Skull } from "lucide-react";
+import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X, ClipboardPaste, Skull, BookOpen } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 import { AdminSecretModal } from "./AdminSecretModal";
 import { useAdminStore } from "@/store/adminStore";
@@ -305,12 +306,27 @@ export function MainMenu() {
               paddingLeft: '0.32em',  // optical centering with tracking
             }}
           >
-            Historia
+          {/* El modo de escalada AHORA SE LLAMA LA TORRE (la historia real vive
+              en su propia píldora «El Pacto»): la escalera siempre fue torre. */}
+            LA TORRE
           </span>
         </motion.button>
 
-        {/* COLECCIÓN + PVP LOCAL + RUSH DE JEFES — misma fila, mismo estilo de pill */}
-        <div className="flex items-center justify-center gap-2">
+        {/* HISTORIA · EL PACTO DE GUERRA + COLECCIÓN + PVP LOCAL + RUSH —
+            fila flexible: con 4 píldoras en pantallas estrechas ENVUELVE en 2 líneas */}
+        <div className="flex max-w-[92%] flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={() => {
+              click();
+              haptic("light");
+              useStoryStore.getState().hydrate();
+              setView("story");
+            }}
+            className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-violet-400/50 bg-gradient-to-b from-violet-800/80 to-zinc-950/90 px-3.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-violet-200 transition-colors hover:border-violet-300/70"
+            style={{ fontFamily: "var(--font-cinzel), serif" }}
+          >
+            <BookOpen className="h-3 w-3" /> El Pacto
+          </button>
           <div className="pointer-events-auto">
             <CollectionMenuButton />
           </div>

@@ -1,23 +1,27 @@
 // ===========================================================================
-// LA CAMPAÑA — escalera de guerra del MODO HISTORIA (lógica PURA, sin stores)
+// LA TORRE DE LOS MUROS — el modo de escalada del juego (lógica PURA, sin
+// stores). Renombrado desde "LA CAMPAÑA" cuando nació el MODO HISTORIA real
+// (story.ts · El Pacto de Guerra): la escalera SIEMPRE fue una torre —
+// «mil escalones, mil huesos» — y ahora tiene su nombre.
 // ===========================================================================
-// Un solo camino de 15 escalones con 3 JEFES integrados como muros (5, 10 y
-// 15). Ya no existe el botón "Desafiar al Jefe": el jefe EMERGE del progreso.
+// Un solo camino de 18 PISOS con 6 JEFES como guardianes de muro (3, 6, 9,
+// 12, 15 y 18): UNO POR CLASE — las 6 clases del juego tienen su jefe con
+// mazo temático propio en la torre.
 //
 // Reglas de diseño (acordadas con el jugador):
-//  • GLOBAL: una sola escalera compartida por las 3 clases (la colección es
+//  • GLOBAL: una sola torre compartida por las clases (la colección es
 //    global; la clase solo elige tu héroe).
-//  • El rival de cada escalón es DETERMINÍSTICO (clase + mazo fijos por
-//    escalón): reintentar el escalón 7 siempre es el mismo rival con nueva
-//    barajada — la campaña se siente escrita, no aleatoria.
-//  • Dificultad: el tier de material del mazo rival escala con el escalón
+//  • El rival de cada piso es DETERMINÍSTICO (clase + mazo fijos por piso):
+//    reintentar el piso 7 siempre es el mismo rival con nueva barajada —
+//    la torre se siente escrita, no aleatoria.
+//  • Dificultad: el tier de material del mazo rival escala con el piso
 //    (común → raro → épico) y sube otro peldaño en cada PRESTIGIO (tope
 //    legendaria). Los jefes juegan su mazo temático épico (legendaria en
 //    prestigio).
-//  • Botín y XP escalan: más cartas y más XP cuanto más alto el escalón; la
-//    mesa de drops usa max(nivel, escalón+2) para que avanzar se SIENTA.
-//  • Al perder NO retrocedes: repites el mismo escalón.
-//  • Escalón 15 vencido → CAMPAÑA COMPLETADA ★ Prestigio+1 y la escalera
+//  • Botín y XP escalan: más cartas y más XP cuanto más alto el piso; la
+//    mesa de drops usa max(nivel, piso+2) para que avanzar se SIENTA.
+//  • Al perder NO retrocedes: repites el mismo piso.
+//  • Piso 18 vencido → TORRE COMPLETADA ★ Prestigio+1 y la torre
 //    recomienza con rivales reforzados (bucle infinito).
 // ===========================================================================
 
@@ -26,14 +30,24 @@ import { CLASS_META } from "./types";
 import { nextRarity } from "./balance";
 import { isAdminOn } from "./admin";
 
-/** Longitud de la escalera (escalones por vuelta de campaña). */
-export const CAMPAIGN_STEPS = 15;
+/** Altura de la torre (pisos por vuelta de campaña). */
+export const CAMPAIGN_STEPS = 18;
 
-/** Escalones donde el JEFE bloquea el paso. */
-export const CAMPAIGN_BOSS_STEPS: readonly number[] = [5, 10, 15];
+/** Pisos donde el JEFE guardian bloquea el paso — UNO POR CLASE. */
+export const CAMPAIGN_BOSS_STEPS: readonly number[] = [3, 6, 9, 12, 15, 18];
 
-/** Jefe de cada escalón-jefe (índice paralelo a CAMPAIGN_BOSS_STEPS). */
-const CAMPAIGN_BOSS_ORDER: readonly GameClass[] = ["guerrero", "mago", "asesino"];
+/** Jefe de cada piso-jefe (índice paralelo a CAMPAIGN_BOSS_STEPS).
+ *  Orden de escalada narrativo: Korgath guarda la puerta, el jardín de Yggra
+ *  devora el segundo anillo, la bahía de Kaela el tercero, el trono de Nyx el
+ *  cuarto, la forja de Dorvik el quinto… y la ÚLTIMA SOMBRA corona la torre. */
+const CAMPAIGN_BOSS_ORDER: readonly GameClass[] = [
+  "guerrero",
+  "botanico",
+  "pirata",
+  "mago",
+  "tinker",
+  "asesino",
+];
 
 /** Nombre corto de cada bot de la escalera (el título depende del escalón). */
 export const CAMPAIGN_BOT_NAMES: Record<GameClass, string> = {
@@ -72,18 +86,18 @@ const RIVAL_ROTATION: readonly GameClass[] = ["guerrero", "mago", "asesino"];
 
 // ── Estructura de la escalera ──────────────────────────────────────────────
 
-/** ¿Es este escalón un muro de JEFE? */
+/** ¿Es este piso un muro de JEFE? */
 export function isBossStep(step: number): boolean {
   return CAMPAIGN_BOSS_STEPS.includes(step);
 }
 
-/** Clase del JEFE que bloquea un escalón-jefe (null si el escalón es normal). */
+/** Clase del JEFE que bloquea un piso-jefe (null si el piso es normal). */
 export function bossClassForStep(step: number): GameClass | null {
   const idx = CAMPAIGN_BOSS_STEPS.indexOf(step);
   return idx >= 0 ? CAMPAIGN_BOSS_ORDER[idx] : null;
 }
 
-/** Clase del rival normal de un escalón (rotación fija — determinista). */
+/** Clase del rival normal de un piso (rotación fija — determinista). */
 export function rivalClassForStep(step: number): GameClass {
   return RIVAL_ROTATION[(step - 1) % RIVAL_ROTATION.length];
 }
@@ -93,14 +107,14 @@ export function rivalDeckIndexForStep(step: number): 0 | 1 {
   return (Math.floor(step / 2) % 2) as 0 | 1;
 }
 
-/** Título del bot según el tramo de la escalera: la carrera se SIENTE. */
+/** Título del bot según el tramo de la torre: la escalada se SIENTE. */
 export function botTitleForStep(step: number): string {
-  if (step >= 11) return "Campeón";
-  if (step >= 6) return "Veterano";
+  if (step >= 13) return "Campeón";
+  if (step >= 7) return "Veterano";
   return "Aprendiz";
 }
 
-/** Nombre completo para mostrar del rival de un escalón (normal o jefe). */
+/** Nombre completo para mostrar del rival de un piso (normal o jefe). */
 export function rivalNameForStep(step: number): string {
   const boss = bossClassForStep(step);
   if (boss) return CAMPAIGN_BOSS_NAMES[boss];
@@ -110,10 +124,10 @@ export function rivalNameForStep(step: number): string {
 
 // ── Dificultad: material del mazo rival ────────────────────────────────────
 
-/** Tier BASE del mazo rival según el tramo: 1-4 común · 5-9 raro · 10-14 épico. */
+/** Tier BASE del mazo rival según el tramo: 1-6 común · 7-12 raro · 13-17 épico. */
 function baseTierForStep(step: number): Rarity {
-  if (step >= 10) return "epic";
-  if (step >= 5) return "rare";
+  if (step >= 13) return "epic";
+  if (step >= 7) return "rare";
   return "common";
 }
 
@@ -138,9 +152,9 @@ export function bossTierForPrestige(prestige: number): Rarity {
 
 // ── Recompensas y XP escalables ────────────────────────────────────────────
 
-/** Cartas por VICTORIA normal: 2 → 3 → 4 → 5 según el escalón (jefe paga aparte). */
+/** Cartas por VICTORIA normal: 2 → 3 → 4 → 5 según el piso (jefe paga aparte). */
 export function rewardCountForStep(step: number): number {
-  return 2 + Math.floor(step / 4);
+  return 2 + Math.floor(step / 5);
 }
 
 /** XP EXTRA de escalón por victoria (encima de la base 6): 6+escalón; ×1.5 en prestigio. */
@@ -159,16 +173,18 @@ export function effectiveDropLevel(level: number, step: number): number {
 // del campaignStore (total histórico de escalones superados — nunca retrocede
 // ni se reinicia con el prestigio).
 
-/** Escalones superados necesarios para jugar cada clase (0 = libre). */
+/** Pisos superados necesarios para jugar cada clase (0 = libre).
+ *  TORRE DE 6 JEFES: cada jefe vencido RECLUTA a la siguiente clase —
+ *  Korgath→Mago · Yggra→Botánico · Kaela→Pirata · Nyx→Asesino · Dorvik→Tinker. */
 export const CLASS_UNLOCK_STEP: Record<GameClass, number> = {
   guerrero: 0,
-  mago: 5,
-  asesino: 10,
+  mago: 3,
   // V3.0 — visibles solo con V3_CLASSES_UNLOCKED (lib/game/v3.ts); una vez
-  // encendida, se desbloquean progresando la escalera como las demás.
-  botanico: 3,
-  pirata: 8,
-  tinker: 13,
+  // encendida, se desbloquean progresando la torre como las demás.
+  botanico: 6,
+  pirata: 9,
+  asesino: 12,
+  tinker: 15,
 };
 
 /** ¿Está jugable esta clase con X escalones superados? */
@@ -190,9 +206,9 @@ export function classUnlockHint(cls: GameClass): string | null {
 
 // ── Etiquetas de UI ────────────────────────────────────────────────────────
 
-/** Texto corto del escalón para chips/botones ("Escalón 7", "JEFE · Escalón 5"). */
+/** Texto corto del piso para chips/botones ("Piso 7", "JEFE · Piso 5"). */
 export function stepChipLabel(step: number): string {
-  return isBossStep(step) ? `JEFE · Escalón ${step}` : `Escalón ${step}`;
+  return isBossStep(step) ? `JEFE · Piso ${step}` : `Piso ${step}`;
 }
 
 // ── REGLA SISTÉMICA POR CLASE (V3 — grupo A): lore + consejo ───────────────
@@ -242,7 +258,7 @@ export const CLASS_RULE_META: Record<
   },
 };
 
-// ── Lore: splash pre-batalla (la escalera se SIENTE escrita) ───────────────
+// ── Lore: splash pre-batalla (la torre se SIENTE escrita) ───────────────
 
 /** Línea de ambiente de cada rival normal — una por tramo de título. */
 export const CAMPAIGN_BOT_LORE: Record<GameClass, [string, string, string]> = {
@@ -324,6 +340,18 @@ const BIOMES: Record<string, Biome> = {
     tint: "radial-gradient(ellipse at 50% 115%, rgba(161,161,170,0.15), transparent 62%)",
     hex: "161,161,170",
   },
+  jardin: {
+    id: "jardin",
+    name: "Arboleda Devorada",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(132,204,22,0.13), transparent 62%)",
+    hex: "132,204,22",
+  },
+  puerto: {
+    id: "puerto",
+    name: "Bahía de la Boca de Hierro",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(96,165,250,0.13), transparent 62%)",
+    hex: "96,165,250",
+  },
   ceniza: {
     id: "ceniza",
     name: "Paso de Ceniza",
@@ -342,6 +370,12 @@ const BIOMES: Record<string, Biome> = {
     tint: "radial-gradient(ellipse at 50% 115%, rgba(103,232,249,0.11), transparent 62%)",
     hex: "103,232,249",
   },
+  forja: {
+    id: "forja",
+    name: "La Forja Eterna",
+    tint: "radial-gradient(ellipse at 50% 115%, rgba(249,115,22,0.13), transparent 62%)",
+    hex: "249,115,22",
+  },
   sombra: {
     id: "sombra",
     name: "Umbral de Sombras",
@@ -350,13 +384,25 @@ const BIOMES: Record<string, Biome> = {
   },
 };
 
-/** Bioma del escalón: la campaña cruza paisajes (cada muro tiene el suyo). */
+/** Bioma por ID (para el MODO HISTORIA: los capítulos citan su región). */
+export function biomeById(id: string): Biome {
+  return BIOMES[id] ?? BIOMES.tierras;
+}
+
+/** Bioma del piso: la torre cruza paisajes — cada guardián tiene el suyo
+ *  (los pisos previos al muro anuncian la región que se acerca). */
 export function biomeForStep(step: number): Biome {
-  if (step === CAMPAIGN_BOSS_STEPS[2]) return BIOMES.sombra;
-  if (step === CAMPAIGN_BOSS_STEPS[1]) return BIOMES.escarcha;
-  if (step === CAMPAIGN_BOSS_STEPS[0]) return BIOMES.hierro;
-  if (step >= 11) return BIOMES.hielo;
-  if (step >= 6) return BIOMES.ceniza;
+  if (step === CAMPAIGN_BOSS_STEPS[5]) return BIOMES.sombra; // 18 · Vharos
+  if (step >= 16) return BIOMES.sombra; // umbral de sombras
+  if (step === CAMPAIGN_BOSS_STEPS[4]) return BIOMES.forja; // 15 · Dorvik
+  if (step >= 13) return BIOMES.hielo; // corona de hielo
+  if (step === CAMPAIGN_BOSS_STEPS[3]) return BIOMES.escarcha; // 12 · Nyx
+  if (step >= 10) return BIOMES.ceniza; // paso de ceniza (del puerto al trono)
+  if (step === CAMPAIGN_BOSS_STEPS[2]) return BIOMES.puerto; // 9 · Kaela
+  if (step >= 7) return BIOMES.puerto; // bahía
+  if (step === CAMPAIGN_BOSS_STEPS[1]) return BIOMES.jardin; // 6 · Yggra
+  if (step >= 4) return BIOMES.jardin; // arboleda
+  if (step === CAMPAIGN_BOSS_STEPS[0]) return BIOMES.hierro; // 3 · Korgath
   return BIOMES.tierras;
 }
 

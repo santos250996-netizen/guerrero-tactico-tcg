@@ -19,6 +19,7 @@ import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 type View =
   | "main-menu"
   | "class-select"
+  | "story"
   | "editor"
   | "profile"
   | "pvp"

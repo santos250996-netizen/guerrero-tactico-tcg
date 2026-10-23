@@ -32,11 +32,14 @@ import {
   stepChipLabel,
   xpBonusForStep,
   biomeForStep,
+  biomeById,
   loreForStep,
   rushBiomeForIndex,
   CAMPAIGN_BOSS_NAMES,
   CAMPAIGN_BOSS_LORE,
 } from "@/lib/game/campaign";
+import { chapterAt, resolveFight, fightCry, isLastFight, storyXpForFight } from "@/lib/game/story";
+import { useStoryStore } from "@/store/storyStore";
 import { RUSH_BOSSES, RUSH_PICK_TIER_LABEL, rushBossesForCycle, rushXpForBoss } from "@/lib/game/rush";
 import { useStatsStore, xpForNext, XP_DRAW, XP_LOSS, XP_WIN } from "@/store/statsStore";
 import { useSettings } from "@/lib/settings";
@@ -97,6 +100,11 @@ export function PvpGame() {
   const rushActive = usePvpStore((s) => s.rushActive);
   const rushIndex = usePvpStore((s) => s.rushIndex);
   const rushBossClass = usePvpStore((s) => s.rushBossClass);
+  // HISTORIA «EL PACTO DE GUERRA»: los capítulos viven dentro de historia
+  const storyActive = usePvpStore((s) => s.storyActive);
+  const storyChapter = usePvpStore((s) => s.storyChapter);
+  const storyFight = usePvpStore((s) => s.storyFight);
+  const exitToStoryMap = usePvpStore((s) => s.exitToStoryMap);
 
   const [registroOpen, setRegistroOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -106,7 +114,12 @@ export function PvpGame() {
   const openRegistro = useCallback(() => setRegistroOpen(true), []);
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const onRematchCb = useCallback(() => { sfx.click(); requestRematch(); }, [requestRematch]);
-  const onExitCb = useCallback(() => { sfx.click(); exitToMenu(); }, [exitToMenu]);
+  const onExitCb = useCallback(() => {
+    sfx.click();
+    // En la historia el «Menú» es el MAPA de capítulos (el progreso narrativo manda)
+    if (usePvpStore.getState().storyActive) exitToStoryMap();
+    else exitToMenu();
+  }, [exitToMenu, exitToStoryMap]);
 
   // MÚSICA: entra en modo batalla al montar; al salir, vuelve al latido del menú.
   useEffect(() => {
@@ -245,12 +258,13 @@ export function PvpGame() {
       <CardJuiceLayer />
       <Confetti trigger={view.phase === "ended" && view.finalResult?.result === "WIN"} />
 
-      {/* ══ SPLASH PRE-BATALLA — lore del rival (solo LA CAMPAÑA) ══ */}
-      {(mode === "historia" && (rushActive || campaignStep != null)) && (
+      {/* ══ SPLASH PRE-BATALLA — lore del rival (CAMPAÑA · RUSH · HISTORIA) ══ */}
+      {(mode === "historia" && (rushActive || campaignStep != null || storyActive)) && (
         <BattleIntroSplash
           open={battleIntro && view.phase === "playing"}
           step={campaignStep ?? CAMPAIGN_STEPS}
           rush={rushActive && rushBossClass ? { index: rushIndex, bossClass: rushBossClass } : undefined}
+          story={storyActive && storyChapter != null && storyFight != null ? { chapter: storyChapter, fight: storyFight } : undefined}
           onEnter={() => { sfx.click(); dismissBattleIntro(); }}
         />
       )}
@@ -345,21 +359,42 @@ function BattleIntroSplash({
   step,
   onEnter,
   rush,
+  story,
 }: {
   open: boolean;
   step: number;
   onEnter: () => void;
   /** RUSH DE JEFES: el jefe de la run sustituye a lore/rival/bioma/chip. */
   rush?: { index: number; bossClass: GameClass };
+  /** HISTORIA: el capítulo manda — rival resuelto + arenga + bioma del capítulo. */
+  story?: { chapter: number; fight: number };
 }) {
-  const lore = rush
-    ? { text: CAMPAIGN_BOSS_LORE[rush.bossClass], isBoss: true }
-    : loreForStep(step);
-  const biome = rush ? rushBiomeForIndex(rush.index) : biomeForStep(step);
-  const rival = rush ? CAMPAIGN_BOSS_NAMES[rush.bossClass] : rivalNameForStep(step);
-  const chip = rush
-    ? `RUSH DE JEFES · JEFE ${rush.index + 1}/${RUSH_BOSSES}`
-    : `${biome.name}`;
+  const storyFightDef = story
+    ? resolveFight(
+        chapterAt(story.chapter).fights[Math.min(story.fight, chapterAt(story.chapter).fights.length - 1)],
+        useStoryStore.getState().flags,
+      )
+    : null;
+  const lore = story && storyFightDef
+    ? { text: fightCry(storyFightDef), isBoss: !!storyFightDef.bossDeck }
+    : rush
+      ? { text: CAMPAIGN_BOSS_LORE[rush.bossClass], isBoss: true }
+      : loreForStep(step);
+  const biome = story
+    ? biomeById(chapterAt(story.chapter).biomeId)
+    : rush
+      ? rushBiomeForIndex(rush.index)
+      : biomeForStep(step);
+  const rival = story && storyFightDef
+    ? storyFightDef.rival
+    : rush
+      ? CAMPAIGN_BOSS_NAMES[rush.bossClass]
+      : rivalNameForStep(step);
+  const chip = story
+    ? `HISTORIA · ${chapterAt(story.chapter).title.toUpperCase()}`
+    : rush
+      ? `RUSH DE JEFES · JEFE ${rush.index + 1}/${RUSH_BOSSES}`
+      : `${biome.name}`;
   return (
     <AnimatePresence>
       {open && (
@@ -413,7 +448,11 @@ function BattleIntroSplash({
             <p className="mt-3 text-[11px] leading-relaxed text-zinc-300">“{lore.text}”</p>
 
             <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.25em] text-zinc-500">
-              {rush ? `Ciclo ★${useCampaignStore.getState().prestige} · mazo temático épico` : `${stepChipLabel(step)} / ${CAMPAIGN_STEPS}`}
+              {story
+                ? `Capítulo ${chapterAt(story.chapter).num}/7 · Pelea ${Math.min(story.fight + 1, chapterAt(story.chapter).fights.length)}/${chapterAt(story.chapter).fights.length}`
+                : rush
+                  ? `Ciclo ★${useCampaignStore.getState().prestige} · mazo temático épico`
+                  : `${stepChipLabel(step)} / ${CAMPAIGN_STEPS}`}
             </p>
 
             <Button
@@ -453,6 +492,18 @@ function HistoriaEndOverlay({
   const rushIndex = usePvpStore.getState().rushIndex;
   const rushBeaten = usePvpStore.getState().rushBeaten;
   const rushCycle = usePvpStore.getState().rushCycle;
+  // HISTORIA «EL PACTO DE GUERRA»: capítulo/pelea y cierre de capítulo
+  const storyActive = usePvpStore.getState().storyActive;
+  const storyChapterIdx = usePvpStore.getState().storyChapter ?? 0;
+  const storyFightIdx = usePvpStore.getState().storyFight ?? 0;
+  const storyChapterClosed = usePvpStore.getState().storyChapterClosed;
+  const storyCompletedFlag = usePvpStore.getState().storyCompletedFlag;
+  const storyFlags = useStoryStore.getState().flags;
+  const storyChapterDef = chapterAt(storyChapterIdx);
+  const storyFightDef = resolveFight(
+    storyChapterDef.fights[Math.min(storyFightIdx, storyChapterDef.fights.length - 1)],
+    storyFlags,
+  );
   const bossPickMax = usePvpStore((s) => s.bossPickMax);
   const { step: nextStep, prestige } = useCampaignStore.getState();
   // NIVEL: celebra la subida (flash del statsStore) y muestra el XP ganado
@@ -492,7 +543,9 @@ function HistoriaEndOverlay({
               won ? "border-amber-500/60 from-amber-950" : "border-rose-800/60 from-rose-950"
             )}
           >
-            {won && campaignClosed ? (
+            {won && storyCompletedFlag ? (
+              <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
+            ) : won && campaignClosed ? (
               <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
             ) : won && rushActive && rushIndex >= RUSH_BOSSES - 1 ? (
               <Star className="mx-auto h-9 w-9 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
@@ -509,18 +562,28 @@ function HistoriaEndOverlay({
               style={{ fontFamily: "var(--font-cinzel), serif" }}
             >
               {won
-                ? rushActive
-                  ? rushIndex >= RUSH_BOSSES - 1
-                    ? "¡Run completada!"
-                    : `¡Jefe ${rushIndex + 1}/${RUSH_BOSSES}!`
-                  : campaignClosed
-                    ? "¡Campaña completada!"
-                    : bossActive
-                      ? "¡Jefe derrotado!"
-                      : "¡Victoria!"
-                : rushActive
-                  ? "Run terminada"
-                  : "Derrota"}
+                ? storyActive
+                  ? storyCompletedFlag
+                    ? "¡Historia completada!"
+                    : storyChapterClosed
+                      ? `¡Capítulo ${storyChapterDef.num} superado!`
+                      : bossActive
+                        ? "¡Campeón derrotado!"
+                        : "¡Victoria!"
+                  : rushActive
+                    ? rushIndex >= RUSH_BOSSES - 1
+                      ? "¡Run completada!"
+                      : `¡Jefe ${rushIndex + 1}/${RUSH_BOSSES}!`
+                    : campaignClosed
+                      ? "¡Torre completada!"
+                      : bossActive
+                        ? "¡Jefe derrotado!"
+                        : "¡Victoria!"
+                : storyActive
+                  ? "Pelea perdida"
+                  : rushActive
+                    ? "Run terminada"
+                    : "Derrota"}
             </div>
 
             {/* Chip de contexto: ESCALÓN (campaña) o RUSH n/3 · ciclo */}
@@ -530,9 +593,11 @@ function HistoriaEndOverlay({
                 rushActive || isBossStep(playedStep) ? "text-rose-300/90" : "text-zinc-400"
               )}
             >
-              {rushActive
-                ? `RUSH · ${rushBeaten}/${RUSH_BOSSES} jefes · ciclo ★${rushCycle}`
-                : `${stepChipLabel(playedStep)} / ${CAMPAIGN_STEPS}`}
+              {storyActive
+                ? `EL PACTO DE GUERRA · CAPÍTULO ${storyChapterDef.num}/7`
+                : rushActive
+                  ? `RUSH · ${rushBeaten}/${RUSH_BOSSES} jefes · ciclo ★${rushCycle}`
+                  : `${stepChipLabel(playedStep)} / ${CAMPAIGN_STEPS}`}
               {prestige > 0 && <span className="text-amber-300/80"> · ★ {prestige}</span>}
             </p>
 
@@ -552,7 +617,10 @@ function HistoriaEndOverlay({
               {won && rushActive && (
                 <span className="text-amber-300/90"> · +{rushXpForBoss(rushIndex, prestige)} XP ×2</span>
               )}
-              {won && !rushActive && (
+              {won && storyActive && (
+                <span className="text-amber-300/90"> · +{storyXpForFight(storyChapterIdx)} XP de historia</span>
+              )}
+              {won && !rushActive && !storyActive && (
                 <span className="text-amber-300/90"> · +{xpBonusForStep(playedStep, prestige)} XP de escalón</span>
               )}
             </p>
@@ -697,12 +765,15 @@ function HistoriaEndOverlay({
                 La run acaba aquí: venciste a {rushBeaten} de {RUSH_BOSSES} jefes
               </p>
             )}
-            {!won && !rushActive && loot.length > 0 && (
+            {!won && storyActive && (
+              <p className="mt-2 text-[11px] italic leading-relaxed text-zinc-300">“{storyFightDef.lose}”</p>
+            )}
+            {!won && !storyActive && !rushActive && loot.length > 0 && (
               <p className="mt-1 text-[9px] uppercase tracking-widest text-rose-200/70">
                 El bot te venció — igual te llevas 1 carta y el escalón te espera
               </p>
             )}
-            {!won && !rushActive && loot.length === 0 && (
+            {!won && !storyActive && !rushActive && loot.length === 0 && (
               <p className="mt-1 text-[10px] uppercase tracking-widest text-rose-200/70">
                 El bot te venció — afina tu mazo y reintenta
               </p>
@@ -720,7 +791,15 @@ function HistoriaEndOverlay({
                     : "border-rose-400/60 bg-gradient-to-b from-rose-700 to-rose-900 text-rose-50 hover:from-rose-600 hover:to-rose-800"
                 )}
               >
-                {rushActive
+                {storyActive
+                  ? won
+                    ? storyCompletedFlag
+                      ? "Fin — El Pacto de Guerra"
+                      : storyChapterClosed
+                        ? "Volver al Mapa"
+                        : "Siguiente Pelea"
+                    : "Reintentar Pelea"
+                  : rushActive
                   ? won
                     ? rushIndex >= RUSH_BOSSES - 1
                       ? "Nueva Run"
@@ -728,12 +807,37 @@ function HistoriaEndOverlay({
                     : "Reintentar Run"
                   : won
                     ? campaignClosed
-                      ? "Nueva Campaña ★"
+                      ? "Nueva Vuelta ★"
                       : isBossStep(playedStep)
-                        ? "Continuar Campaña"
-                        : "Siguiente Escalón"
-                    : "Reintentar Escalón"}
+                        ? "Continuar la Torre"
+                        : "Siguiente Piso"
+                    : "Reintentar Piso"}
               </Button>
+              {storyActive && won && !storyCompletedFlag && !storyChapterClosed && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Siguiente: <span className="text-zinc-300">
+                    {resolveFight(
+                      storyChapterDef.fights[Math.min(storyFightIdx + 1, storyChapterDef.fights.length - 1)],
+                      storyFlags,
+                    ).rival}
+                  </span>
+                </p>
+              )}
+              {storyActive && won && storyChapterClosed && !storyCompletedFlag && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-amber-300/80">
+                  El epílogo te espera en el mapa del Pacto
+                </p>
+              )}
+              {storyActive && won && storyCompletedFlag && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-amber-300/80">
+                  La Torre de los Muros sigue en pie — como prueba
+                </p>
+              )}
+              {storyActive && !won && (
+                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  La historia no retrocede: la misma pelea, otra barajada
+                </p>
+              )}
               {rushActive && won && rushIndex < RUSH_BOSSES - 1 && (
                 <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
                   Siguiente: <span className="text-zinc-300">{CAMPAIGN_BOSS_NAMES[rushBossesForCycle(rushCycle)[rushIndex + 1]]}</span>
@@ -744,14 +848,14 @@ function HistoriaEndOverlay({
                   Mejor run ({usePvpStore.getState().gameClass}): <span className="text-amber-300/90">{Math.max(rushBestOfCls, rushBeaten)}/3</span>
                 </p>
               )}
-              {won && !rushActive && !campaignClosed && (
+              {won && !storyActive && !rushActive && !campaignClosed && (
                 <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
                   Siguiente: <span className="text-zinc-300">{rivalNameForStep(nextStep)}</span>
                 </p>
               )}
               {won && campaignClosed && (
                 <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-amber-300/80">
-                  ★ Prestigio {prestige} — la escalera recomienza con rivales reforzados
+                  ★ Prestigio {prestige} — la torre recomienza con rivales reforzados
                 </p>
               )}
               <Button
@@ -759,7 +863,7 @@ function HistoriaEndOverlay({
                 variant="outline"
                 className="border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-900"
               >
-                Menú
+                {storyActive ? "Mapa del Pacto" : "Menú"}
               </Button>
             </div>
           </motion.div>

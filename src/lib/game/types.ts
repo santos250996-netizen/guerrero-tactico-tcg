@@ -839,7 +839,7 @@ export const LANE_META: Record<
 // Per-game lane bonuses
 // ---------------------------------------------------------------------------
 
-type LaneBonusKind =
+export type LaneBonusKind =
   | "cost_neg" // coste -1 (descuento de energía)
   | "cost_pos" // coste +1 (penalización de energía)
   | "cat_item" // Ítem +3

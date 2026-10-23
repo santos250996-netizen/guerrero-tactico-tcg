@@ -14,10 +14,16 @@
 // ===========================================================================
 
 import type { GameClass } from "./types";
-import { CAMPAIGN_BOSS_STEPS, xpBonusForStep } from "./campaign";
+import { xpBonusForStep } from "./campaign";
 
 /** Jefes por run (fijo: la run completa paga el botín grande). */
 export const RUSH_BOSSES = 3;
+
+/** Pisos EQUIVALENTES de los 3 jefes de la run — ESCALERA PROPIA DEL RUSH,
+ *  desacoplada de la torre de 6 jefes (Task 62). La run de 3 jefes mide su
+ *  dificultad como los antiguos muros 5/10/15 (hoy los muros 2º-4º de la
+ *  torre): XP y floor de drops del rush NO cambian al crecer la torre. */
+export const RUSH_EQUIV_STEPS: readonly number[] = [5, 10, 15];
 
 /** Ciclo 0 = los 3 jefes clásicos · ciclo 1 = los 3 jefes V3 · ciclo 2+
  *  intercalado determinista de los 6 (rotación por pares de ciclos). */
@@ -32,13 +38,13 @@ export function rushBossesForCycle(cycle: number): GameClass[] {
 }
 
 /**
- * XP EXTRA por jefe vencido: el Rush DOBLA el bono de escalón del jefe
- * equivalente (5/10/15 → 10/20/30 en la 1ª vuelta, ×1.5 por prestigio).
- * La XP base de la partida (+6 victoria) y el bono de JEFE (+10) ya los paga
- * registerMatch(boss:true) — esta cantidad se SUMA encima vía addXp.
+ * XP EXTRA por jefe vencido: el Rush DOBLA el bono de piso del jefe
+ * equivalente de SU escalera (5/10/15 → 10/20/30 en la 1ª vuelta, ×1.5 por
+ * prestigio). La XP base de la partida (+6 victoria) y el bono de JEFE (+10)
+ * ya los paga registerMatch(boss:true) — esta cantidad se SUMA encima vía addXp.
  */
 export function rushXpForBoss(index: number, prestige: number): number {
-  const step = CAMPAIGN_BOSS_STEPS[Math.min(Math.max(0, index), CAMPAIGN_BOSS_STEPS.length - 1)];
+  const step = RUSH_EQUIV_STEPS[Math.min(Math.max(0, index), RUSH_EQUIV_STEPS.length - 1)];
   return 2 * xpBonusForStep(step, prestige);
 }
 

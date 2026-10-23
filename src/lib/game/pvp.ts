@@ -52,6 +52,7 @@ import type {
   GameClass,
   HandCard,
   LaneBonus,
+  LaneBonusKind,
   LaneBonuses,
   LaneId,
   Keyword,
@@ -387,6 +388,22 @@ function rollPositionBonuses(fillAll = false): (LaneBonus | null)[] {
 export function enableBossMode(state: PvpState): void {
   state.bossMode = true;
   state.positionBonuses = rollPositionBonuses(true);
+  state.version++;
+}
+
+/** REGLA DE CAPÍTULO (MODO HISTORIA): fuerza los bonos de carril por posición
+ *  (0,1,2) — cada pelea de la historia se siente ESCRITA, no sorteada.
+ *  Llamar DESPUÉS de joinBotPvpState/enableBossMode (sobrescribe lo sorteado).
+ *  kind desconocido o null → posición sin bono. */
+export function setForcedPositionBonuses(
+  state: PvpState,
+  forced: readonly (LaneBonusKind | null)[]
+): void {
+  const byKind = new Map(LANE_BONUS_POOL.map((b) => [b.kind, b]));
+  state.positionBonuses = [0, 1, 2].map((i) => {
+    const kind = forced[i];
+    return kind ? (byKind.get(kind) ?? null) : null;
+  });
   state.version++;
 }
 

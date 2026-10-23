@@ -71,7 +71,7 @@ section("lib/game/admin — flag persistente");
 section("campaign.classUnlocked — bypass del admin");
 {
   check("sin admin: tinker a 0 escalones BLOQUEADA", !classUnlocked("tinker", 0));
-  check("sin admin: mago a 4 escalones BLOQUEADA (necesita 5)", !classUnlocked("mago", 4));
+  check("sin admin: mago a 2 pisos BLOQUEADA (necesita 3 — Korgath)", !classUnlocked("mago", 2));
   check("sin admin: guerrero libre", classUnlocked("guerrero", 0));
   // Simular flag ON escribiendo directo al storage polyfill
   const { writeAdminState } = await import("../src/lib/game/admin");
