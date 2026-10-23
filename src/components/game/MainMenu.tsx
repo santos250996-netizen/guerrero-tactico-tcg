@@ -6,14 +6,17 @@ import { usePvpStore } from "@/store/pvpStore";
 import { useStatsStore } from "@/store/statsStore";
 import { sfx } from "@/lib/sound";
 import { music } from "@/lib/music";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X, ClipboardPaste, Skull } from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
+import { AdminSecretModal } from "./AdminSecretModal";
+import { useAdminStore } from "@/store/adminStore";
 import { isFreshInstall, applyProgressCode, readClipboardText } from "@/lib/progress-backup";
 import { haptic } from "@/lib/haptics";
 import { CollectionMenuButton } from "./CollectionScreen";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { useMissionStore, type Mission } from "@/store/missionStore";
+import { cn } from "@/lib/utils";
 
 /** Toast global de misión completada (reutilizado también dentro de partidas). */
 export function MissionToast() {
@@ -76,6 +79,12 @@ export function MainMenu() {
   // RUSH DE JEFES: mejor run de la clase activa (pintada SOLO tras hidratar —
   // mismo patrón anti-mismatch que el contador de misiones de arriba).
   const [rushReady, setRushReady] = useState(false);
+  // MODO ADMIN (oculto): estado para el footer + el panel secreto. El flag se
+  // hidrata en el effect de abajo (mismo patrón anti-mismatch que `ready`).
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOn, setAdminOn] = useState(false);
+  const [adminTaps, setAdminTaps] = useState(0);
+  const adminTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const missions = useMissionStore((s) => s.missions);
   const ensureToday = useMissionStore((s) => s.ensureToday);
 
@@ -88,6 +97,8 @@ export function MainMenu() {
       if (!alive) return;
       setReady(true);
       setRushReady(true);
+      useAdminStore.getState().hydrate();
+      setAdminOn(useAdminStore.getState().on);
       const brief = loadStoredProfileBrief();
       setAvatarCardId(brief?.avatarCardId ?? null);
       setAvatarBroken(false);
@@ -128,6 +139,23 @@ export function MainMenu() {
   const goToPvp = () => {
     click();
     setView("pvp");
+  };
+
+  // GESTO SECRETO DEL MODO ADMIN: 7 toques en la versión del menú (como las
+  // opciones de desarrollador de Android). Sin feedback visible hasta abrir —
+  // solo un haptic light por toque. Una pausa >1.6s reinicia la cuenta.
+  const adminFooterTap = () => {
+    haptic("light");
+    if (adminTapTimer.current) clearTimeout(adminTapTimer.current);
+    const next = adminTaps + 1;
+    if (next >= 7) {
+      setAdminTaps(0);
+      sfx.select();
+      setAdminOpen(true);
+      return;
+    }
+    setAdminTaps(next);
+    adminTapTimer.current = setTimeout(() => setAdminTaps(0), 1600);
   };
 
   const dismissRestore = () => {
@@ -318,17 +346,29 @@ export function MainMenu() {
         </button>
       </motion.div>
 
-      {/* ── BOTTOM-CENTER (version, bajo Misiones — no pisa el título) ── */}
+      {/* ── BOTTOM-CENTER (version, bajo Misiones — no pisa el título).
+              También es el GESTO SECRETO: 7 toques abren el modo admin. Con
+              el admin encendido la etiqueta cambia a «modo admin» en rojo —
+              discreto, solo para el dueño. ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.7 }}
         className="absolute inset-x-0 bottom-2.5 z-20 flex justify-center px-8"
       >
-        <p className="text-center text-[7px] font-bold uppercase tracking-[0.35em] text-amber-700/60">
-          v3.1 · 6 clases · 192 cartas · rush de jefes
+        <p
+          onClick={adminFooterTap}
+          className={cn(
+            "select-none text-center text-[7px] font-bold uppercase tracking-[0.35em]",
+            adminOn ? "text-rose-500/80" : "text-amber-700/60"
+          )}
+        >
+          v3.2 · 6 clases · 192 cartas · {adminOn ? "modo admin" : "rush de jefes"}
         </p>
       </motion.div>
+
+      {/* Panel SECRETO del modo admin (solo llega aquí con 7 toques) */}
+      <AdminSecretModal open={adminOpen} onClose={() => setAdminOpen(false)} />
 
       {/* Toast de misión completada */}
       <MissionToast />
