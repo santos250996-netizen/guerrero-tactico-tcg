@@ -1367,3 +1367,19 @@ Stage Summary:
 - Menú legible y jerárquico: el orden es lo nuevo, los colores/iconos se heredan de los botones anteriores (ámbar/violeta/rosa/púrpura/teal)
 - Commit con PUSH (orden explícita del usuario en esta sesión)
 - Pendiente menor detectado: el mapa de historia trunca títulos de capítulo a 320px (fuera de alcance aquí; posible pulido futuro)
+
+---
+Task ID: ui-menu-candados
+Agent: Z.ai main agent
+Task: «el pacto debe venir primero y la torre deberia estar bloqueada... al igual q rush» — jerarquía narrativa + candados en el menú
+
+Work Log:
+- Diseño de la escalera: EL PACTO primario (siempre abierto) → LA TORRE se abre al COMPLETAR la historia (7/7) → RUSH al vencer al jefe del piso 3 de la Torre (stepsCleared ≥ 3, histórico: veteranos de v3.0-3.2 ya lo cumplen). El modo admin se salta los candados. PVP LOCAL y COLECCIÓN siempre abiertos.
+- Economía validada antes de decidir: la historia SÍ paga botín (pvpStore ~658-677: botín chico por pelea + botín completo del escalón al cerrar capítulo) → cerrar Torre+Rush no ahoga la colección.
+- MainMenu: EL PACTO sube a primaria (violeta intenso), Torre/Rush medianas; ModeCard con `locked` → medallón de candado (Lock), saturación 0.4, aria-disabled, toque NEGADO (sacudida WAAPI + haptic heavy + sfx.debuff) que NO navega
+- Chips: con candado SIN chip (no cabía en media tarjeta a 320px — «RU…»/título invisible); condición corta como subtítulo («Pacto 7/7» / «Piso 3») y tooltip con la frase completa
+- Verificación E2E con agent-browser en 3 estados: fresco (Torre+Rush candados), veterano (historia pendiente + stepsCleared 24 → Torre candada + Rush abierta), historia completada (Torre «PISO 7/18 · ★1» + Pacto «COMPLETADA») · toque en Torre bloqueada NO navega · 0 truncamientos a 320 y 390 · tsc/lint/detect []/0 errores consola
+
+Stage Summary:
+- El menú ahora cuenta la progresión real del juego: vives El Pacto → escalas la Torre (jefes reclutan clases, CLASS_UNLOCK_STEP) → conoces a los jefes → se abre el Rush
+- Commit con PUSH (orden permanente de la sesión)

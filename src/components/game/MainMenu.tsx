@@ -9,9 +9,13 @@
 //
 // Solución: un PANEL-HUB inferior con jerarquía piramidal FIJA (nada envuelve,
 // nada flota suelto):
-//   · 1 tarjeta primaria a todo lo ancho → LA TORRE (el grind principal)
-//   · 2 tarjetas medianas → EL PACTO (historia) + RUSH (reto de jefes)
+//   · 1 tarjeta primaria a todo lo ancho → EL PACTO (la historia, SIEMPRE abierta)
+//   · 2 tarjetas medianas → LA TORRE (se abre al completar El Pacto) + RUSH
+//     (se abre al vencer al jefe del piso 3 de la Torre)
 //   · 2 tarjetas compactas → COLECCIÓN + PVP LOCAL
+// Escalera narrativa «de la vida real»: primero vives El Pacto → escalas la
+// Torre (sus jefes reclutan clases) → conoces a los jefes → se abre el Rush.
+// El modo admin (oculto, 7 toques) se salta los candados.
 // Cada tarjeta muestra el PROGRESO real del jugador (piso de torre, capítulo
 // de historia, mejor run de rush, cartas de colección) — pintado SOLO tras
 // hidratar los stores (patrón anti-mismatch de siempre: servidor y cliente
@@ -45,6 +49,7 @@ import {
   Skull,
   BookOpen,
   Castle,
+  Lock,
   Swords,
   Sparkles,
   type LucideIcon,
@@ -116,10 +121,10 @@ const TONES: Record<"torre" | "pacto" | "rush" | "coleccion" | "pvp", ModeTone> 
   },
   pacto: {
     card:
-      "border-violet-400/50 bg-gradient-to-b from-violet-900/80 to-zinc-950/95 shadow-[0_6px_20px_-10px_rgba(139,92,246,0.5)] hover:border-violet-300/70",
-    medallion: "border-violet-300/40 bg-violet-950/60 text-violet-200",
-    title: "text-violet-100",
-    sub: "text-violet-200/70",
+      "border-violet-300/60 bg-gradient-to-b from-violet-600 via-violet-800 to-zinc-950 shadow-[0_6px_22px_-8px_rgba(139,92,246,0.6)] hover:border-violet-200/80",
+    medallion: "border-violet-200/50 bg-black/25 text-violet-100",
+    title: "text-violet-50",
+    sub: "text-violet-100/75",
   },
   rush: {
     card:
@@ -159,6 +164,8 @@ const cardV: Variants = {
 };
 
 // ── Tarjeta de modo: [medallón] TÍTULO / progreso [chip de estado] ──
+// Con `locked`, la tarjeta se apaga, el medallón muestra un candado y el
+// toque NO navega: sacudida física + golpe grave + zumbido descendente.
 function ModeCard({
   tone,
   icon: Icon,
@@ -167,30 +174,56 @@ function ModeCard({
   stat,
   tooltip,
   big,
+  locked,
   onClick,
 }: {
   tone: ModeTone;
   icon: LucideIcon;
   title: string;
   subtitle: string;
-  /** Chip de estado a la derecha (solo la tarjeta primaria). */
+  /** Chip de estado a la derecha (progreso o condición de desbloqueo). */
   stat?: string;
   /** Tooltip nativo (título HTML). */
   tooltip?: string;
   /** true → tarjeta primaria (más alta, tipografía mayor). */
   big?: boolean;
+  /** true → candado: el toque niega (no navega). */
+  locked?: boolean;
   onClick: () => void;
 }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
   return (
     <motion.button
+      ref={btnRef}
       variants={cardV}
       whileTap={{ scale: 0.97 }}
-      onClick={onClick}
+      onClick={() => {
+        if (locked) {
+          // NEGADO: sacudida física + golpe háptico grave + zumbido descendente.
+          btnRef.current?.animate(
+            [
+              { transform: "translateX(0)" },
+              { transform: "translateX(-7px)" },
+              { transform: "translateX(7px)" },
+              { transform: "translateX(-5px)" },
+              { transform: "translateX(5px)" },
+              { transform: "translateX(0)" },
+            ],
+            { duration: 320, easing: "ease-in-out" }
+          );
+          haptic("heavy");
+          sfx.debuff();
+          return;
+        }
+        onClick();
+      }}
       title={tooltip}
       aria-label={`${title} — ${subtitle}`}
+      aria-disabled={locked || undefined}
       className={cn(
         "group relative flex w-full items-center gap-2 rounded-xl border px-2.5 text-left transition-colors min-[360px]:gap-2.5 min-[360px]:px-3",
         big ? "min-h-[60px] py-2.5" : "min-h-[52px] py-2",
+        locked && "saturate-[0.4] opacity-80",
         tone.card
       )}
     >
@@ -201,10 +234,14 @@ function ModeCard({
           tone.medallion
         )}
       >
-        <Icon
-          className={big ? "h-4 w-4 min-[360px]:h-[18px] min-[360px]:w-[18px]" : "h-3.5 w-3.5 min-[360px]:h-4 min-[360px]:w-4"}
-          strokeWidth={2.1}
-        />
+        {locked ? (
+          <Lock className="h-3.5 w-3.5" strokeWidth={2.4} />
+        ) : (
+          <Icon
+            className={big ? "h-4 w-4 min-[360px]:h-[18px] min-[360px]:w-[18px]" : "h-3.5 w-3.5 min-[360px]:h-4 min-[360px]:w-4"}
+            strokeWidth={2.1}
+          />
+        )}
       </span>
       <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
         <span
@@ -229,7 +266,7 @@ function ModeCard({
         </span>
       </span>
       {stat && (
-        <span className="shrink-0 rounded-full border border-amber-200/40 bg-black/30 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.1em] text-amber-100 tabular-nums min-[360px]:text-[8px] min-[360px]:tracking-[0.12em]">
+        <span className="shrink-0 rounded-full border border-white/20 bg-black/40 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.1em] text-zinc-100 tabular-nums min-[360px]:text-[8px] min-[360px]:tracking-[0.12em]">
           {stat}
         </span>
       )}
@@ -269,6 +306,7 @@ export function MainMenu() {
   // Progreso real por modo (hooks suscritos; el dato se MUESTRA tras `ready`).
   const campaignStep = useCampaignStore((s) => s.step);
   const campaignPrestige = useCampaignStore((s) => s.prestige);
+  const campaignStepsCleared = useCampaignStore((s) => s.stepsCleared);
   const storyChapter = useStoryStore((s) => s.chapter);
   const storyCompleted = useStoryStore((s) => s.completed);
   const copies = useCollectionStore((s) => s.copies);
@@ -314,15 +352,34 @@ export function MainMenu() {
   const rushBest = useStatsStore.getState().rushBest[gameClass] ?? 0;
 
   // ── Etiquetas de progreso (fallback estático hasta que `ready` sea true) ──
-  const torreStat = ready
-    ? `Piso ${campaignStep}/${CAMPAIGN_STEPS}${campaignPrestige > 0 ? ` · ★${campaignPrestige}` : ""}`
-    : undefined;
-  const pactoSub = ready
+  // CANDADOS (escalera narrativa): El Pacto SIEMPRE abierto → LA TORRE se
+  // abre al COMPLETAR la historia → RUSH al vencer al jefe del piso 3 de la
+  // Torre (stepsCleared es HISTÓRICO: los veteranos de v3.0-3.2 ya lo
+  // cumplieron). El modo admin lo salta todo. Pre-`ready` todo se ve abierto
+  // (servidor y cliente estrenan igual → sin mismatch de hidratación).
+  const torreLocked = ready && !adminOn && !storyCompleted;
+  const rushLocked = ready && !adminOn && !storyCompleted && campaignStepsCleared < 3;
+
+  const pactoStat = ready
     ? storyCompleted
       ? "Completada"
       : `Capítulo ${Math.min(storyChapter + 1, STORY_TOTAL)}/${STORY_TOTAL}`
-    : "La campaña";
-  const rushSub = rushReady && rushBest > 0 ? `Mejor ${rushBest}/3` : "XP ×2";
+    : undefined;
+  const pactoSub = "Campaña principal";
+  // Con candado NO hay chip (no cabe en media tarjeta a 320px): la condición
+  // corta va como subtítulo y el tooltip lleva la frase completa.
+  const torreSub = torreLocked ? "Pacto 7/7" : "Escalada infinita";
+  const torreStat = torreLocked
+    ? undefined
+    : ready
+      ? `Piso ${campaignStep}/${CAMPAIGN_STEPS}${campaignPrestige > 0 ? ` · ★${campaignPrestige}` : ""}`
+      : undefined;
+  const rushSub = rushLocked ? "Piso 3" : "XP ×2";
+  const rushStat = rushLocked
+    ? undefined
+    : rushReady && rushBest > 0
+      ? `Mejor ${rushBest}/3`
+      : undefined;
   const ownedCards = Object.values(copies).filter(
     (c) =>
       (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) + (c.mythic ?? 0) > 0
@@ -542,32 +599,45 @@ export function MainMenu() {
           animate="show"
           className="flex flex-col gap-2 px-3 pb-1.5 pt-3"
         >
-          {/* PRIMARIA → el grind principal */}
+          {/* PRIMARIA → la historia: SIEMPRE abierta (el juego ES El Pacto) */}
           <ModeCard
             big
-            tone={TONES.torre}
-            icon={Castle}
-            title="LA TORRE"
-            subtitle="Escalada infinita"
-            stat={torreStat}
-            onClick={goToClassSelect}
+            tone={TONES.pacto}
+            icon={BookOpen}
+            title="EL PACTO"
+            subtitle={pactoSub}
+            stat={pactoStat}
+            onClick={goToStory}
           />
 
-          {/* MEDIANAS → historia + reto */}
+          {/* MEDIANAS → el endgame: Torre (post-historia) + Rush (post-piso 3) */}
           <div className="grid grid-cols-2 gap-2">
             <ModeCard
-              tone={TONES.pacto}
-              icon={BookOpen}
-              title="EL PACTO"
-              subtitle={pactoSub}
-              onClick={goToStory}
+              tone={TONES.torre}
+              icon={Castle}
+              title="LA TORRE"
+              subtitle={torreSub}
+              stat={torreStat}
+              tooltip={
+                torreLocked
+                  ? "Bloqueada — completa El Pacto de Guerra para abrir La Torre de los Muros"
+                  : undefined
+              }
+              locked={torreLocked}
+              onClick={goToClassSelect}
             />
             <ModeCard
               tone={TONES.rush}
               icon={Skull}
               title="RUSH"
               subtitle={rushSub}
-              tooltip="3 jefes seguidos · XP ×2 · botín por escalón — se juega con el mazo de la clase activa"
+              stat={rushStat}
+              tooltip={
+                rushLocked
+                  ? "Bloqueado — vence al jefe del piso 3 de La Torre para abrir el Rush de Jefes"
+                  : "3 jefes seguidos · XP ×2 · botín por escalón — se juega con el mazo de la clase activa"
+              }
+              locked={rushLocked}
               onClick={goToRush}
             />
           </div>
