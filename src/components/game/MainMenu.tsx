@@ -1,20 +1,59 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+// ============================================================================
+// MainMenu — HUB DEL MENÚ PRINCIPAL (rediseño de ORDEN, no de identidad).
+//
+// Problema que resuelve: el menú acumuló 6 píldoras sueltas (4 envolvían a 2
+// líneas en pantallas estrechas, cada bloque anclaba al fondo por su cuenta,
+// colores y tamaños sin jerarquía) = reguero ilegible.
+//
+// Solución: un PANEL-HUB inferior con jerarquía piramidal FIJA (nada envuelve,
+// nada flota suelto):
+//   · 1 tarjeta primaria a todo lo ancho → LA TORRE (el grind principal)
+//   · 2 tarjetas medianas → EL PACTO (historia) + RUSH (reto de jefes)
+//   · 2 tarjetas compactas → COLECCIÓN + PVP LOCAL
+// Cada tarjeta muestra el PROGRESO real del jugador (piso de torre, capítulo
+// de historia, mejor run de rush, cartas de colección) — pintado SOLO tras
+// hidratar los stores (patrón anti-mismatch de siempre: servidor y cliente
+// estrenan con los fallbacks estáticos y recién tras el mount aparece el
+// dato real, sin mismatch SSR↔cliente).
+// El cromo (perfil · misiones · ajustes) sube a la barra superior: los modos
+// dejan de competir con las utilidades por el fondo de la pantalla.
+// El gesto secreto del modo admin vive en el pie del panel (7 toques).
+// ============================================================================
+
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { usePvpStore } from "@/store/pvpStore";
 import { useStoryStore } from "@/store/storyStore";
+import { useCampaignStore } from "@/store/campaignStore";
+import { CAMPAIGN_STEPS } from "@/lib/game/campaign";
+import { STORY_TOTAL } from "@/lib/game/story";
+import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
+import { ALL_CARDS_V3 } from "@/lib/game/cards";
 import { useStatsStore } from "@/store/statsStore";
 import { sfx } from "@/lib/sound";
 import { music } from "@/lib/music";
 import { useState, useEffect, useRef } from "react";
-import { User, Settings as SettingsIcon, Wifi, ScrollText, Gift, X, ClipboardPaste, Skull, BookOpen } from "lucide-react";
+import {
+  User,
+  Settings as SettingsIcon,
+  ScrollText,
+  Gift,
+  X,
+  ClipboardPaste,
+  Skull,
+  BookOpen,
+  Castle,
+  Swords,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { SettingsModal } from "./SettingsModal";
 import { AdminSecretModal } from "./AdminSecretModal";
 import { useAdminStore } from "@/store/adminStore";
 import { isFreshInstall, applyProgressCode, readClipboardText } from "@/lib/progress-backup";
 import { haptic } from "@/lib/haptics";
-import { CollectionMenuButton } from "./CollectionScreen";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { useMissionStore, type Mission } from "@/store/missionStore";
 import { cn } from "@/lib/utils";
@@ -54,48 +93,198 @@ export function MissionToast() {
   );
 }
 
+// ──────────────────────────────────────────────────────────────
+// Identidad por modo: cada tarjeta hereda el color del botón que
+// sustituye (ámbar=Torre, violeta=Pacto, rosa=Rush, púrpura=Colección,
+// teal=PvP) — continuidad con el menú anterior; el ORDEN es lo nuevo.
+// Subtinturas desde el propio matiz (nunca gris sobre color).
+// ──────────────────────────────────────────────────────────────
+interface ModeTone {
+  card: string; // borde + fondo + sombra + hover
+  medallion: string; // cajita del icono
+  title: string;
+  sub: string;
+}
+
+const TONES: Record<"torre" | "pacto" | "rush" | "coleccion" | "pvp", ModeTone> = {
+  torre: {
+    card:
+      "border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-900 shadow-[0_6px_22px_-8px_rgba(251,191,36,0.55)] hover:border-amber-200/80",
+    medallion: "border-amber-200/50 bg-black/25 text-amber-100",
+    title: "text-amber-50",
+    sub: "text-amber-100/75",
+  },
+  pacto: {
+    card:
+      "border-violet-400/50 bg-gradient-to-b from-violet-900/80 to-zinc-950/95 shadow-[0_6px_20px_-10px_rgba(139,92,246,0.5)] hover:border-violet-300/70",
+    medallion: "border-violet-300/40 bg-violet-950/60 text-violet-200",
+    title: "text-violet-100",
+    sub: "text-violet-200/70",
+  },
+  rush: {
+    card:
+      "border-rose-400/50 bg-gradient-to-b from-rose-900/80 to-zinc-950/95 shadow-[0_6px_20px_-10px_rgba(244,63,94,0.45)] hover:border-rose-300/70",
+    medallion: "border-rose-300/40 bg-rose-950/60 text-rose-200",
+    title: "text-rose-100",
+    sub: "text-rose-200/70",
+  },
+  coleccion: {
+    card:
+      "border-purple-400/50 bg-gradient-to-b from-purple-900/80 to-zinc-950/95 shadow-[0_6px_20px_-10px_rgba(192,132,252,0.4)] hover:border-purple-300/70",
+    medallion: "border-purple-300/40 bg-purple-950/60 text-purple-200",
+    title: "text-purple-100",
+    sub: "text-purple-200/70",
+  },
+  pvp: {
+    card:
+      "border-teal-400/50 bg-gradient-to-b from-teal-900/80 to-zinc-950/95 shadow-[0_6px_20px_-10px_rgba(45,212,191,0.4)] hover:border-teal-300/70",
+    medallion: "border-teal-300/40 bg-teal-950/60 text-teal-200",
+    title: "text-teal-100",
+    sub: "text-teal-200/70",
+  },
+};
+
+// ── Coreografía de entrada (UN solo momento: el hub sube y las tarjetas
+//    caen en cascada — sin efectos sueltos por todas partes). ──
+const panelV: Variants = {
+  hidden: { opacity: 0, y: 36 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
+};
+const listV: Variants = {
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.15 } },
+};
+const cardV: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+};
+
+// ── Tarjeta de modo: [medallón] TÍTULO / progreso [chip de estado] ──
+function ModeCard({
+  tone,
+  icon: Icon,
+  title,
+  subtitle,
+  stat,
+  tooltip,
+  big,
+  onClick,
+}: {
+  tone: ModeTone;
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  /** Chip de estado a la derecha (solo la tarjeta primaria). */
+  stat?: string;
+  /** Tooltip nativo (título HTML). */
+  tooltip?: string;
+  /** true → tarjeta primaria (más alta, tipografía mayor). */
+  big?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <motion.button
+      variants={cardV}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      title={tooltip}
+      aria-label={`${title} — ${subtitle}`}
+      className={cn(
+        "group relative flex w-full items-center gap-2 rounded-xl border px-2.5 text-left transition-colors min-[360px]:gap-2.5 min-[360px]:px-3",
+        big ? "min-h-[60px] py-2.5" : "min-h-[52px] py-2",
+        tone.card
+      )}
+    >
+      <span
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-lg border",
+          big ? "h-9 w-9 min-[360px]:h-10 min-[360px]:w-10" : "h-8 w-8 min-[360px]:h-9 min-[360px]:w-9",
+          tone.medallion
+        )}
+      >
+        <Icon
+          className={big ? "h-4 w-4 min-[360px]:h-[18px] min-[360px]:w-[18px]" : "h-3.5 w-3.5 min-[360px]:h-4 min-[360px]:w-4"}
+          strokeWidth={2.1}
+        />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+        <span
+          className={cn(
+            "select-none truncate font-black uppercase",
+            big
+              ? "text-[13px] tracking-[0.2em] min-[360px]:text-[15px] min-[360px]:tracking-[0.22em]"
+              : "text-[9px] tracking-[0.1em] min-[360px]:text-[10px] min-[360px]:tracking-[0.15em]",
+            tone.title
+          )}
+          style={{ fontFamily: "var(--font-cinzel), serif" }}
+        >
+          {title}
+        </span>
+        <span
+          className={cn(
+            "select-none truncate text-[7.5px] font-bold uppercase tracking-[0.1em] tabular-nums min-[360px]:text-[8px] min-[360px]:tracking-[0.16em]",
+            tone.sub
+          )}
+        >
+          {subtitle}
+        </span>
+      </span>
+      {stat && (
+        <span className="shrink-0 rounded-full border border-amber-200/40 bg-black/30 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.1em] text-amber-100 tabular-nums min-[360px]:text-[8px] min-[360px]:tracking-[0.12em]">
+          {stat}
+        </span>
+      )}
+    </motion.button>
+  );
+}
+
 export function MainMenu() {
   const setView = useGameStore((s) => s.setView);
   const gameClass = useGameStore((s) => s.gameClass);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [misionesOpen, setMisionesOpen] = useState(false);
-  // true tras la rehidratación de stores persistidos (localStorage). El contador
-  // de misiones se pinta SOLO entonces: el HTML prerenderizado muestra "Misiones"
-  // a secas y el cliente también en el primer render → sin mismatch de hidratación
-  // (el store persist se rehidrata SINCRONO antes del mount → servidor 0/3 vs cliente 3/3).
-  // Avatar elegido en Perfil → visible en el propio botón (si no, icono User).
+  // true tras la rehidratación de stores persistidos (localStorage). Los
+  // contadores de progreso (piso/capítulo/cartas/misiones) se pintan SOLO
+  // entonces: el HTML prerenderizado muestra los fallbacks estáticos y el
+  // cliente también en el primer render → sin mismatch de hidratación.
   const [ready, setReady] = useState(false);
   const [avatarCardId, setAvatarCardId] = useState<string | null>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
-  // RESTAURACIÓN DE UN TOQUE (Task 50 — «no hay forma de hacerlo sin que el
-  // usuario intervenga»): instalación fresca + código de respaldo copiado →
-  // UN botón lee el portapapeles y restaura. La migración queda en: copiar
-  // (app vieja) → reinstalar → PEGAR Y RESTAURAR. El banner solo aparece si
-  // NO hay perfil ni campaña ni colección (nunca molesta si hay progreso) y se
-  // puede cerrar; tras restaurar, el perfil existe y desaparece solo.
+  // RESTAURACIÓN DE UN TOQUE (Task 50): instalación fresca + código de
+  // respaldo copiado → UN botón lee el portapapeles y restaura. El banner solo
+  // aparece si NO hay perfil ni campaña ni colección (nunca molesta si hay
+  // progreso) y se puede cerrar; tras restaurar desaparece solo.
   const [restoreBanner, setRestoreBanner] = useState(false);
   const [restoreMsg, setRestoreMsg] = useState<string | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
   // RUSH DE JEFES: mejor run de la clase activa (pintada SOLO tras hidratar —
-  // mismo patrón anti-mismatch que el contador de misiones de arriba).
+  // mismo patrón anti-mismatch que el resto de contadores).
   const [rushReady, setRushReady] = useState(false);
-  // MODO ADMIN (oculto): estado para el footer + el panel secreto. El flag se
-  // hidrata en el effect de abajo (mismo patrón anti-mismatch que `ready`).
+  // MODO ADMIN (oculto): estado para el pie del panel + panel secreto.
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminOn, setAdminOn] = useState(false);
   const [adminTaps, setAdminTaps] = useState(0);
   const adminTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Progreso real por modo (hooks suscritos; el dato se MUESTRA tras `ready`).
+  const campaignStep = useCampaignStore((s) => s.step);
+  const campaignPrestige = useCampaignStore((s) => s.prestige);
+  const storyChapter = useStoryStore((s) => s.chapter);
+  const storyCompleted = useStoryStore((s) => s.completed);
+  const copies = useCollectionStore((s) => s.copies);
   const missions = useMissionStore((s) => s.missions);
   const ensureToday = useMissionStore((s) => s.ensureToday);
 
   useEffect(() => {
-    // El menú se remonta en cada cambio de vista → se relee el perfil fresco.
+    // El menú se remonta en cada cambio de vista → se relee todo el progreso.
     // Diferido en microtask (mismo patrón que page.tsx) para no hacer setState
     // síncrono dentro del effect y evitar mismatch de hidratación SSR↔cliente.
     let alive = true;
     Promise.resolve().then(() => {
       if (!alive) return;
+      useCampaignStore.getState().hydrate();
+      useStoryStore.getState().hydrate();
+      hydrateCollection();
       setReady(true);
       setRushReady(true);
       useAdminStore.getState().hydrate();
@@ -121,11 +310,24 @@ export function MainMenu() {
     // `new Audio("/click.mp3")` which 404'd because the asset never existed.
     sfx.click();
   };
-  // Etiqueta del Rush: mejor run de la clase activa («· mejor 2/3») o nada.
-  const rushBestLabel = (() => {
-    const best = useStatsStore.getState().rushBest[gameClass] ?? 0;
-    return best > 0 ? `mejor ${best}/3` : "3 jefes";
-  })();
+  // Mejor run de Rush en la clase activa («mejor 2/3») o el gancho por defecto.
+  const rushBest = useStatsStore.getState().rushBest[gameClass] ?? 0;
+
+  // ── Etiquetas de progreso (fallback estático hasta que `ready` sea true) ──
+  const torreStat = ready
+    ? `Piso ${campaignStep}/${CAMPAIGN_STEPS}${campaignPrestige > 0 ? ` · ★${campaignPrestige}` : ""}`
+    : undefined;
+  const pactoSub = ready
+    ? storyCompleted
+      ? "Completada"
+      : `Capítulo ${Math.min(storyChapter + 1, STORY_TOTAL)}/${STORY_TOTAL}`
+    : "La campaña";
+  const rushSub = rushReady && rushBest > 0 ? `Mejor ${rushBest}/3` : "XP ×2";
+  const ownedCards = Object.values(copies).filter(
+    (c) =>
+      (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) + (c.mythic ?? 0) > 0
+  ).length;
+  const coleccionSub = ready ? `${ownedCards}/${ALL_CARDS_V3.length} cartas` : "Cartas ganadas";
 
   const goToProfile = () => {
     click();
@@ -137,14 +339,32 @@ export function MainMenu() {
     setView("class-select");
   };
 
+  const goToStory = () => {
+    click();
+    haptic("light");
+    useStoryStore.getState().hydrate();
+    setView("story");
+  };
+
+  const goToRush = () => {
+    click();
+    haptic("light");
+    usePvpStore.getState().startRush({ playerClass: gameClass });
+  };
+
+  const goToColeccion = () => {
+    click();
+    setView("coleccion");
+  };
+
   const goToPvp = () => {
     click();
     setView("pvp");
   };
 
-  // GESTO SECRETO DEL MODO ADMIN: 7 toques en la versión del menú (como las
-  // opciones de desarrollador de Android). Sin feedback visible hasta abrir —
-  // solo un haptic light por toque. Una pausa >1.6s reinicia la cuenta.
+  // GESTO SECRETO DEL MODO ADMIN: 7 toques en la versión del pie del panel
+  // (como las opciones de desarrollador de Android). Sin feedback visible
+  // hasta abrir — solo un haptic light por toque. Pausa >1.6s reinicia.
   const adminFooterTap = () => {
     haptic("light");
     if (adminTapTimer.current) clearTimeout(adminTapTimer.current);
@@ -197,7 +417,7 @@ export function MainMenu() {
           en móvil costaba GPU y se notaba). Dan profundidad sin moverse. */}
       <div className="pointer-events-none absolute -left-16 -top-16 z-0 h-56 w-56 rounded-full bg-amber-500/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-20 -right-16 z-0 h-64 w-64 rounded-full bg-rose-600/10 blur-3xl" />
-      {/* Bottom darkening overlay for button legibility */}
+      {/* Bottom darkening overlay for panel legibility */}
       <div className="absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-b from-transparent via-black/55 to-black/95" />
 
       {/* ── TOP-CENTER: BANNER DE RESCATE (solo instalación fresca) ── */}
@@ -207,7 +427,7 @@ export function MainMenu() {
             initial={{ opacity: 0, y: -14 }}
             animate={{ opacity: 1, y: 0, transition: { delay: 0.9 } }}
             exit={{ opacity: 0, y: -14 }}
-            className="absolute inset-x-4 top-14 z-30"
+            className="absolute inset-x-4 top-16 z-30"
           >
             <div className="relative rounded-xl border border-emerald-500/40 bg-gradient-to-b from-zinc-950/95 to-black/95 p-3 shadow-[0_0_18px_rgba(16,185,129,0.2)]">
               <button
@@ -239,148 +459,149 @@ export function MainMenu() {
         )}
       </AnimatePresence>
 
-      {/* ── TOP-LEFT: PERFIL (small icon button) ── */}
-      <motion.button
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.3 }}
-        whileHover={{ scale: 1.06 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={goToProfile}
-        className="absolute left-3 top-3 z-20 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-amber-500/40 bg-zinc-950/70 backdrop-blur-sm text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] hover:bg-zinc-900/80 hover:border-amber-400/70"
-        title="Perfil"
-        aria-label="Perfil"
-      >
-        {avatarCardId && !avatarBroken ? (
-          <img
-            src={`/cards/${avatarCardId}.webp`}
-            alt="Tu avatar"
-            className="pointer-events-none h-full w-full rounded-full object-cover"
-            decoding="async"
-            draggable={false}
-            onError={() => setAvatarBroken(true)}
-          />
-        ) : (
-          <User className="h-4 w-4" strokeWidth={2.2} />
-        )}
-      </motion.button>
-
-      {/* ── BOTTOM-RIGHT: OPCIONES (small icon button — same style as PERFIL) ── */}
-      <motion.button
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.3 }}
-        whileHover={{ scale: 1.06 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => { click(); setSettingsOpen(true); }}
-        className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/40 bg-zinc-950/70 backdrop-blur-sm text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] transition-colors hover:bg-zinc-900/80 hover:border-amber-400/70"
-        title="Opciones"
-      >
-        <SettingsIcon className="h-4 w-4" strokeWidth={2.2} />
-      </motion.button>
-
-      {/* ── ZONA DE JUEGO — UN stack flex-col con gap real. Los offsets
-             mágicos (bottom-24/70/9) anclaban cada pill POR SEPARADO al fondo:
-             con pantallas cortas, fuentes del sistema o un label que envolvía
-             (PVP LOCAL en 2 líneas) los tres bloques se pisaban entre sí. */}
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
-        className="pointer-events-none absolute inset-x-0 bottom-7 z-20 flex flex-col items-center gap-1.5 px-6"
-      >
+      {/* ── BARRA SUPERIOR: perfil (izq) · misiones + ajustes (der).
+              Los iconos suben aquí y liberan el fondo para los modos. ── */}
+      <div className="absolute inset-x-3 top-3 z-30 flex items-center justify-between">
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.96 }}
-          onClick={goToClassSelect}
-          className="pointer-events-auto group relative inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-gradient-to-b from-amber-600 via-amber-700 to-rose-800 px-8 py-2.5 text-white shadow-[0_4px_18px_-3px_rgba(251,191,36,0.55),0_0_0_1px_rgba(0,0,0,0.4)_inset] transition-all hover:border-amber-200/80 hover:from-amber-500 hover:via-amber-600 hover:to-rose-700"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={goToProfile}
+          className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-amber-500/40 bg-zinc-950/70 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] backdrop-blur-sm transition-colors hover:border-amber-400/70 hover:bg-zinc-900/80"
+          title="Perfil"
+          aria-label="Perfil"
         >
-          {/* Top inner highlight (glossy) */}
-          <span className="pointer-events-none absolute inset-x-3 top-0.5 h-1/2 rounded-full bg-gradient-to-b from-white/40 to-transparent opacity-70" />
-          {/* The label — Cinzel Black for that Roman-inscription fantasy feel */}
-          <span
-            className="relative select-none whitespace-nowrap text-[21px] font-black uppercase tracking-[0.32em] text-amber-50"
-            style={{
-              fontFamily: 'var(--font-cinzel), serif',
-              textShadow: '0 1px 1px rgba(0,0,0,0.95), 0 0 12px rgba(251,191,36,0.55)',
-              paddingLeft: '0.32em',  // optical centering with tracking
-            }}
-          >
-          {/* El modo de escalada AHORA SE LLAMA LA TORRE (la historia real vive
-              en su propia píldora «El Pacto»): la escalera siempre fue torre. */}
-            LA TORRE
-          </span>
+          {avatarCardId && !avatarBroken ? (
+            <img
+              src={`/cards/${avatarCardId}.webp`}
+              alt="Tu avatar"
+              className="pointer-events-none h-full w-full rounded-full object-cover"
+              decoding="async"
+              draggable={false}
+              onError={() => setAvatarBroken(true)}
+            />
+          ) : (
+            <User className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          )}
         </motion.button>
 
-        {/* HISTORIA · EL PACTO DE GUERRA + COLECCIÓN + PVP LOCAL + RUSH —
-            fila flexible: con 4 píldoras en pantallas estrechas ENVUELVE en 2 líneas */}
-        <div className="flex max-w-[92%] flex-wrap items-center justify-center gap-2">
-          <button
-            onClick={() => {
-              click();
-              haptic("light");
-              useStoryStore.getState().hydrate();
-              setView("story");
-            }}
-            className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-violet-400/50 bg-gradient-to-b from-violet-800/80 to-zinc-950/90 px-3.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-violet-200 transition-colors hover:border-violet-300/70"
-            style={{ fontFamily: "var(--font-cinzel), serif" }}
+        <div className="flex items-center gap-2">
+          {/* MISIONES del día: icono con badge de progreso (pintado tras ready) */}
+          <motion.button
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => { click(); setMisionesOpen(true); }}
+            className="relative flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/40 bg-zinc-950/70 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] backdrop-blur-sm transition-colors hover:border-amber-300/70 hover:bg-zinc-900/80"
+            title="Misiones diarias"
+            aria-label="Misiones diarias"
           >
-            <BookOpen className="h-3 w-3" /> El Pacto
-          </button>
-          <div className="pointer-events-auto">
-            <CollectionMenuButton />
-          </div>
-          <button
-            onClick={goToPvp}
-            className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-teal-400/50 bg-gradient-to-b from-teal-800/80 to-zinc-950/90 px-3.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-teal-200 transition-colors hover:border-teal-300/70"
-            style={{ fontFamily: "var(--font-cinzel), serif" }}
+            <ScrollText className="h-[18px] w-[18px]" strokeWidth={2.2} />
+            {ready && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border border-black/70 bg-amber-500 px-0.5 text-[7px] font-black leading-none text-black tabular-nums">
+                {missions.filter((m) => m.done).length}/{missions.length}
+              </span>
+            )}
+          </motion.button>
+
+          {/* OPCIONES (mismo estilo que PERFIL y MISIONES) */}
+          <motion.button
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => { click(); setSettingsOpen(true); }}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/40 bg-zinc-950/70 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] backdrop-blur-sm transition-colors hover:border-amber-300/70 hover:bg-zinc-900/80"
+            title="Opciones"
+            aria-label="Opciones"
           >
-            <Wifi className="h-3 w-3" /> PvP Local
-          </button>
-          <button
-            onClick={() => {
-              click();
-              haptic("light");
-              usePvpStore.getState().startRush({ playerClass: gameClass });
-            }}
-            className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-rose-400/50 bg-gradient-to-b from-rose-800/80 to-zinc-950/90 px-3.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-rose-200 transition-colors hover:border-rose-300/70"
-            style={{ fontFamily: "var(--font-cinzel), serif" }}
-            title="3 jefes seguidos · XP ×2 · botín por escalón — se juega con el mazo de la clase activa"
-          >
-            <Skull className="h-3 w-3" /> Rush{rushReady ? ` · ${rushBestLabel}` : ""}
-          </button>
+            <SettingsIcon className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          </motion.button>
         </div>
+      </div>
 
-        {/* MISIONES del día */}
-        <button
-          onClick={() => { click(); setMisionesOpen(true); }}
-          className="pointer-events-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/50 bg-gradient-to-b from-amber-900/80 to-zinc-950/90 px-4 py-1 text-[9px] font-black uppercase tracking-[0.22em] text-amber-200 transition-colors hover:border-amber-300/70"
-          style={{ fontFamily: "var(--font-cinzel), serif" }}
-        >
-          <ScrollText className="h-3 w-3" />
-          Misiones{ready ? ` ${missions.filter((m) => m.done).length}/${missions.length}` : ""}
-        </button>
-      </motion.div>
-
-      {/* ── BOTTOM-CENTER (version, bajo Misiones — no pisa el título).
-              También es el GESTO SECRETO: 7 toques abren el modo admin. Con
-              el admin encendido la etiqueta cambia a «modo admin» en rojo —
-              discreto, solo para el dueño. ── */}
+      {/* ── PANEL-HUB INFERIOR — jerarquía piramidal fija: nada envuelve ni
+              flota suelto. La cascada de entrada es el único momento animado. ── */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.7 }}
-        className="absolute inset-x-0 bottom-2.5 z-20 flex justify-center px-8"
+        variants={panelV}
+        initial="hidden"
+        animate="show"
+        className="absolute inset-x-3 bottom-3 z-20 overflow-hidden rounded-2xl border border-amber-200/15 bg-gradient-to-b from-zinc-950/90 via-black/95 to-black/[0.98] shadow-[0_-12px_44px_-18px_rgba(0,0,0,0.95)]"
       >
-        <p
-          onClick={adminFooterTap}
-          className={cn(
-            "select-none text-center text-[7px] font-bold uppercase tracking-[0.35em]",
-            adminOn ? "text-rose-500/80" : "text-amber-700/60"
-          )}
+        {/* Hairline superior: filo iluminado del panel (oficio, no glow) */}
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/25 to-transparent" />
+
+        <motion.div
+          variants={listV}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-2 px-3 pb-1.5 pt-3"
         >
-          v3.2 · 6 clases · 192 cartas · {adminOn ? "modo admin" : "rush de jefes"}
-        </p>
+          {/* PRIMARIA → el grind principal */}
+          <ModeCard
+            big
+            tone={TONES.torre}
+            icon={Castle}
+            title="LA TORRE"
+            subtitle="Escalada infinita"
+            stat={torreStat}
+            onClick={goToClassSelect}
+          />
+
+          {/* MEDIANAS → historia + reto */}
+          <div className="grid grid-cols-2 gap-2">
+            <ModeCard
+              tone={TONES.pacto}
+              icon={BookOpen}
+              title="EL PACTO"
+              subtitle={pactoSub}
+              onClick={goToStory}
+            />
+            <ModeCard
+              tone={TONES.rush}
+              icon={Skull}
+              title="RUSH"
+              subtitle={rushSub}
+              tooltip="3 jefes seguidos · XP ×2 · botín por escalón — se juega con el mazo de la clase activa"
+              onClick={goToRush}
+            />
+          </div>
+
+          {/* COMPACTAS → utilidades de juego */}
+          <div className="grid grid-cols-2 gap-2">
+            <ModeCard
+              tone={TONES.coleccion}
+              icon={Sparkles}
+              title="COLECCIÓN"
+              subtitle={coleccionSub}
+              onClick={goToColeccion}
+            />
+            <ModeCard
+              tone={TONES.pvp}
+              icon={Swords}
+              title="PVP LOCAL"
+              subtitle="2 jugadores"
+              onClick={goToPvp}
+            />
+          </div>
+
+          {/* Pie del panel: versión + GESTO SECRETO (7 toques → modo admin).
+              Con el admin encendido la etiqueta cambia a «modo admin» en rojo. */}
+          <p
+            onClick={adminFooterTap}
+            className={cn(
+              "mt-0.5 select-none py-1 text-center text-[7px] font-bold uppercase tracking-[0.3em]",
+              adminOn ? "text-rose-500/80" : "text-amber-700/70"
+            )}
+          >
+            v3.3 · 6 clases · {ALL_CARDS_V3.length} cartas{adminOn ? " · modo admin" : ""}
+          </p>
+        </motion.div>
       </motion.div>
 
       {/* Panel SECRETO del modo admin (solo llega aquí con 7 toques) */}

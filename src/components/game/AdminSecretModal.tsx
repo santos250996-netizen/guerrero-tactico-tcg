@@ -6,7 +6,7 @@
 // pasos y reload al aplicar, para que todas las vistas relean el estado.
 // ============================================================================
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { KeyRound, X, ShieldCheck, ShieldOff, Crown, AlertTriangle } from "lucide-react";
 import { useAdminStore } from "@/store/adminStore";
@@ -19,9 +19,13 @@ export function AdminSecretModal({ open, onClose }: { open: boolean; onClose: ()
   // Confirmación en 2 toques: la 1ª pulsación arma el botón (se desarma sola).
   const [armed, setArmed] = useState(false);
 
-  useEffect(() => {
+  // Desarma al cerrar — patrón «ajustar estado durante render» (recomendado
+  // por React; sustituye al useEffect que disparaba react-hooks/set-state-in-effect).
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (!open) setArmed(false);
-  }, [open]);
+  }
 
   const apply = () => {
     haptic("success");

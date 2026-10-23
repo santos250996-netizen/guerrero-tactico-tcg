@@ -1347,3 +1347,23 @@ Work Log:
 
 Stage Summary:
 - La petición del jugador cerrada en dos frentes: (1) arte de tajo/colmillo/hacha revertido al antiguo byte a byte, fondos de carril parked por 429 (generador listo, colores ya hechos), (2) el modo historia reinventado: LA TORRE DE LOS MUROS (18 pisos, 6 jefes — uno por clase, desbloqueos narrativos) + EL PACTO DE GUERRA (7 capítulos con guion, reglas de capítulo, 3 decisiones persistentes con variantes, Heraldo final y epílogo por clase). Rush sin nerf con escalera propia. 12 suites verdes + build + E2E visual.
+
+---
+Task ID: ui-menu-hub
+Agent: Z.ai main agent
+Task: Rediseñar el menú principal (el usuario: «acomoda todo eso q esta en la ui menu... es un caos total demasiado reguero» — autorizada una UI nueva si hace falta)
+
+Work Log:
+- RECON: MainMenu con 6 píldoras sueltas (4 envolvían a 2 líneas en pantallas estrechas), CollectionMenuButton, stores de progreso (campaignStore step/prestige, storyStore chapter/completed, statsStore.rushBest, collectionStore.copies)
+- Skills: fullstack-dev + impeccable (context + layout.md + craft-floor.md); sin PRODUCT.md → vía SCOPED_EXISTING_ALLOWED (refinamiento acotado, identidad visual intacta)
+- Nuevo MainMenu como PANEL-HUB piramidal: 1 primaria (LA TORRE, chip «Piso N/18 · ★n») + 2 medianas (EL PACTO «Capítulo N/7», RUSH «Mejor N/3»/«XP ×2») + 2 compactas (COLECCIÓN «N/192 cartas», PVP LOCAL) — cero envolturas, subtítulos con progreso real pintado SOLO tras hidratar (anti-mismatch SSR)
+- Cromo superior: perfil (izq) + misiones con badge done/total + ajustes (der), targets 44px
+- Gesto admin (7 toques) movido al pie del panel; footer actualizado a v3.3 con conteo dinámico ALL_CARDS_V3.length
+- Tipografía responsive base compacta + min-[360px] (Cinzel es ancha: «COLECCIÓN» truncaba a 9.5px)
+- Fix lint preexistente AdminSecretModal (set-state-in-effect → ajuste de estado durante render)
+- Verificación: tsc 0, eslint 0, impeccable detect [] (cero hallazgos), agent-browser en 390×844 y 320×568 (cero truncamientos), flujos TORRE→héroe / PACTO→mapa cap. 3/7 / MISIONES abre-cierra, 0 errores de consola
+
+Stage Summary:
+- Menú legible y jerárquico: el orden es lo nuevo, los colores/iconos se heredan de los botones anteriores (ámbar/violeta/rosa/púrpura/teal)
+- Commit con PUSH (orden explícita del usuario en esta sesión)
+- Pendiente menor detectado: el mapa de historia trunca títulos de capítulo a 320px (fuera de alcance aquí; posible pulido futuro)
