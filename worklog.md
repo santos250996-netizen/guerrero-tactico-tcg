@@ -1401,3 +1401,24 @@ Stage Summary:
 - Stats del perfil 100% vivos (una sola fuente de verdad: statsStore) y contador de batalla alimentado en todos los modos.
 - Avatar: cualquier carta desbloqueada (192) usable; límite de 12 eliminado; buscador + footer de bloqueadas.
 - Archivos: src/store/statsStore.ts, src/store/pvpStore.ts, src/components/game/ProfileScreen.tsx
+
+---
+Task ID: misiones-v2
+Agent: Z.ai main agent
+Task: «mejoremos el sistema de misiones diarias y q sea el player el q recoga la recompensa... agrega misiones variadas a las diarias q se activen diario agrega misiones semanales y mensuales»
+
+Work Log:
+- missionStore v2 (reescritura): 3 ESCALONES — daily (clave YYYY-MM-DD) + weekly (clave = LUNES de la semana, todos los días comparten clave) + monthly (YYYY-MM) · 3 misiones por escalón, sorteo determinista por periodo (FNV-1a + mulberry32 sobre la clave) · 3/3/3 misiones activas.
+- RECLAMO MANUAL (el punto del jugador): completar el objetivo NO paga — la misión queda `ready` (borde esmeralda + botón RECLAMAR pulsante) y es EL JUGADOR quien cobra con `claim(scope, id)`: addRewards + addXp + toast «¡RECOMPENSA RECLAMADA! +N cartas · título». Anti doble-cobro (claimed) y anti pago-sin-objetivo validados en tests.
+- PAGOS por escalón: diaria +1 carta/XP4 · semanal +3 cartas/XP15 · mensual +8 cartas/XP40 (SCOPE_REWARD exportado; UI muestra el pago de su pestaña).
+- POOLS VARIADOS: diarias 7→12 plantillas (nuevos tipos play-games, play-class con clase sorteada, destroy-enemies, rush-run, story-fight; win-class ahora sortea entre las 6 clases) · 7 semanales / 5 mensuales (constancia y objetivos grandes). Verificado en tests: 30 días cubren los 12 tipos y las clases rotan.
+- HOOKS pvpStore: play-games + play-class en los 4 cierres de partida (online/historia/rush/campaña) · destroy-enemies en el tally de applyView (mismo guard seq) · rush-run en el cierre de rush · story-fight al ganar pelea de historia. CollectionScreen «fuse» intacto.
+- UI MainMenu: panel con 3 PESTAÑAS (Diarias/Semanales/Mensuales) con puntito verde por cobros pendientes, subtítulo de renovación + pago por pestaña · badge del icono Misiones ahora muestra SOLO las recompensas POR RECLAMAR (verde pulsante; antes done/total ámbar) · MissionRow con 3 estados (progreso / RECLAMAR / ✓ Reclamada + «Recompensa cobrada») · MissionToast a `lastClaimed` (esmeralda, texto +N cartas) · abrir aterriza en la primera pestaña con cobros.
+- PERSISTENCIA: misma clave «pacto-de-guerra-misiones» con shape {daily:{key,missions},weekly:…,monthly:…} + validación por escalón → backup/restauración de progreso SIGUE funcionando sin cambios (formato v1 auto-pagado se regenera: sin doble cobro posible).
+- VERIFICACIÓN: tsc 0 · eslint 0 · test-misiones-v2 NUEVO 37✓ · test-tanda28 reescrito a flujo de reclamo 39✓ · rush 44 / story 142 / progress-backup 31 ✓ · E2E agent-browser 390×844 + 320×568: badge «3» verde → pestañas con conteos → RECLAMAR diaria (+1, colección 1→2/192) → semanal (+3 → 5) → mensual (+8 → 13) — matemática exacta, estado persistido en localStorage, toast visible, «SIN TRUNCAMIENTOS» a 320 · 0 errores de consola. (impeccable detect colgó 2× esta sesión — se omitió; cobertura visual vía E2E + DOM-check.)
+- Commit CON PUSH (regla permanente de la sesión).
+
+Stage Summary:
+- Las misiones ahora son un RITUAL visible: juegas → la misión se enciende en verde → tocas RECLAMAR → ves el pago (+1/+3/+8) en un toast y la colección crecer. Nada llega «por debajo de la mesa».
+- Variedad real día a día (12 plantillas diarias con clases sorteadas) y tres horizontes de objetivos (día/semana/mes) con pagos crecientes.
+- Archivos: src/store/missionStore.ts (v2), src/store/pvpStore.ts (hooks), src/components/game/MainMenu.tsx (pestañas+reclamo), scripts/test-misiones-v2.ts (nuevo), scripts/test-tanda28.ts (sección 3 reescrita).

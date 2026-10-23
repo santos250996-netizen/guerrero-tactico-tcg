@@ -347,6 +347,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
           }
         }
         if (plays > 0 || kills > 0) useStatsStore.getState().addBattleTally(plays, kills);
+        if (kills > 0) useMissionStore.getState().progress("destroy-enemies", kills);
       }
     } catch (err) {
       // El audio/FX NUNCA tumba la sincronización del estado.
@@ -412,6 +413,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
           if (result === "WIN") ms.progress("win-games");
           if (result === "WIN") ms.progress("win-class", 1, cls);
           ms.progress("play-online");
+          ms.progress("play-games");
+          ms.progress("play-class", 1, cls);
           const laneWins = f.laneOutcomes.filter((o) => o.winner === "player").length;
           if (laneWins > 0) ms.progress("win-lanes", laneWins);
         } catch (err) {
@@ -708,7 +711,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         const ms = useMissionStore.getState();
         if (won) ms.progress("win-games");
         if (won) ms.progress("win-class", 1, st.gameClass);
+        if (won) ms.progress("story-fight");
         if (won && st.bossActive) ms.progress("beat-boss");
+        ms.progress("play-games");
+        ms.progress("play-class", 1, st.gameClass);
         if (final) {
           const laneWins = final.laneOutcomes.filter((o) => o.winner === "player").length;
           if (laneWins > 0) ms.progress("win-lanes", laneWins);
@@ -762,6 +768,9 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         if (won) ms.progress("win-games");
         if (won) ms.progress("win-class", 1, st.gameClass);
         if (won) ms.progress("beat-boss");
+        ms.progress("rush-run");
+        ms.progress("play-games");
+        ms.progress("play-class", 1, st.gameClass);
         if (final) {
           const laneWins = final.laneOutcomes.filter((o) => o.winner === "player").length;
           if (laneWins > 0) ms.progress("win-lanes", laneWins);
@@ -815,6 +824,8 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
       if (won) ms.progress("win-games");
       if (won) ms.progress("win-class", 1, st.gameClass);
       if (won && st.bossActive) ms.progress("beat-boss");
+      ms.progress("play-games");
+      ms.progress("play-class", 1, st.gameClass);
       if (final) {
         const laneWins = final.laneOutcomes.filter((o) => o.winner === "player").length;
         if (laneWins > 0) ms.progress("win-lanes", laneWins);

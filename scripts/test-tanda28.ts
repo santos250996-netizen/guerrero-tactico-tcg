@@ -164,55 +164,65 @@ section("2. LIGA PvP — matemática de ligas y puntos");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("3. MISIONES DIARIAS — determinismo, rotación y recompensa");
+section("3. MISIONES — determinismo, 3 escalones y RECLAMO manual");
 {
   const ms = useMissionStore.getState();
-  ms.ensureToday();
+  ms.ensurePeriods();
   const msFresh = useMissionStore.getState();
   const key = todayKey();
-  check("3 misiones activas hoy", msFresh.missions.length === 3, `=${msFresh.missions.length}`);
+  check("3 misiones DIARIAS activas hoy", msFresh.daily.length === 3, `=${msFresh.daily.length}`);
+  check("3 misiones SEMANALES activas", msFresh.weekly.length === 3, `=${msFresh.weekly.length}`);
+  check("3 misiones MENSUALES activas", msFresh.monthly.length === 3, `=${msFresh.monthly.length}`);
   check("dateKey con formato YYYY-MM-DD", /^\d{4}-\d{2}-\d{2}$/.test(key));
-  const types = msFresh.missions.map((m) => m.type);
+  const types = msFresh.daily.map((m) => m.type);
   check("misiones del día sin repetir tipo", new Set(types).size === 3, JSON.stringify(types));
   // ids estables dentro del día (buildMissions usa la fecha como semilla)
-  const ids1 = msFresh.missions.map((m) => m.id).join("|");
+  const ids1 = msFresh.daily.map((m) => m.id).join("|");
 
-  // Progreso: forzamos misiones de prueba para validar el flujo completo
+  // Progreso: forzamos misiones de prueba para validar el flujo COMPLETO
+  // (completar NO paga — el pago llega solo al RECLAMAR)
   const testMissions: Mission[] = [
-    { id: "t-play", type: "play-cards", target: 2, title: "Juega 2 cartas", progress: 0, done: false },
-    { id: "t-win", type: "win-games", target: 1, title: "Gana 1", progress: 0, done: false },
-    { id: "t-class", type: "win-class", cls: "mago", target: 1, title: "Gana 1 con Mago", progress: 0, done: false },
+    { id: "t-play", scope: "daily", type: "play-cards", target: 2, title: "Juega 2 cartas", progress: 0, ready: false, claimed: false },
+    { id: "t-win", scope: "daily", type: "win-games", target: 1, title: "Gana 1", progress: 0, ready: false, claimed: false },
+    { id: "t-class", scope: "daily", type: "win-class", cls: "mago", target: 1, title: "Gana 1 con Mago", progress: 0, ready: false, claimed: false },
   ];
-  useMissionStore.getState().__setForTest(testMissions);
+  useMissionStore.getState().__setForTest("daily", testMissions);
 
   const col = useCollectionStore.getState();
   const copiesBefore = col.totalCopies();
   useMissionStore.getState().progress("play-cards");
   useMissionStore.getState().progress("play-cards");
   const msAfter = useMissionStore.getState();
-  const playMission = msAfter.missions.find((m) => m.id === "t-play")!;
-  check("misión play-cards se completa al llegar al objetivo", playMission.done && playMission.progress === 2);
-  check("completar misión otorga +1 carta a la colección", useCollectionStore.getState().totalCopies() === copiesBefore + 1);
+  const playMission = msAfter.daily.find((m) => m.id === "t-play")!;
+  check("misión play-cards queda LISTA al llegar al objetivo", playMission.ready && playMission.progress === 2);
+  check("completar NO paga automático: colección intacta", useCollectionStore.getState().totalCopies() === copiesBefore);
 
   // win-class filtra por clase
   useMissionStore.getState().progress("win-class", 1, "guerrero");
-  const notYet = useMissionStore.getState().missions.find((m) => m.id === "t-class")!;
-  check("win-class con OTRA clase no progresa", !notYet.done && notYet.progress === 0);
+  const notYet = useMissionStore.getState().daily.find((m) => m.id === "t-class")!;
+  check("win-class con OTRA clase no progresa", !notYet.ready && notYet.progress === 0);
   useMissionStore.getState().progress("win-class", 1, "mago");
-  const doneNow = useMissionStore.getState().missions.find((m) => m.id === "t-class")!;
-  check("win-class con la clase correcta completa", doneNow.done);
+  const readyNow = useMissionStore.getState().daily.find((m) => m.id === "t-class")!;
+  check("win-class con la clase correcta queda LISTA", readyNow.ready);
 
-  // el progreso ya-done no otorga más recompensas
+  // EL JUGADOR RECLAMA: ahora sí paga
+  useMissionStore.getState().claim("daily", "t-play");
+  check("RECLAMAR otorga +1 carta a la colección", useCollectionStore.getState().totalCopies() === copiesBefore + 1);
+  const claimed = useMissionStore.getState().daily.find((m) => m.id === "t-play")!;
+  check("misión reclamada queda marcada", claimed.claimed && claimed.ready);
+
+  // doble cobro imposible
   const before2 = useCollectionStore.getState().totalCopies();
+  useMissionStore.getState().claim("daily", "t-play");
   useMissionStore.getState().progress("play-cards", 5);
-  check("misión ya completada no vuelve a pagar", useCollectionStore.getState().totalCopies() === before2);
+  check("misión ya reclamada no vuelve a pagar", useCollectionStore.getState().totalCopies() === before2);
 
-  useMissionStore.getState().__setForTest(useMissionStore.getState().missions);
   // restaurar misiones del día (determinismo: mismo key → mismas misiones)
-  useMissionStore.getState().ensureToday();
+  useMissionStore.getState().__setForTest("daily", useMissionStore.getState().daily);
+  useMissionStore.getState().ensurePeriods();
   const ms2 = useMissionStore.getState();
-  check("ensureToday mantiene las misiones del día actual", ms2.dateKey === key);
-  check("ids del día estables tras rotaciones", ms2.missions.map((m) => m.id).join("|") === ids1 || ms2.missions.length === 3);
+  check("ensurePeriods mantiene las misiones del día actual", ms2.dailyKey === key);
+  check("ids del día estables tras rotaciones", ms2.daily.map((m) => m.id).join("|") === ids1 || ms2.daily.length === 3);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

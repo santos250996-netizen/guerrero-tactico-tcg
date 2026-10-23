@@ -45,6 +45,7 @@ import {
   ScrollText,
   Gift,
   X,
+  Check,
   ClipboardPaste,
   Skull,
   BookOpen,
@@ -60,17 +61,24 @@ import { useAdminStore } from "@/store/adminStore";
 import { isFreshInstall, applyProgressCode, readClipboardText } from "@/lib/progress-backup";
 import { haptic } from "@/lib/haptics";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
-import { useMissionStore, type Mission } from "@/store/missionStore";
+import {
+  useMissionStore,
+  type Mission,
+  type MissionScope,
+  SCOPE_META,
+  SCOPE_REWARD,
+} from "@/store/missionStore";
 import { cn } from "@/lib/utils";
 
-/** Toast global de misión completada (reutilizado también dentro de partidas). */
+/** Toast global de recompensa RECLAMADA (reutilizado también dentro de partidas). */
 export function MissionToast() {
-  const [text, setText] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; at: number } | null>(null);
   useEffect(() => {
     const unsub = useMissionStore.subscribe((s) => {
-      if (s.lastCompleted) {
-        setText(s.lastCompleted.title);
-        window.setTimeout(() => setText(null), 4200);
+      if (s.lastClaimed) {
+        const { cards, title, at } = s.lastClaimed;
+        setToast({ text: `+${cards} ${cards === 1 ? "carta" : "cartas"} · ${title}`, at });
+        window.setTimeout(() => setToast((t) => (t?.at === at ? null : t)), 4200);
       }
     });
     return unsub;
@@ -78,18 +86,18 @@ export function MissionToast() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-14 z-[60] flex justify-center">
       <AnimatePresence>
-        {text && (
+        {toast && (
           <motion.div
-            key={text}
+            key={toast.at}
             initial={{ opacity: 0, y: -14, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ type: "spring", stiffness: 300, damping: 24 }}
-            className="relative flex items-center gap-2 rounded-full border border-amber-400/70 bg-gradient-to-b from-amber-950/95 to-black/95 px-4 py-1.5 shadow-2xl shadow-black/60"
+            className="relative flex items-center gap-2 rounded-full border border-emerald-400/70 bg-gradient-to-b from-emerald-950/95 to-black/95 px-4 py-1.5 shadow-2xl shadow-black/60"
           >
-            <Gift className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-200">
-              ¡Misión completada! +1 carta · {text}
+            <Gift className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-200">
+              ¡Recompensa reclamada! +{toast.text}
             </span>
           </motion.div>
         )}
@@ -280,6 +288,8 @@ export function MainMenu() {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [misionesOpen, setMisionesOpen] = useState(false);
+  // Pestaña activa del panel de misiones (diarias/semanales/mensuales).
+  const [misionesTab, setMisionesTab] = useState<MissionScope>("daily");
   // true tras la rehidratación de stores persistidos (localStorage). Los
   // contadores de progreso (piso/capítulo/cartas/misiones) se pintan SOLO
   // entonces: el HTML prerenderizado muestra los fallbacks estáticos y el
@@ -310,8 +320,13 @@ export function MainMenu() {
   const storyChapter = useStoryStore((s) => s.chapter);
   const storyCompleted = useStoryStore((s) => s.completed);
   const copies = useCollectionStore((s) => s.copies);
-  const missions = useMissionStore((s) => s.missions);
-  const ensureToday = useMissionStore((s) => s.ensureToday);
+  const dailyMissions = useMissionStore((s) => s.daily);
+  const weeklyMissions = useMissionStore((s) => s.weekly);
+  const monthlyMissions = useMissionStore((s) => s.monthly);
+  const ensurePeriods = useMissionStore((s) => s.ensurePeriods);
+  const allMissions = [...dailyMissions, ...weeklyMissions, ...monthlyMissions];
+  /** Misiones LISTAS sin reclamar — el imán que lleva al jugador a cobrar. */
+  const claimable = allMissions.filter((m) => m.ready && !m.claimed).length;
 
   useEffect(() => {
     // El menú se remonta en cada cambio de vista → se relee todo el progreso.
@@ -330,7 +345,7 @@ export function MainMenu() {
       const brief = loadStoredProfileBrief();
       setAvatarCardId(brief?.avatarCardId ?? null);
       setAvatarBroken(false);
-      ensureToday();
+      ensurePeriods();
       // Banner de rescate SOLO en instalación sin progreso (y una vez por sesión).
       if (!sessionStorage.getItem("pacto-restore-dismissed") && isFreshInstall()) {
         setRestoreBanner(true);
@@ -341,7 +356,7 @@ export function MainMenu() {
     // primer toque (gestor dentro de music.start).
     music.start("menu");
     return () => { alive = false; };
-  }, [ensureToday]);
+  }, [ensurePeriods]);
 
   const click = () => {
     // Unified sound system (src/lib/sound.ts) — replaces the old
@@ -417,6 +432,19 @@ export function MainMenu() {
   const goToPvp = () => {
     click();
     setView("pvp");
+  };
+
+  /** Abre MISIONES: rota periodos y aterriza en la primera pestaña con
+   *  recompensas por reclamar (si no hay, en Diarias). */
+  const openMissions = () => {
+    click();
+    const s = useMissionStore.getState();
+    s.ensurePeriods();
+    const withClaim = (["daily", "weekly", "monthly"] as const).find((sc) =>
+      s[sc].some((m) => m.ready && !m.claimed)
+    );
+    setMisionesTab(withClaim ?? "daily");
+    setMisionesOpen(true);
   };
 
   // GESTO SECRETO DEL MODO ADMIN: 7 toques en la versión del pie del panel
@@ -545,22 +573,23 @@ export function MainMenu() {
         </motion.button>
 
         <div className="flex items-center gap-2">
-          {/* MISIONES del día: icono con badge de progreso (pintado tras ready) */}
+          {/* MISIONES (diarias/semanales/mensuales): el badge muestra SOLO
+              las recompensas POR RECLAMAR — pulsa para llevar al cobro. */}
           <motion.button
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => { click(); setMisionesOpen(true); }}
+            onClick={openMissions}
             className="relative flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/40 bg-zinc-950/70 text-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.25)] backdrop-blur-sm transition-colors hover:border-amber-300/70 hover:bg-zinc-900/80"
-            title="Misiones diarias"
-            aria-label="Misiones diarias"
+            title="Misiones"
+            aria-label="Misiones"
           >
             <ScrollText className="h-[18px] w-[18px]" strokeWidth={2.2} />
-            {ready && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border border-black/70 bg-amber-500 px-0.5 text-[7px] font-black leading-none text-black tabular-nums">
-                {missions.filter((m) => m.done).length}/{missions.length}
+            {ready && claimable > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] animate-pulse items-center justify-center rounded-full border border-black/70 bg-emerald-500 px-1 text-[8px] font-black leading-none text-black tabular-nums shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+                {claimable}
               </span>
             )}
           </motion.button>
@@ -680,7 +709,8 @@ export function MainMenu() {
       {/* Toast de misión completada */}
       <MissionToast />
 
-      {/* Panel de MISIONES DIARIAS */}
+      {/* Panel de MISIONES — 3 pestañas (diarias/semanales/mensuales) con
+              RECLAMO manual: completar NO paga, cobrar es un toque del jugador. */}
       <AnimatePresence>
         {misionesOpen && (
           <motion.div
@@ -705,7 +735,7 @@ export function MainMenu() {
                     className="text-sm font-black uppercase tracking-[0.25em] text-amber-300"
                     style={{ fontFamily: "var(--font-cinzel), serif" }}
                   >
-                    Misiones de hoy
+                    Misiones
                   </h2>
                 </div>
                 <button
@@ -716,14 +746,54 @@ export function MainMenu() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <p className="mt-1 text-[8px] uppercase tracking-[0.2em] text-zinc-500">
-                Se renuevan cada día · cada una paga +1 carta
+
+              {/* Pestañas con puntito de «hay algo por cobrar aquí» */}
+              <div className="mt-3 grid grid-cols-3 gap-1.5">
+                {(["daily", "weekly", "monthly"] as const).map((sc) => {
+                  const list = sc === "daily" ? dailyMissions : sc === "weekly" ? weeklyMissions : monthlyMissions;
+                  const tabClaim = list.filter((m) => m.ready && !m.claimed).length;
+                  const active = misionesTab === sc;
+                  return (
+                    <button
+                      key={sc}
+                      onClick={() => { click(); setMisionesTab(sc); }}
+                      className={cn(
+                        "relative rounded-lg border px-1 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] transition-colors min-[360px]:text-[10px]",
+                        active
+                          ? "border-amber-400/80 bg-amber-500/15 text-amber-200"
+                          : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-zinc-200"
+                      )}
+                    >
+                      {SCOPE_META[sc].label}
+                      {tabClaim > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-[13px] min-w-[13px] items-center justify-center rounded-full border border-black/70 bg-emerald-500 px-0.5 text-[7px] font-black leading-none text-black tabular-nums">
+                          {tabClaim}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="mt-2 text-[8px] uppercase tracking-[0.18em] text-zinc-500">
+                {SCOPE_META[misionesTab].renew} · cada misión paga +{SCOPE_REWARD[misionesTab].cards}{" "}
+                {SCOPE_REWARD[misionesTab].cards === 1 ? "carta" : "cartas"} al reclamarla
               </p>
-              <div className="mt-3 space-y-2">
-                {missions.map((m) => (
+
+              <div className="mt-2.5 space-y-2">
+                {(misionesTab === "daily"
+                  ? dailyMissions
+                  : misionesTab === "weekly"
+                    ? weeklyMissions
+                    : monthlyMissions
+                ).map((m) => (
                   <MissionRow key={m.id} m={m} />
                 ))}
               </div>
+
+              <p className="mt-3 text-center text-[8px] uppercase tracking-[0.16em] text-zinc-600">
+                Completa el objetivo y toca RECLAMAR para cobrar
+              </p>
             </motion.div>
           </motion.div>
         )}
@@ -736,49 +806,75 @@ export function MainMenu() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Fila de una misión diaria: título, barra de progreso y estado.
+// Fila de una misión (cualquier escalón): título, barra de progreso y
+// RECLAMO manual — completar NO paga: el jugador cobra con un toque.
 // ──────────────────────────────────────────────────────────────
 function MissionRow({ m }: { m: Mission }) {
+  const claim = useMissionStore((s) => s.claim);
   const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
+  const canClaim = m.ready && !m.claimed;
+  const reward = SCOPE_REWARD[m.scope];
+  const rewardLabel = `+${reward.cards} ${reward.cards === 1 ? "carta" : "cartas"}`;
+  const doClaim = () => {
+    if (!canClaim) return;
+    sfx.select();
+    haptic("success");
+    claim(m.scope, m.id);
+  };
   return (
     <div
       className={
         "rounded-lg border px-2.5 py-2 " +
-        (m.done
-          ? "border-emerald-500/50 bg-emerald-950/30"
-          : "border-zinc-800 bg-zinc-900/50")
+        (m.claimed
+          ? "border-zinc-800 bg-zinc-900/30 opacity-60"
+          : canClaim
+            ? "border-emerald-500/60 bg-emerald-950/30 shadow-[0_0_14px_rgba(16,185,129,0.15)]"
+            : "border-zinc-800 bg-zinc-900/50")
       }
     >
       <div className="flex items-center justify-between gap-2">
         <span
           className={
             "text-[10px] font-bold leading-tight " +
-            (m.done ? "text-emerald-300" : "text-zinc-200")
+            (m.claimed ? "text-zinc-500 line-through" : canClaim ? "text-emerald-200" : "text-zinc-200")
           }
         >
           {m.title}
         </span>
-        {m.done ? (
-          <span className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-900/60 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-widest text-emerald-300">
-            <Gift className="h-2.5 w-2.5" /> +1 carta
+        {m.claimed ? (
+          <span className="flex shrink-0 items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-widest text-zinc-400">
+            <Check className="h-2.5 w-2.5" /> Reclamada
           </span>
+        ) : canClaim ? (
+          <button
+            onClick={doClaim}
+            className="flex shrink-0 animate-pulse items-center gap-1 rounded-full border border-emerald-300/80 bg-gradient-to-b from-emerald-500 to-emerald-700 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-white shadow-[0_0_12px_rgba(16,185,129,0.5)] transition-transform active:scale-95"
+          >
+            <Gift className="h-2.5 w-2.5" /> Reclamar
+          </button>
         ) : (
           <span className="shrink-0 text-[9px] font-black tabular-nums text-amber-300">
             {m.progress}/{m.target}
           </span>
         )}
       </div>
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-black/60">
-        <div
-          className={
-            "h-full rounded-full transition-all duration-500 " +
-            (m.done
-              ? "bg-gradient-to-r from-emerald-600 to-emerald-400"
-              : "bg-gradient-to-r from-amber-700 to-amber-400")
-          }
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      {m.claimed ? (
+        <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-zinc-600">
+          Recompensa cobrada: {rewardLabel}
+        </p>
+      ) : (
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-black/60">
+          <div
+            className={
+              "h-full rounded-full transition-all duration-500 " +
+              (canClaim
+                ? "bg-gradient-to-r from-emerald-600 to-emerald-400"
+                : "bg-gradient-to-r from-amber-700 to-amber-400")
+            }
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
