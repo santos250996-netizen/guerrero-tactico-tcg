@@ -8,7 +8,7 @@ import { useSettings } from "@/lib/settings";
 //   VIBRATE; en escritorio es no-op inofensivo).
 // - Un fallo de vibración JAMÁS rompe el flujo del juego (todo blindado).
 
-export type HapticLevel = "light" | "medium" | "heavy" | "success";
+type HapticLevel = "light" | "medium" | "heavy" | "success";
 
 // Patrones navigator.vibrate: [vibrar, pausa, vibrar, …] en ms.
 const VIBRATE_PATTERNS: Record<HapticLevel, number | number[]> = {

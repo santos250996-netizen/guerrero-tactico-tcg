@@ -1551,7 +1551,7 @@ export const BOTANICO_BOSS_CARDS: CardDef[] = [
 // ============================================================================
 
 /** Mazo I del Pirata — «Jolly Roger» (espejo del arranque). */
-export const PIRATA_CARDS: CardDef[] = [
+const PIRATA_CARDS: CardDef[] = [
   // ------------------------- CARRIL PUENTE -------------------------
   {
     id: "abordaje_al_amanecer",
@@ -1727,7 +1727,7 @@ export const PIRATA_CARDS: CardDef[] = [
 ];
 
 /** Mazo II del Pirata — «Baluarte de Hierro» (11 familias: Motín es único). */
-export const PIRATA2_CARDS: CardDef[] = [
+const PIRATA2_CARDS: CardDef[] = [
   // ------------------------- CARRIL PUENTE -------------------------
   {
     id: "saqueo_del_baron",
@@ -1908,7 +1908,7 @@ export const PIRATA2_CARDS: CardDef[] = [
 // 4 cartas extra que completan su mazo de 12; el jugador también puede
 // conseguirlas (entran al pool de la clase).
 // ============================================================================
-export const PIRATA_BOSS_CARDS: CardDef[] = [
+const PIRATA_BOSS_CARDS: CardDef[] = [
   {
     id: "canon_volador",
     name: "Cañón Volador",
@@ -1976,7 +1976,7 @@ export const PIRATA_BOSS_CARDS: CardDef[] = [
 // ============================================================================
 
 /** Mazo I del Tinker — «Fragua Ambulante» (espejo del arranque). */
-export const TINKER_CARDS: CardDef[] = [
+const TINKER_CARDS: CardDef[] = [
   // ------------------------- CARRIL TALLER -------------------------
   {
     id: "hojalatero_errante",
@@ -2153,7 +2153,7 @@ export const TINKER_CARDS: CardDef[] = [
 ];
 
 /** Mazo II del Tinker — «Motor de Guerra» (las 12 familias, X altos). */
-export const TINKER2_CARDS: CardDef[] = [
+const TINKER2_CARDS: CardDef[] = [
   // ------------------------- CARRIL TALLER -------------------------
   {
     id: "remachadora_de_asalto",
@@ -2334,7 +2334,7 @@ export const TINKER2_CARDS: CardDef[] = [
 // 4 cartas extra que completan su mazo de 12; el jugador también puede
 // conseguirlas (entran al pool de la clase).
 // ============================================================================
-export const TINKER_BOSS_CARDS: CardDef[] = [
+const TINKER_BOSS_CARDS: CardDef[] = [
   {
     id: "tren_de_asedio",
     name: "Tren de Asedio",
@@ -2401,7 +2401,7 @@ export const TINKER_BOSS_CARDS: CardDef[] = [
 // (ALL_CARDS_V3) — nada exclusivo de los bots.
 // ============================================================================
 
-export const SIGILO_BOSS_CARDS: CardDef[] = [
+const SIGILO_BOSS_CARDS: CardDef[] = [
   // ------------------------- CARRIL SIGILO +4 -------------------------
   {
     id: "punialada_traicionera",
@@ -2461,7 +2461,7 @@ export const SIGILO_BOSS_CARDS: CardDef[] = [
   },
 ];
 
-export const HIELO_BOSS_CARDS: CardDef[] = [
+const HIELO_BOSS_CARDS: CardDef[] = [
   // ------------------------- CARRIL HIELO +4 -------------------------
   {
     id: "aliento_gelido",
@@ -2521,7 +2521,7 @@ export const HIELO_BOSS_CARDS: CardDef[] = [
   },
 ];
 
-export const PROTECCION_BOSS_CARDS: CardDef[] = [
+const PROTECCION_BOSS_CARDS: CardDef[] = [
   // ----------------------- CARRIL PROTECCIÓN +4 -----------------------
   {
     id: "escudero_diligente",
@@ -3212,10 +3212,6 @@ export const PRESET_DECKS: { id: string; name: string; emoji: string; descriptio
     cards: TINKER2_CARDS,
   },
 ];
-
-/** Legacy rarity filters. */
-export const BASIC_CARDS: CardDef[] = ALL_CARDS.filter((c) => c.cost <= 2);
-export const TACTICAL_CARDS: CardDef[] = ALL_CARDS.filter((c) => c.cost >= 3);
 
 /**
  * Build a draw pile from a deck (clones each card with fresh uid + handBonus).

@@ -101,7 +101,7 @@ function parseInput(body: unknown): PvpPlayerInput | null {
 
 // --- router (misma semántica que las rutas Next) -----------------------------
 
-export interface LocalApiResult {
+interface LocalApiResult {
   status: number;
   body: unknown;
 }
@@ -249,7 +249,7 @@ export function handleLocalPvpApi(
 
 import { Capacitor } from "@capacitor/core";
 
-export interface LocalServerInfo {
+interface LocalServerInfo {
   port: number;
   ips: string[];
   urls: string[];
@@ -259,7 +259,7 @@ let running: LocalServerInfo | null = null;
 let requestHandle: { remove: () => Promise<void> } | null = null;
 let errorHandle: { remove: () => Promise<void> } | null = null;
 
-export function localServerInfo(): LocalServerInfo | null {
+function localServerInfo(): LocalServerInfo | null {
   return running;
 }
 

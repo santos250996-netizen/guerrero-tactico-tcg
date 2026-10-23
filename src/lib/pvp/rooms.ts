@@ -118,7 +118,7 @@ async function codeAvailable(code: string): Promise<boolean> {
  * Entrada cruda del cliente (tras zod): `deck` es la colección materializada
  * (id + tier) ANTES de validar. Se reconstruye canónica en el servidor.
  */
-export type RoomPlayerInput = {
+type RoomPlayerInput = {
   name: string;
   gameClass: GameClass;
   deckIds?: string[];
@@ -210,7 +210,7 @@ export async function saveRoom(env: RoomEnvelope): Promise<void> {
  * la BD. Llamada en fire-and-forget desde createRoom para que las salas
  * abandonadas no se acumulen para siempre.
  */
-export async function purgeExpiredRooms(): Promise<number> {
+async function purgeExpiredRooms(): Promise<number> {
   const c = cache();
   const now = Date.now();
   let purged = 0;

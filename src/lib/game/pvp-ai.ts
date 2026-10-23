@@ -12,7 +12,7 @@ import type { PvpAction, PvpState } from "./pvp";
 import { planEnemyTurn, type ClassRulesState, type Board } from "./engine";
 import type { LaneBonuses, LaneId } from "./types";
 
-export interface BotPlan {
+interface BotPlan {
   actions: PvpAction[];
   /** Score del mejor plan (para logs/debug). */
   bestScore: number;

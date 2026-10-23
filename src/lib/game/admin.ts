@@ -17,7 +17,7 @@ import type { GameClass, Rarity } from "./types";
 export const ADMIN_STORAGE_KEY = "pacto-de-guerra-admin";
 
 /** Copias por carta (misma forma que Copies del collectionStore). */
-export type AdminCopies = Record<string, Partial<Record<Rarity, number>>>;
+type AdminCopies = Record<string, Partial<Record<Rarity, number>>>;
 
 /** Instantánea exacta de la colección real ANTES de activar el admin. */
 export interface AdminBackup {
@@ -26,7 +26,7 @@ export interface AdminBackup {
   wins: number;
 }
 
-export interface AdminFile {
+interface AdminFile {
   on: boolean;
   backup: AdminBackup | null;
 }

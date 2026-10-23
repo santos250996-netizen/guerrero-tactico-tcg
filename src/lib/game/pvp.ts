@@ -71,13 +71,13 @@ export type PvpSide = "a" | "b";
 export const otherSide = (s: PvpSide): PvpSide => (s === "a" ? "b" : "a");
 
 /** Milisegundos de gracia antes de marcar al rival como desconectado. */
-export const PVP_CONNECTED_MS = 12000;
+const PVP_CONNECTED_MS = 12000;
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface PvpPlayer {
+interface PvpPlayer {
   name: string;
   gameClass: GameClass;
   /** Carriles propios, en el orden de las posiciones (índice = pareja). */
@@ -95,12 +95,12 @@ export interface PvpPlayer {
 }
 
 /** Una posición del tablero: cartas del lado A y del lado B enfrentadas. */
-export interface PvpLanePos {
+interface PvpLanePos {
   a: BoardCard[];
   b: BoardCard[];
 }
 
-export interface PvpLogEntry {
+interface PvpLogEntry {
   id: string;
   turn: number;
   side: PvpSide | "system";
@@ -109,7 +109,7 @@ export interface PvpLogEntry {
 }
 
 /** Mutación para números flotantes (lados ya mapeados a a/b). */
-export interface PvpFloatMutation {
+interface PvpFloatMutation {
   side: PvpSide;
   uid: string;
   powerDelta: number;
@@ -122,7 +122,7 @@ export interface PvpFloatMutation {
  *   · `lanePos` (0-2) sustituye a `lane`: el carril viaja con claves propias
  *     por jugador, así que por HTTP solo tiene sentido la POSICIÓN.
  */
-export interface PvpLastActionFx {
+interface PvpLastActionFx {
   kind: FxKind;
   keyword?: Keyword;
   /** Ritual de clase V3 (solo kind: "class"). */
@@ -135,7 +135,7 @@ export interface PvpLastActionFx {
   delayMs?: number;
 }
 
-export interface PvpLastAction {
+interface PvpLastAction {
   seq: number;
   side: PvpSide;
   type: "play" | "pass";
@@ -267,7 +267,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /** Mazo validado: 12 ids únicos del pool de la clase; si no, el espejo oficial. */
-export function resolvePvpDeck(cls: GameClass, deckIds?: string[]): CardDef[] {
+function resolvePvpDeck(cls: GameClass, deckIds?: string[]): CardDef[] {
   if (deckIds && deckIds.length === 12) {
     const pool = cardPoolForClass(cls);
     const resolved: CardDef[] = [];

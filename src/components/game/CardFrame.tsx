@@ -21,7 +21,7 @@ import { isLowPowerDevice } from "@/lib/game/perf";
 // Metadatos por rareza: metal del bisel, acento de filigranas, glow y foil
 // ---------------------------------------------------------------------------
 
-export interface FrameMeta {
+interface FrameMeta {
   /** Gradiente del bisel exterior (marco metálico). */
   metal: string;
   /** Gradiente del name plate. */
@@ -36,7 +36,7 @@ export interface FrameMeta {
   foil: "none" | "soft" | "full";
 }
 
-export const FRAME_META: Record<Rarity, FrameMeta> = {
+const FRAME_META: Record<Rarity, FrameMeta> = {
   common: {
     metal: "linear-gradient(160deg, #3f4541 0%, #23282a 30%, #1a1e20 60%, #2b3130 100%)",
     plate: "linear-gradient(180deg, rgba(16,20,19,0.96) 0%, rgba(26,31,29,0.96) 100%)",
@@ -126,7 +126,7 @@ function CornerFiligree({ accent, className }: { accent: string; className?: str
 }
 
 /** Las 4 filigranas de esquina posicionadas sobre el marco (rotadas por CSS). */
-export function FrameCorners({ accent, size = 16 }: { accent: string; size?: number }) {
+function FrameCorners({ accent, size = 16 }: { accent: string; size?: number }) {
   const base: React.CSSProperties = { position: "absolute", width: size, height: size, zIndex: 35 };
   return (
     <div className="pointer-events-none absolute inset-0 z-[35]">

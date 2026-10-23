@@ -31,7 +31,7 @@ export const PROGRESS_KEYS = [
 export const DECK_KEY_PREFIX = "guerrero-tactico-deck";
 
 /** Las 3 claves grandes que definen «hay progreso». Si TODAS faltan → instalación fresca. */
-export const CORE_PROGRESS_KEYS = [
+const CORE_PROGRESS_KEYS = [
   "pacto-de-guerra-profile",
   "pacto-de-guerra-campana",
   "guerrero-tactico-coleccion",
@@ -73,7 +73,7 @@ export function collectProgress(storage: MinimalStorage = defaultStorage()): str
   return JSON.stringify({ game: "pacto-de-guerra", version: 1, keys });
 }
 
-export type ParseResult =
+type ParseResult =
   | { ok: true; keys: Record<string, string> }
   | { ok: false; error: string };
 
@@ -99,7 +99,7 @@ export function parseProgressCode(text: string): ParseResult {
   }
 }
 
-export type ApplyResult = { ok: true; written: number } | { ok: false; error: string };
+type ApplyResult = { ok: true; written: number } | { ok: false; error: string };
 
 /** Valida y escribe el respaldo en el storage (sobrescribe las claves que trae). */
 export function applyProgressCode(text: string, storage: MinimalStorage = defaultStorage()): ApplyResult {

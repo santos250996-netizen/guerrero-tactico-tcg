@@ -1308,3 +1308,20 @@ Stage Summary:
 - V3.2: MODO ADMIN OCULTO completo y reversible (activar = 6 clases + 192 cartas MÍTICO con backup; desactivar = progreso real restaurado, lo ganado en admin se descarta) + REGLA MÍTICO-COMPLETADA aplicada en TODO el pipeline de botín (drops, picks de jefe, starter, misiones vía addRewards) — la intuición del jugador era correcta: con mítico como tope de fusión, todo duplicado posterior es inservible y ya no se dropea.
 - Acceso del dueño: 7 toques en la versión del menú → panel secreto → activar/desactivar con confirmación. Indicador discreto en footer cuando está activo.
 - Suites: 37 asserts nuevos + ~464 de regresión, todo verde; E2E del ciclo activar→jugar→coleccionar→desactivar verificado en navegador.
+
+---
+Task ID: 61
+Agent: Z.ai (principal)
+Task: «hay incoherencia: auditoría y verifica, borra código muerto, arregla lo roto; el panel de admin no me abre; faltan fondos de carriles de las clases nuevas y un color por carril» (+ token GH pegado en chat → avisado de revocación, NUNCA almacenado ni usado)
+
+Work Log:
+- AUDITORÍA DE DIVERGENCIA (la incoherencia raíz): local edf24e3 ≠ origin/main 55851ae — el remoto tenía 2 commits que local NO: 8a6c051 «feat(v3.2): MODO ADMIN OCULTO» (por eso el panel no abría: la copia de trabajo no lo tenía) + 55851ae (test de arte western en 3 cartas). Local tenía 2 propios sin push (CardScript Task 60 + efdb6e4). MERGE origin/main → conflicto solo en worklog.md (append/append, resuelto conservando ambas secciones) → commit c3a7e24.
+- PANEL ADMIN VERIFICADO tras merge: admin.ts + adminStore.ts + AdminSecretModal presentes; gesto = 7 toques en el texto de versión del menú → panel secreto → activar/desactivar con confirmación en 2 toques. Suite test-admin-mythic 37✓. NOTA: no existe ruta /admin — el panel es el modal oculto por gesto.
+- CÓDIGO MUERTO (95 huérfanos → 0): NUEVO scripts/clean-dead-exports.py (unexport si el símbolo se usa internamente; DELETE por balance de llaves + JSDoc si no se usa en ninguna parte; exención para card-scripts.ts = API pública documentada §11). Resultado: 82 unexport + 54 líneas borradas en 24 archivos (engine, types, stores, pvp, balance, perf...). balance.ts sigue vivo (3 consumidores) — solo se podó su superficie. audit-dead-exports.mjs ahora conoce la exención (Total: 0 estable).
+- COLORES DE CARRIL (18 carriles / 18 familias únicas): laneColors.ts +6 familias (emerald, pink, stone, zinc, slate, fuchsia con el template completo bg/border/text/ring/glow/headerBg/divider); LaneDecor.tsx LANE_HEX +6 hex; LANE_META reasignado — botánico: raíz=esmeralda flor=rosa esporas=verde · pirata: puente=azul bodega=piedra artillería=amarillo · tinker: taller=zinc maquinaria=pizarra chispa=fucsia. Cero colisiones entre clases (PvP muestra carriles de ambos bandos).
+- FONDOS DE CARRIL: los lane-*.webp de las clases nuevas NO existían en public/menu/ (404 silencioso en PvpLane backgroundImage). NUEVO scripts/gen-lane-bgs-western-v3.mjs (el generador que el worklog T58 citaba y nunca existió): estilo western aprobado, escenas alineadas a las paletas de cartas de cada clase, 864x1152 → sharp cover-crop 768x1344 → webp, FORCE/ONLY + backoff anti-429. PENDIENTE generar 9 fondos (raiz, flor, esporas, puente, bodega, artilleria, taller, maquinaria, chispa): el API de imágenes sigue en 429 duro (sondeos + canario fallidos). Reanudar: FORCE=1 bun scripts/gen-lane-bgs-western-v3.mjs.
+- REGRESIÓN POST-LIMPIEZA: tsc 0 errores · campana 139 · clases-v3 66 · colección-historia 69 · admin-mítico 37 · keywords-v3 33 · keywords-v4 71 — TODO verde (~415 asserts).
+- COMMIT LOCAL sin push (regla del jugador: CI/APK solo bajo orden expresa). REMOTO: origin/main queda DETRÁS de local (falta push cuando el jugador ordene).
+
+Stage Summary:
+- Incoherencia resuelta (merge con el Modo Admin v3.2 del remoto + trabajo local), código muerto 95→0 con suites verdes, colores únicos por carril de las 6 clases, y generador de fondos de carril listo esperando API. El panel de admin abre con 7 toques en el texto de versión del menú (gesto oculto, no hay botón).

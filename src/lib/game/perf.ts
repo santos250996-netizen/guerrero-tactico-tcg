@@ -10,7 +10,7 @@
 // cliente y framer-motion props se evalúan en primer render de cliente).
 // ============================================================================
 
-export type PerfTier = "low" | "med" | "high";
+type PerfTier = "low" | "med" | "high";
 
 interface DeviceProfile {
   tier: PerfTier;
@@ -41,7 +41,7 @@ function detect(): DeviceProfile {
   return { tier: "med", isMobile: true };
 }
 
-export function deviceProfile(): DeviceProfile {
+function deviceProfile(): DeviceProfile {
   if (!cached) cached = detect();
   return cached;
 }

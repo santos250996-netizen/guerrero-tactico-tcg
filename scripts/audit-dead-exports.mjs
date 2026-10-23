@@ -21,10 +21,15 @@ const texts = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
 const declRe = /export\s+(?:async\s+)?(?:function|const|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g;
 
 // Nombres reservados/entry: exports usados por Next o por frameworks
+// EXENCIÓN: card-scripts.ts es API pública documentada (design-pattern §11) —
+// sus tipos/contrato son para autores de scripts aunque el registro esté vacío.
+const EXEMPT_FILES = new Set(["src/lib/game/card-scripts.ts"]);
+
 const NEXT_OK = new Set(["metadata", "dynamic", "revalidate", "GET", "POST", "PUT", "DELETE", "PATCH", "generateStaticParams", "runtime"]);
 
 const results = [];
 for (const f of files) {
+  if (EXEMPT_FILES.has(relative(ROOT, f))) continue;
   const text = texts.get(f);
   const others = files.filter((g) => g !== f).map((g) => texts.get(g)).join("\n");
   const scriptsTexts = [];

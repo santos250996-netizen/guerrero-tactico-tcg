@@ -302,7 +302,7 @@ export function loreForStep(step: number): { text: string; isBoss: boolean } {
 
 // ── Biomas: la escalera cambia de paisaje ───────────────────────────────────
 
-export interface Biome {
+interface Biome {
   id: string;
   name: string;
   /** Tinte ambiental del duelo (radial-gradient CSS — capa fija y estática). */

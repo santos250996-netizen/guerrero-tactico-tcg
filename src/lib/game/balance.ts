@@ -16,9 +16,9 @@ import type { CardDef, Keyword, Trigger, ScopeKind, Rarity } from "./types";
 import { KEYWORD_META, SCOPE_MODS, MOD_ONCE_PER_TURN, MOD_ONCE_SINGLE } from "./types";
 
 // ----- Core formula constants -----
-export const ENERGY_MULTIPLIER = 4.0;
-export const BASE_ENTRY_POINTS = 1.5;
-export const TOLERANCE = 0.5;
+const ENERGY_MULTIPLIER = 4.0;
+const BASE_ENTRY_POINTS = 1.5;
+const TOLERANCE = 0.5;
 
 // ----- Rareza por FUSIÓN (rework 2026-10: escalado de KEYWORD desde legendaria) -----
 // Todas las cartas nacen COMUNES; la rareza se GANA fusionando 3 copias
@@ -30,7 +30,7 @@ export const TOLERANCE = 0.5;
 // Así las copias máximas no solo golpean más: su EFECTO escala. El tier común
 // devuelve la definición intacta.
 export const RARITY_ORDER: readonly Rarity[] = ["common", "rare", "epic", "legendary", "mythic"] as const;
-export const RARITY_TIER: Record<Rarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 };
+const RARITY_TIER: Record<Rarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 };
 export const RARITY_LABEL: Record<Rarity, string> = {
   common: "Común",
   rare: "Rara",
@@ -59,12 +59,12 @@ export function nextRarity(rarity: Rarity): Rarity | null {
  * Bolsa de Puntos Totales (PTP) que otorga un coste de energía dado,
  * ajustada por la rareza de la copia (+2 por tier sobre la común).
  */
-export function getTargetPTP(energyCost: number, rarity: Rarity = "common"): number {
+function getTargetPTP(energyCost: number, rarity: Rarity = "common"): number {
   return energyCost * ENERGY_MULTIPLIER + BASE_ENTRY_POINTS + RARITY_TIER[rarity] * RARITY_PTP_BONUS_PER_TIER;
 }
 
 /** Rango legal de PTP para un coste y rareza dados (con tolerancia ±0.5). */
-export function getPTPRange(energyCost: number, rarity: Rarity = "common"): { min: number; max: number; target: number } {
+function getPTPRange(energyCost: number, rarity: Rarity = "common"): { min: number; max: number; target: number } {
   const target = getTargetPTP(energyCost, rarity);
   return {
     target,
@@ -74,7 +74,7 @@ export function getPTPRange(energyCost: number, rarity: Rarity = "common"): { mi
 }
 
 /** Modificador por repetición: start_turn/end_turn son efectos peri-turno. */
-export function getOnceModifier(trigger: Trigger | undefined): number {
+function getOnceModifier(trigger: Trigger | undefined): number {
   if (trigger === "start_turn" || trigger === "end_turn") return MOD_ONCE_PER_TURN;
   return MOD_ONCE_SINGLE;
 }
@@ -156,7 +156,7 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   octava: 0.9, // +X por propia en los OTROS carriles (Convergencia 1.0 por propia en SU carril)
 };
 
-export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): number {
+function getKeywordBaseValue(keyword: Keyword, magnitude?: number): number {
   const base = KEYWORD_BASE_VALUES[keyword] ?? 0;
   const hasValue = keyword !== "none" ? KEYWORD_META[keyword].hasValue : false;
   if (!hasValue) return base;
@@ -166,7 +166,7 @@ export function getKeywordBaseValue(keyword: Keyword, magnitude?: number): numbe
 /**
  * Puntos de efecto de una carta según su keyword, valor X, trigger y scope.
  */
-export function calculateEffectPoints(card: CardDef): number {
+function calculateEffectPoints(card: CardDef): number {
   const keyword: Keyword = card.keyword ?? "none";
   if (keyword === "none") return 0;
   const meta = KEYWORD_META[keyword];
@@ -210,11 +210,11 @@ export function materializeCard(card: CardDef, rarity: Rarity): CardDef {
 }
 
 /** PTP actual de una carta (base + efectos). */
-export function getCurrentPTP(card: CardDef): number {
+function getCurrentPTP(card: CardDef): number {
   return card.power + calculateEffectPoints(card);
 }
 
-export interface BalanceInfo {
+interface BalanceInfo {
   cost: number;
   targetPTP: number;
   currentPTP: number;
@@ -238,34 +238,10 @@ export function getBalanceInfo(card: CardDef, rarity: Rarity = "common"): Balanc
   };
 }
 
-export function isCardBalanced(card: CardDef): boolean {
-  return getBalanceInfo(card).balanced;
-}
-
-export function getBalanceStatusLabel(card: CardDef): string {
+function getBalanceStatusLabel(card: CardDef): string {
   const info = getBalanceInfo(card);
   if (info.status === "ok") return "Balanceada";
   if (info.status === "over") return `Sobre-balanceada (+${info.delta.toFixed(1)})`;
   return `Sub-balanceada (${info.delta.toFixed(1)})`;
 }
 
-/** Resumen de balance de un mazo completo. */
-export function getDeckBalanceSummary(cards: CardDef[]): {
-  balanced: number;
-  over: number;
-  under: number;
-  details: { name: string; status: string }[];
-} {
-  let balanced = 0;
-  let over = 0;
-  let under = 0;
-  const details: { name: string; status: string }[] = [];
-  for (const card of cards) {
-    const info = getBalanceInfo(card);
-    if (info.status === "ok") balanced++;
-    else if (info.status === "over") over++;
-    else under++;
-    details.push({ name: card.name, status: getBalanceStatusLabel(card) });
-  }
-  return { balanced, over, under, details };
-}

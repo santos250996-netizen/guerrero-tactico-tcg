@@ -28,6 +28,13 @@ export const LANE_HEX: Record<string, string> = {
   green: "#4ade80",
   blue: "#60a5fa",
   yellow: "#facc15",
+  // V3.1 · carriles de las clases nuevas (botánico / pirata / tinker)
+  emerald: "#34d399",
+  pink: "#f472b6",
+  stone: "#d6d3d1",
+  zinc: "#a1a1aa",
+  slate: "#94a3b8",
+  fuchsia: "#e879f9",
 };
 
 // ---------------------------------------------------------------------------

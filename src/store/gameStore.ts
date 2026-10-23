@@ -16,7 +16,7 @@ import { cardPoolForClass, battleDeckFromOwned } from "@/lib/game/cards";
 import { readEditedDeckIds, storageKeyFor } from "@/lib/game/deck-storage";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 
-export type View =
+type View =
   | "main-menu"
   | "class-select"
   | "editor"
@@ -24,7 +24,7 @@ export type View =
   | "pvp"
   | "coleccion";
 
-export interface GameStoreState {
+interface GameStoreState {
   /** Vista activa de la app. */
   view: View;
   /** Contextual return target when leaving DeckEditor. */

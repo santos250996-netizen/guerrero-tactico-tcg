@@ -26,7 +26,7 @@ export const pvpInputSchema = z.object({
     .optional(),
 });
 
-export type AuthOk = { env: RoomEnvelope; side: PvpSide };
+type AuthOk = { env: RoomEnvelope; side: PvpSide };
 
 /** Autentica por código de sala + token (header x-pvp-token o query ?token=). */
 export async function authenticate(

@@ -38,7 +38,7 @@ interface PvpLaneProps {
   side: "me" | "rival";
 }
 
-export function PvpLaneImpl({ position, side }: PvpLaneProps) {
+function PvpLaneImpl({ position, side }: PvpLaneProps) {
   // PERF Task 46: snapshot ESTRECHO por carril (useShallow) — el memo del
   // componente solo se abre cuando cambia ALGO de ESTE carril (cartas, bono,
   // turno, selección, highlight). Antes leía el objeto `view` entero: cada

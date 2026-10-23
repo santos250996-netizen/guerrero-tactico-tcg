@@ -17,7 +17,7 @@ import type { GameClass, Rarity } from "@/lib/game/types";
 
 export type MatchResult = "WIN" | "LOSS" | "DRAW";
 
-export interface League {
+interface League {
   id: "bronce" | "plata" | "oro" | "leyenda";
   name: string;
   min: number;
@@ -31,9 +31,9 @@ export const LEAGUES: League[] = [
 ];
 
 /** Puntos de liga por partida online. */
-export const RANK_WIN = 25;
-export const RANK_LOSS = -10;
-export const RANK_DRAW = 5;
+const RANK_WIN = 25;
+const RANK_LOSS = -10;
+const RANK_DRAW = 5;
 
 // ── NIVEL DEL JUGADOR (progresión de drops) ──────────────────────────────
 // XP por partida: ganar 6 · perder 3 · empate 4 · +10 extra por JEFE ganado.
@@ -42,7 +42,7 @@ export const RANK_DRAW = 5;
 export const XP_WIN = 6;
 export const XP_LOSS = 3;
 export const XP_DRAW = 4;
-export const XP_BOSS_BONUS = 10;
+const XP_BOSS_BONUS = 10;
 export const XP_MISSION = 4;
 
 /** XP necesaria para pasar DEL nivel `level` al siguiente. */
@@ -76,7 +76,7 @@ export function nextLeagueOf(points: number): League | null {
   return idx < LEAGUES.length - 1 ? LEAGUES[idx + 1] : null;
 }
 
-export interface ClassStat {
+interface ClassStat {
   matches: number;
   wins: number;
 }

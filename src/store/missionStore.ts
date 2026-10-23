@@ -18,7 +18,7 @@ import type { GameClass } from "@/lib/game/types";
 import { useStatsStore, XP_MISSION } from "./statsStore";
 import { useCollectionStore } from "./collectionStore";
 
-export type MissionType =
+type MissionType =
   | "win-games"
   | "win-class"
   | "play-cards"

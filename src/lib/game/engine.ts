@@ -39,7 +39,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export type Board = Record<LaneId, LaneState>;
 
-export const LANE_IDS: LaneId[] = ["armas", "proteccion", "furia"];
+const LANE_IDS: LaneId[] = ["armas", "proteccion", "furia"];
 export const ALL_LANE_IDS: LaneId[] = [
   ...CLASS_META.guerrero.lanes,
   ...CLASS_META.mago.lanes,
@@ -58,8 +58,7 @@ export function lanesForClass(cls: GameClass): LaneId[] {
 
 export const MAX_TURNS = 6;
 export const MAX_HAND_SIZE = 7;
-export const MAX_LANE_CARDS = 4;
-export const STARTING_HAND_SIZE = 5;
+const MAX_LANE_CARDS = 4;
 
 // ---------------------------------------------------------------------------
 // REGLAS SISTÉMICAS DE CLASE (V3) — UNA regla por clase, ligada a los carriles
@@ -87,9 +86,9 @@ export const V3_RESONANCIA_COST_CUT = 1;
 export const V3_COMBO_CAP = 5;
 export const V3_COMBO_POWER = 4;
 // V3.0 — reglas sistémicas de las clases nuevas (T-A, plan-expansion-v3 §2):
-export const V3_VIENTO_POWER = 1; // Pirata — «Viento de Popa»: +1 por carta mientras vayas con menos tripulación
-export const V3_TALLER_POWER = 1; // Tinker — «Taller de Campamento»: los Ítems entran con +1
-export const V3_ESTACION_TURN = 4; // Botánico — la Estación madura (+2X) desde este turno
+const V3_VIENTO_POWER = 1; // Pirata — «Viento de Popa»: +1 por carta mientras vayas con menos tripulación
+const V3_TALLER_POWER = 1; // Tinker — «Taller de Campamento»: los Ítems entran con +1
+const V3_ESTACION_TURN = 4; // Botánico — la Estación madura (+2X) desde este turno
 
 export interface ClassRulesState {
   /** Clase de cada lado RELATIVO (player = quien actúa en la llamada). null = regla inactiva. */
@@ -131,11 +130,7 @@ export interface TrapState {
   value: number;
 }
 
-export type LaneTraps = Record<LaneId, TrapState | null>;
-
-export function emptyLaneTraps(): LaneTraps {
-  return Object.fromEntries(ALL_LANE_IDS.map((ln) => [ln, null])) as LaneTraps;
-}
+type LaneTraps = Record<LaneId, TrapState | null>;
 
 /**
  * Tablero VACÍO con TODOS los carriles del catálogo (18 en V3.0). Lo usan los
@@ -207,7 +202,7 @@ export function isCardCostAllowed(cardCost: number, bonus: LaneBonus | null): bo
   return true;
 }
 
-export function getLaneBonusPower(
+function getLaneBonusPower(
   cardCategory: CardDef["category"],
   bonus: LaneBonus | null
 ): number {
@@ -222,21 +217,8 @@ export function getLaneBonusPower(
 // Power & scoring helpers
 // ---------------------------------------------------------------------------
 
-export function calcLanePower(cards: BoardCard[]): number {
+function calcLanePower(cards: BoardCard[]): number {
   return cards.reduce((acc, c) => acc + c.currentPower, 0);
-}
-
-export function laneOutcome(
-  lane: LaneId,
-  state: Board
-): { player: number; enemy: number; winner: "player" | "enemy" | "draw" } {
-  const p = calcLanePower(state[lane].player);
-  const e = calcLanePower(state[lane].enemy);
-  return {
-    player: p,
-    enemy: e,
-    winner: p > e ? "player" : e > p ? "enemy" : "draw",
-  };
 }
 
 function highestPowerCard(cards: BoardCard[]): BoardCard | null {
@@ -248,7 +230,7 @@ function highestPowerCard(cards: BoardCard[]): BoardCard | null {
   return best;
 }
 
-export function lowestPowerCard(cards: BoardCard[]): BoardCard | null {
+function lowestPowerCard(cards: BoardCard[]): BoardCard | null {
   if (cards.length === 0) return null;
   let best = cards[0];
   for (const c of cards) {
@@ -309,7 +291,7 @@ function applyPowerDelta(
 // directas en on_play, que de por sí ignoran escudos).
 // ---------------------------------------------------------------------------
 
-export interface DebuffResult {
+interface DebuffResult {
   /** Final negative delta actually applied (0 if fully absorbed). */
   appliedDelta: number;
   /** Points absorbed by the target's shield. */
@@ -1488,7 +1470,7 @@ export function playCard(
 // Smart enemy AI
 // ---------------------------------------------------------------------------
 
-export interface AIPlay {
+interface AIPlay {
   card: HandCard;
   lane: LaneId;
   score: number; // heuristic score for this play
@@ -1848,11 +1830,6 @@ export function computeFinalResult(board: Board, lanes: LaneId[] = LANE_IDS): Fi
 // ---------------------------------------------------------------------------
 // Card metadata for UI
 // ---------------------------------------------------------------------------
-
-export function getEffectLabel(effectId: EffectId): string {
-  if (effectId === "none") return "—";
-  return KEYWORD_META[effectId]?.label ?? "—";
-}
 
 // ---------------------------------------------------------------------------
 // Trigger dispatchers — fire keyword effects at the right point of the turn.

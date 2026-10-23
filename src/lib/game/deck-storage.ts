@@ -13,7 +13,7 @@
 
 import type { GameClass } from "./types";
 
-export type DeckStorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type DeckStorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export function storageKeyFor(cls: GameClass): string {
   return cls === "guerrero" ? "guerrero-tactico-deck" : `guerrero-tactico-deck-${cls}`;

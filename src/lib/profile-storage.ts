@@ -7,7 +7,7 @@
 
 export const PROFILE_STORAGE_KEY = "pacto-de-guerra-profile";
 
-export interface StoredProfileBrief {
+interface StoredProfileBrief {
   username: string | null;
   /** id de carta usada como avatar; null → sin avatar personalizado. */
   avatarCardId: string | null;

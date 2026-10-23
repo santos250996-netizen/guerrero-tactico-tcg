@@ -167,14 +167,6 @@ export const TRIGGER_META: Record<
   },
 };
 
-/** Multiplier applied to a keyword's Valor_Keyword based on WHEN it fires. */
-export const TRIGGER_MODS: Record<Trigger, number> = {
-  on_play: 1.0, // Efecto único instantáneo — valor pleno
-  start_turn: 1.0, // Se dispara cada inicio de turno
-  end_turn: 1.0, // Se dispara cada fin de turno
-  on_death: 1.0, // Condicional al morir
-};
-
 /** Multiplier applied to a keyword's Valor_Keyword based on WHERE it hits. */
 export const SCOPE_MODS = {
   PROPIO: 1.0, // Afecta solo a la propia carta
@@ -794,9 +786,7 @@ export interface LaneState {
   enemy: BoardCard[];
 }
 
-export type GamePhase = "playing" | "enemy" | "ended";
-
-export type GameResult = "WIN" | "LOSS" | "DRAW" | null;
+type GameResult = "WIN" | "LOSS" | "DRAW" | null;
 
 export interface LaneOutcome {
   lane: LaneId;
@@ -832,24 +822,24 @@ export const LANE_META: Record<
   combate: { title: "COMBATE", icon: Sword, color: "red" },
   sigilo: { title: "SIGILO", icon: EyeOff, color: "indigo" },
   // Botánico (V3.0)
-  raiz: { title: "RAÍZ", icon: TreePine, color: "green" },
-  flor: { title: "FLOR", icon: Flower2, color: "green" },
+  raiz: { title: "RAÍZ", icon: TreePine, color: "emerald" },
+  flor: { title: "FLOR", icon: Flower2, color: "pink" },
   esporas: { title: "ESPORAS", icon: Biohazard, color: "green" },
   // Pirata (V3.0)
   puente: { title: "PUENTE", icon: Anchor, color: "blue" },
-  bodega: { title: "BODEGA", icon: Package, color: "blue" },
-  artilleria: { title: "ARTILLERÍA", icon: Bomb, color: "blue" },
+  bodega: { title: "BODEGA", icon: Package, color: "stone" },
+  artilleria: { title: "ARTILLERÍA", icon: Bomb, color: "yellow" },
   // Tinker (V3.0)
-  taller: { title: "TALLER", icon: Hammer, color: "yellow" },
-  maquinaria: { title: "MAQUINARIA", icon: Cog, color: "yellow" },
-  chispa: { title: "CHISPA", icon: Zap, color: "yellow" },
+  taller: { title: "TALLER", icon: Hammer, color: "zinc" },
+  maquinaria: { title: "MAQUINARIA", icon: Cog, color: "slate" },
+  chispa: { title: "CHISPA", icon: Zap, color: "fuchsia" },
 };
 
 // ---------------------------------------------------------------------------
 // Per-game lane bonuses
 // ---------------------------------------------------------------------------
 
-export type LaneBonusKind =
+type LaneBonusKind =
   | "cost_neg" // coste -1 (descuento de energía)
   | "cost_pos" // coste +1 (penalización de energía)
   | "cat_item" // Ítem +3
@@ -861,7 +851,7 @@ export type LaneBonusKind =
   | "cost_only_1" // Solo coste 1
   | "limit_3"; // Solo 3 por lado (max 3 cartas por bando)
 
-export type BonusFlavor = "positive" | "penalty" | "restrictive";
+type BonusFlavor = "positive" | "penalty" | "restrictive";
 
 export interface LaneBonus {
   kind: LaneBonusKind;

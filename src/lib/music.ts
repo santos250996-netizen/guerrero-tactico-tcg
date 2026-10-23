@@ -16,7 +16,7 @@ import { getAudioCtx, noise } from "@/lib/sound";
 //   (lección de sound.ts: la APK va a fondo para el hotspot/llamadas).
 // - A PRUEBA DE FALLOS: TODO blindado — un fallo de audio JAMÁS rompe el juego.
 
-export type MusicMode = "menu" | "battle";
+type MusicMode = "menu" | "battle";
 
 const BPM: Record<MusicMode, number> = { menu: 72, battle: 96 };
 const LOOKAHEAD_MS = 120;

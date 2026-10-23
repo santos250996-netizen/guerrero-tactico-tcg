@@ -58,14 +58,14 @@ import {
   stopLocalPvpServer,
 } from "@/lib/pvp/local-server";
 
-export type PvpScreen = "setup" | "lobby" | "game";
-export type PvpMode = "online" | "historia";
+type PvpScreen = "setup" | "lobby" | "game";
+type PvpMode = "online" | "historia";
 
 // LA CAMPAÑA: los nombres de bots y jefes viven en lib/game/campaign.ts
 // (junto al resto de la lógica de la escalera). Los jefes ya no se desafían
 // con un botón aparte: EMERGEN de la escalera en los escalones 5, 10 y 15.
 
-export interface PvpFloatingNumber {
+interface PvpFloatingNumber {
   id: string;
   uid: string;
   value: number;
@@ -73,7 +73,7 @@ export interface PvpFloatingNumber {
 
 /** Anuncio visual de la jugada del rival — para que su turno se VEA,
  *  no solo el cartel "TURNO DEL RIVAL". */
-export interface RivalPlayAnnounce {
+interface RivalPlayAnnounce {
   id: number;
   name: string;
   defId: string;

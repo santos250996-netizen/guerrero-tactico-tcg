@@ -42,7 +42,7 @@ export function rushXpForBoss(index: number, prestige: number): number {
   return 2 * xpBonusForStep(step, prestige);
 }
 
-export type RushPickTier = "rare" | "epic" | "legendary" | "common";
+type RushPickTier = "rare" | "epic" | "legendary" | "common";
 
 /**
  * Rareza del pick (1 de 3) tras vencer al jefe `index`.

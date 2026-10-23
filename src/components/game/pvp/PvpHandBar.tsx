@@ -17,7 +17,7 @@ import { LANE_META } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
-export function PvpHandBarImpl({
+function PvpHandBarImpl({
   onOpenRegistro,
   onOpenSettings,
 }: {
