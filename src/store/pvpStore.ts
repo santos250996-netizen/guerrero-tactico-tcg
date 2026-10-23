@@ -331,6 +331,23 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         }
         if (la.side === mine) haptic("light");
       }
+
+      // ══ STATS DE BATALLA (perfil): cartas jugadas POR MÍ y cartas ENEMIGAS
+      //    destruidas. applyView es la puerta común de TODOS los modos
+      //    (historia/campaña/rush local y PvP online) y el guard `seq >
+      //    prevSeq` evita el doble conteo en re-polls. `side` de los fx es
+      //    ABSOLUTO: destroy con side ≠ mío = carta enemiga que muere.
+      //    Nunca tumba la sincronización del estado.
+      if (la && la.seq > prevSeq && mine) {
+        const plays = la.type === "play" && la.side === mine ? 1 : 0;
+        let kills = 0;
+        for (const f of la.fx ?? []) {
+          if (f.kind === "destroy" && f.side !== mine) {
+            kills += Math.max(1, f.targetUids?.length ?? 1);
+          }
+        }
+        if (plays > 0 || kills > 0) useStatsStore.getState().addBattleTally(plays, kills);
+      }
     } catch (err) {
       // El audio/FX NUNCA tumba la sincronización del estado.
       console.error("[pvp] applyView: efectos de UI descartados:", err);

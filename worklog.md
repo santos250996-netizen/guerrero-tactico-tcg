@@ -1383,3 +1383,21 @@ Work Log:
 Stage Summary:
 - El menú ahora cuenta la progresión real del juego: vives El Pacto → escalas la Torre (jefes reclutan clases, CLASS_UNLOCK_STEP) → conoces a los jefes → se abre el Rush
 - Commit con PUSH (orden permanente de la sesión)
+
+---
+Task ID: ui-profile-stats-avatar
+Agent: Z.ai main agent
+Task: Mejorar UI de perfil — stats que no se marcaban + avatar limitado a 12 imágenes (debe permitir cualquier carta desbloqueada)
+
+Work Log:
+- Diagnóstico: los stats del perfil (partidas/victorias/derrotas/empates/cartas jugadas/enemigos destruidos/clase favorita) vivían en ProfileData (localStorage) que NADIE escribía → siempre 0. Y el picker filtraba ALL_CARDS (12 cartas base) en vez de ALL_CARDS_V3 (192).
+- statsStore: añadidos totalMatches/totalWins/totalLosses/totalDraws + cardsPlayed/enemiesDestroyed + addBattleTally(plays, kills); registerMatch ahora incrementa los totales globales; load/persist/reset actualizados (claves nuevas con default 0 — migración implícita).
+- pvpStore.applyView: tally EN VIVO con el guard seq > prevSeq (misma puerta para historia local + PvP online): plays propias (la.type==="play" && la.side===mine) y kills enemigas (fx kind==="destroy" && f.side!==mine, side ABSOLUTO a/b). Nunca tumba la sincronización (try/catch del bloque de efectos).
+- ProfileScreen: ProfileData reducido a identidad (username + avatarCardId) con carga saneada; record/winrate/empates/clase favorita (derivada de perClass: más jugada, desempate por victorias) desde statsStore; filas nuevas Jefes vencidos y Runs de Rush (con icono Flame en StatRow opcional).
+- AvatarPickerModal: pool ALL_CARDS_V3 (192), desbloqueadas = cartas poseídas en collectionStore (copies > 0), buscador por nombre sin diacríticos (aparece con >8 cartas, se limpia al cerrar), footer compacto "N cartas aún sin desbloquear" (en vez de pintar ~180 miniaturas grises), estado vacío "Gana cartas en el botín…". CardAvatarOption sin prop locked.
+- Verificación: tsc ✓, eslint ✓, impeccable detect (solo avisos preexistentes en ClassSelect), agent-browser 390/320: sembradas 15 cartas + stats → perfil muestra 12/7/4/58%, Cartas jugadas 87, Enemigos 54, Jefes 3, Rush 5, Colección 15/192; picker 15/192 + búsqueda "tajo" → 1 resultado + selección persistida (avatarCardId) + avatar renderizado; colección vacía → 0/192 + mensaje; consola sin errores JS (solo warning Radix preexistente).
+
+Stage Summary:
+- Stats del perfil 100% vivos (una sola fuente de verdad: statsStore) y contador de batalla alimentado en todos los modos.
+- Avatar: cualquier carta desbloqueada (192) usable; límite de 12 eliminado; buscador + footer de bloqueadas.
+- Archivos: src/store/statsStore.ts, src/store/pvpStore.ts, src/components/game/ProfileScreen.tsx

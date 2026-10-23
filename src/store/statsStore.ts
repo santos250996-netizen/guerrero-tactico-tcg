@@ -86,6 +86,17 @@ const STORAGE_KEY = "pacto-de-guerra-stats";
 interface StatsState {
   /** partidas/victorias por clase (todos los modos). */
   perClass: Partial<Record<GameClass, ClassStat>>;
+  /** Totales GLOBALES (todos los modos) — alimenta el perfil. Antes vivían
+   *  en un ProfileData que nadie escribía (stats muertos a 0). */
+  totalMatches: number;
+  totalWins: number;
+  totalLosses: number;
+  totalDraws: number;
+  /** Contadores de batalla acumulados del perfil: cartas jugadas POR EL
+   *  JUGADOR y cartas ENEMIGAS destruidas (se alimenta en vivo desde
+   *  pvpStore.applyView — la misma puerta que ven todos los modos). */
+  cardsPlayed: number;
+  enemiesDestroyed: number;
   /** +N racha de victorias · −N racha de derrotas · 0 tras empate. */
   streak: number;
   bestWinStreak: number;
@@ -111,6 +122,9 @@ interface StatsState {
     result: MatchResult,
     opts: { cls?: GameClass | null; online: boolean; boss?: boolean }
   ) => void;
+  /** Suma a los contadores de batalla del perfil (cartas jugadas por el
+   *  jugador / cartas enemigas destruidas) y persiste. */
+  addBattleTally: (plays: number, kills: number) => void;
   /** Registra el cierre de una run de Rush (victoria parcial, derrota o run
    *  completa): mejor run por clase, contador de runs y ciclos completados. */
   registerRush: (opts: { cls: GameClass; beaten: number; completed: boolean; cycle: number }) => void;
@@ -120,8 +134,8 @@ interface StatsState {
   resetStats: () => void;
 }
 
-function load(): Pick<StatsState, "perClass" | "streak" | "bestWinStreak" | "rankPoints" | "onlineGames" | "bossWins" | "level" | "xp" | "rushBest" | "rushRuns" | "rushCyclesDone"> {
-  const empty = { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0, rushBest: {}, rushRuns: 0, rushCyclesDone: [] as number[] };
+function load(): Pick<StatsState, "perClass" | "streak" | "bestWinStreak" | "rankPoints" | "onlineGames" | "bossWins" | "level" | "xp" | "rushBest" | "rushRuns" | "rushCyclesDone" | "totalMatches" | "totalWins" | "totalLosses" | "totalDraws" | "cardsPlayed" | "enemiesDestroyed"> {
+  const empty = { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0, rushBest: {}, rushRuns: 0, rushCyclesDone: [] as number[], totalMatches: 0, totalWins: 0, totalLosses: 0, totalDraws: 0, cardsPlayed: 0, enemiesDestroyed: 0 };
   if (typeof window === "undefined") return empty;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -139,6 +153,12 @@ function load(): Pick<StatsState, "perClass" | "streak" | "bestWinStreak" | "ran
       rushBest: p.rushBest ?? {},
       rushRuns: p.rushRuns ?? 0,
       rushCyclesDone: Array.isArray(p.rushCyclesDone) ? p.rushCyclesDone : [],
+      totalMatches: p.totalMatches ?? 0,
+      totalWins: p.totalWins ?? 0,
+      totalLosses: p.totalLosses ?? 0,
+      totalDraws: p.totalDraws ?? 0,
+      cardsPlayed: p.cardsPlayed ?? 0,
+      enemiesDestroyed: p.enemiesDestroyed ?? 0,
     };
   } catch {
     return empty;
@@ -162,6 +182,12 @@ function persist(s: StatsState): void {
         rushBest: s.rushBest,
         rushRuns: s.rushRuns,
         rushCyclesDone: s.rushCyclesDone,
+        totalMatches: s.totalMatches,
+        totalWins: s.totalWins,
+        totalLosses: s.totalLosses,
+        totalDraws: s.totalDraws,
+        cardsPlayed: s.cardsPlayed,
+        enemiesDestroyed: s.enemiesDestroyed,
       })
     );
   } catch {
@@ -194,6 +220,12 @@ export const useStatsStore = create<StatsState>((set, get) => ({
     }
     const bossWins = s.bossWins + (opts.boss && result === "WIN" ? 1 : 0);
 
+    // Totales globales del perfil (todos los modos cuentan)
+    const totalMatches = s.totalMatches + 1;
+    const totalWins = s.totalWins + (result === "WIN" ? 1 : 0);
+    const totalLosses = s.totalLosses + (result === "LOSS" ? 1 : 0);
+    const totalDraws = s.totalDraws + (result === "DRAW" ? 1 : 0);
+
     // XP de la partida (todas las modalidades cuentan para el nivel)
     let xp = s.xp + (result === "WIN" ? XP_WIN : result === "LOSS" ? XP_LOSS : XP_DRAW);
     if (opts.boss && result === "WIN") xp += XP_BOSS_BONUS;
@@ -205,9 +237,21 @@ export const useStatsStore = create<StatsState>((set, get) => ({
       level += 1;
     }
 
-    const next = { perClass, streak, bestWinStreak, rankPoints, onlineGames, bossWins, level, xp, levelUpFlash };
+    const next = { perClass, streak, bestWinStreak, rankPoints, onlineGames, bossWins, totalMatches, totalWins, totalLosses, totalDraws, level, xp, levelUpFlash };
     set(next);
     persist({ ...next } as StatsState);
+  },
+
+  /** Suma a los contadores de batalla del perfil (cartas jugadas por el
+   *  jugador / cartas enemigas destruidas). Se llama desde pvpStore.applyView
+   *  por CADA acción nueva — payload mínimo y persist barato. */
+  addBattleTally: (plays, kills) => {
+    if (plays <= 0 && kills <= 0) return;
+    const s = get();
+    const cardsPlayed = s.cardsPlayed + plays;
+    const enemiesDestroyed = s.enemiesDestroyed + kills;
+    set({ cardsPlayed, enemiesDestroyed });
+    persist({ ...get() } as StatsState);
   },
 
   addXp: (amount) => {
@@ -242,7 +286,7 @@ export const useStatsStore = create<StatsState>((set, get) => ({
   },
 
   resetStats: () => {
-    const empty = { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0, levelUpFlash: null, rushBest: {}, rushRuns: 0, rushCyclesDone: [] } as unknown as StatsState;
+    const empty = { perClass: {}, streak: 0, bestWinStreak: 0, rankPoints: 0, onlineGames: 0, bossWins: 0, level: 1, xp: 0, levelUpFlash: null, rushBest: {}, rushRuns: 0, rushCyclesDone: [], totalMatches: 0, totalWins: 0, totalLosses: 0, totalDraws: 0, cardsPlayed: 0, enemiesDestroyed: 0 } as unknown as StatsState;
     set(empty);
     persist({ ...empty } as StatsState);
   },

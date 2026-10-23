@@ -8,9 +8,8 @@ import { useCollectionStore } from "@/store/collectionStore";
 import { ALL_CARDS_V3 } from "@/lib/game/cards";
 import { visibleClasses } from "@/lib/game/v3";
 import type { GameClass } from "@/lib/game/types";
-import { ArrowLeft, Check, X, Image as ImageIcon, Lock, Crown, Trophy, Swords, Scale, Gamepad2, Skull, Pencil } from "lucide-react";
+import { ArrowLeft, Check, X, Image as ImageIcon, Lock, Crown, Trophy, Swords, Scale, Gamepad2, Skull, Pencil, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ALL_CARDS } from "@/lib/game/cards";
 import type { CardDef } from "@/lib/game/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RARITY_META } from "@/lib/game/types";
@@ -25,29 +24,21 @@ const RARITY_DOT_COLOR: Record<CardDef["rarity"], string> = {
   mythic: "#fb7185", // rose-400
 };
 
+/**
+ * Perfil PERSISTIDO: SOLO identidad (nombre + avatar). Todas las cifras
+ * (partidas, victorias, cartas jugadas, enemigos destruidos...) viven en
+ * statsStore — antes duplicaban aquí y NADIE las escribía: el perfil
+ * mostraba 0 partidas tras 20 jugadas (stats muertos).
+ */
 interface ProfileData {
   username: string;
-  level: number;
-  totalMatches: number;
-  wins: number;
-  losses: number;
-  draws: number;
-  favoriteClass: string;
-  totalCardsPlayed: number;
-  totalEnemyDestroyed: number;
   // null  → use the transparent game icon (default)
   // string → use the card image at /cards/{avatarCardId}.webp
   avatarCardId: string | null;
-  // Set of card IDs the player has unlocked as avatar eligible. While in
-  // testing mode this defaults to ALL cards; later it can be more restrictive.
-  unlockedAvatarCardIds: string[];
 }
 
 const STORAGE_KEY = PROFILE_STORAGE_KEY; // clave compartida con el botón PERFIL del menú
 const USERNAME_MAX = 8;
-
-// All card IDs available right now (testing mode = everything unlocked)
-const ALL_CARD_IDS = ALL_CARDS.map((c) => c.id);
 
 // Basic profanity blocklist (lowercase, no diacritics). Catches obvious cases.
 // Not exhaustive — for production, server-side validation is recommended.
@@ -77,16 +68,7 @@ const PROFANITY_BLOCKLIST = [
 
 const DEFAULT_PROFILE: ProfileData = {
   username: "Player1",
-  level: 1,
-  totalMatches: 0,
-  wins: 0,
-  losses: 0,
-  draws: 0,
-  favoriteClass: "Guerrero",
-  totalCardsPlayed: 0,
-  totalEnemyDestroyed: 0,
   avatarCardId: null,
-  unlockedAvatarCardIds: ALL_CARD_IDS,
 };
 
 /**
@@ -107,14 +89,20 @@ function loadProfile(): ProfileData {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      // Merge defaults to handle new fields added later
-      const merged = { ...DEFAULT_PROFILE, ...parsed };
-      // Ensure unlockedAvatarCardIds is set (default = all cards in testing mode)
-      if (!Array.isArray(merged.unlockedAvatarCardIds) || merged.unlockedAvatarCardIds.length === 0) {
-        merged.unlockedAvatarCardIds = ALL_CARD_IDS;
-      }
-      return merged;
+      const parsed = JSON.parse(saved) as { username?: unknown; avatarCardId?: unknown };
+      // Saneado explícito: solo los campos de identidad que el perfil
+      // conserva (los stats históricos del JSON viejo se descartan —
+      // la fuente de verdad ahora es statsStore).
+      return {
+        username:
+          typeof parsed.username === "string" && parsed.username.trim().length > 0
+            ? parsed.username
+            : DEFAULT_PROFILE.username,
+        avatarCardId:
+          typeof parsed.avatarCardId === "string" && parsed.avatarCardId.length > 0
+            ? parsed.avatarCardId
+            : null,
+      };
     }
   } catch {}
   return DEFAULT_PROFILE;
@@ -186,9 +174,44 @@ export function ProfileScreen() {
     [copies]
   );
 
-  const winrate = profile.totalMatches > 0
-    ? Math.round((profile.wins / profile.totalMatches) * 100)
-    : 0;
+  // IDs de cartas DESBLOQUEADAS (las que la colección posee) — pool de
+  // avatares. Cualquier carta ganada sirve de avatar; las que faltan
+  // quedan como aspiración. Admin concede las 192 → todo disponible.
+  const unlockedCardIds = useMemo(
+    () =>
+      Object.entries(copies)
+        .filter(
+          ([, c]) =>
+            (c.common ?? 0) + (c.rare ?? 0) + (c.epic ?? 0) + (c.legendary ?? 0) + (c.mythic ?? 0) > 0
+        )
+        .map(([id]) => id),
+    [copies]
+  );
+
+  // ── Record REAL (statsStore — antes salía de un ProfileData muerto a 0) ──
+  const totalMatches = stats.totalMatches;
+  const wins = stats.totalWins;
+  const losses = stats.totalLosses;
+  const draws = stats.totalDraws;
+  const winrate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
+
+  // Clase favorita: la MÁS jugada (desempate por victorias). "—" si aún
+  // no hay partidas registradas.
+  const favoriteClass = useMemo(() => {
+    let best: GameClass | null = null;
+    let bestMatches = 0;
+    let bestWins = 0;
+    for (const cls of CLASSES) {
+      const st = stats.perClass[cls];
+      if (!st || st.matches === 0) continue;
+      if (st.matches > bestMatches || (st.matches === bestMatches && st.wins > bestWins)) {
+        best = cls;
+        bestMatches = st.matches;
+        bestWins = st.wins;
+      }
+    }
+    return best ? CLASS_LABELS[best] : "—";
+  }, [stats.perClass]);
 
   // NIVEL REAL del jugador (XP por partidas/misiones — statsStore). Es el
   // nivel que gobierna las mesas de drop de cartas; el nivel antiguo del
@@ -442,16 +465,16 @@ export function ProfileScreen() {
             </div>
 
             {/* Inline mini-stats row — quick glance of W / L / WR */}
-            <MiniStats wins={profile.wins} losses={profile.losses} winrate={winrate} />
+            <MiniStats wins={wins} losses={losses} winrate={winrate} />
           </section>
 
           {/* ────────────── STATS DE PARTIDAS ────────────── */}
           <section className="flex flex-col gap-2.5">
             <SectionHeader title="Estadísticas de Partidas" />
             <div className="grid grid-cols-2 gap-2">
-              <StatCard label="Partidas" value={profile.totalMatches} accent="amber" icon={<Gamepad2 className="h-5 w-5" />} />
-              <StatCard label="Victorias" value={profile.wins} accent="emerald" icon={<Trophy className="h-5 w-5" />} />
-              <StatCard label="Derrotas" value={profile.losses} accent="rose" icon={<Skull className="h-5 w-5" />} />
+              <StatCard label="Partidas" value={totalMatches} accent="amber" icon={<Gamepad2 className="h-5 w-5" />} />
+              <StatCard label="Victorias" value={wins} accent="emerald" icon={<Trophy className="h-5 w-5" />} />
+              <StatCard label="Derrotas" value={losses} accent="rose" icon={<Skull className="h-5 w-5" />} />
               <StatCard label="Winrate" value={`${winrate}%`} accent="amber" icon={<Scale className="h-5 w-5" />} />
             </div>
           </section>
@@ -534,13 +557,17 @@ export function ProfileScreen() {
           <section className="flex flex-col gap-2.5">
             <SectionHeader title="Estadísticas de Batalla" />
             <div className="flex flex-col gap-1 rounded-xl border border-zinc-700/60 bg-zinc-950/40 p-3">
-              <StatRow label="Empates" value={profile.draws} />
+              <StatRow label="Empates" value={draws} />
               <DividerLine />
-              <StatRow label="Clase favorita" value={profile.favoriteClass} />
+              <StatRow label="Clase favorita" value={favoriteClass} />
               <DividerLine />
-              <StatRow label="Cartas jugadas" value={profile.totalCardsPlayed} />
+              <StatRow label="Cartas jugadas" value={stats.cardsPlayed} />
               <DividerLine />
-              <StatRow label="Enemigos destruidos" value={profile.totalEnemyDestroyed} />
+              <StatRow label="Enemigos destruidos" value={stats.enemiesDestroyed} />
+              <DividerLine />
+              <StatRow label="Jefes vencidos" value={stats.bossWins} />
+              <DividerLine />
+              <StatRow label="Runs de Rush" value={stats.rushRuns} icon={<Flame className="h-3 w-3 text-amber-500/70" />} />
             </div>
           </section>
         </motion.div>
@@ -551,7 +578,7 @@ export function ProfileScreen() {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         currentAvatarCardId={profile.avatarCardId}
-        unlockedCardIds={profile.unlockedAvatarCardIds}
+        unlockedCardIds={unlockedCardIds}
         onSelect={handleSelectAvatar}
       />
     </div>
@@ -559,7 +586,9 @@ export function ProfileScreen() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// AvatarPickerModal — choose between the default game icon OR any card image
+// AvatarPickerModal — elige entre el ícono del juego O CUALQUIER CARTA
+// DESBLOQUEADA de la colección (pool V3 completo: 192 cartas — antes era
+// ALL_CARDS, la lista base de 12, y el avatar quedaba clavado a esa docena).
 // ──────────────────────────────────────────────────────────────
 
 interface AvatarPickerModalProps {
@@ -570,6 +599,11 @@ interface AvatarPickerModalProps {
   onSelect: (cardId: string | null) => void;
 }
 
+/** Normaliza para búsqueda: minúsculas y sin diacríticos. */
+function normalizeForSearch(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function AvatarPickerModal({
   open,
   onOpenChange,
@@ -577,20 +611,31 @@ function AvatarPickerModal({
   unlockedCardIds,
   onSelect,
 }: AvatarPickerModalProps) {
-  // Build the list of available cards (only those the player has unlocked)
-  const availableCards = useMemo(() => {
+  const [query, setQuery] = useState("");
+
+  // Cartas DESBLOQUEADAS (las que la colección posee) sobre el pool V3 completo
+  const ownedCards = useMemo(() => {
     const unlocked = new Set(unlockedCardIds);
-    return ALL_CARDS.filter((c) => unlocked.has(c.id));
+    return ALL_CARDS_V3.filter((c) => unlocked.has(c.id));
   }, [unlockedCardIds]);
 
-  // Locked cards (for visual "you don't have this yet" feedback)
-  const lockedCards = useMemo(() => {
-    const unlocked = new Set(unlockedCardIds);
-    return ALL_CARDS.filter((c) => !unlocked.has(c.id));
-  }, [unlockedCardIds]);
+  const lockedCount = ALL_CARDS_V3.length - ownedCards.length;
+
+  // Búsqueda por nombre (sin diacríticos) dentro de las desbloqueadas
+  const visibleCards = useMemo(() => {
+    const q = normalizeForSearch(query.trim());
+    if (!q) return ownedCards;
+    return ownedCards.filter((c) => normalizeForSearch(c.name).includes(q));
+  }, [ownedCards, query]);
+
+  // Cierra el buscador al salir del modal (no arrastra filtros viejos)
+  const handleOpenChange = (o: boolean) => {
+    if (!o) setQuery("");
+    onOpenChange(o);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-hidden border-amber-600/40 bg-zinc-950 text-zinc-100 sm:max-w-md">
         <DialogHeader>
           <DialogTitle
@@ -635,26 +680,51 @@ function AvatarPickerModal({
             )}
           </button>
 
-          {/* ── Cards grid ── */}
+          {/* ── Cards grid (solo desbloqueadas) ── */}
           <div className="border-t border-zinc-800 pt-2">
             <h4 className="mb-2 text-[10px] font-black uppercase tracking-[0.3em] text-amber-300" style={{ fontFamily: 'var(--font-cinzel), serif' }}>
               Cartas desbloqueadas
-              <span className="ml-2 text-zinc-500">({availableCards.length})</span>
+              <span className="ml-2 text-zinc-500">
+                {ownedCards.length}/{ALL_CARDS_V3.length}
+              </span>
             </h4>
-            <div className="grid max-h-[50vh] grid-cols-4 gap-1.5 overflow-y-auto pr-1">
-              {availableCards.map((card) => (
-                <CardAvatarOption
-                  key={card.id}
-                  card={card}
-                  selected={currentAvatarCardId === card.id}
-                  onSelect={() => onSelect(card.id)}
-                />
-              ))}
-              {/* Locked cards (greyed out, non-clickable) */}
-              {lockedCards.map((card) => (
-                <CardAvatarOption key={card.id} card={card} selected={false} onSelect={() => {}} locked />
-              ))}
-            </div>
+            {/* Buscador — con 192 cartas encontrar la tuya a ojo era inviable */}
+            {ownedCards.length > 8 && (
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar carta…"
+                autoComplete="off"
+                className="mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/30"
+              />
+            )}
+            {visibleCards.length > 0 ? (
+              <div className="grid max-h-[44vh] grid-cols-4 gap-1.5 overflow-y-auto pr-1">
+                {visibleCards.map((card) => (
+                  <CardAvatarOption
+                    key={card.id}
+                    card={card}
+                    selected={currentAvatarCardId === card.id}
+                    onSelect={() => onSelect(card.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="py-6 text-center text-[11px] uppercase tracking-widest text-zinc-600">
+                {ownedCards.length === 0
+                  ? "Gana cartas en el botín para usarlas de avatar"
+                  : "Sin resultados"}
+              </p>
+            )}
+            {/* Bloqueadas: resumen compacto. Pintar ~180 miniaturas grises era
+                ruido visual y peso muerto en el DOM. */}
+            {lockedCount > 0 && (
+              <p className="mt-2 flex items-center justify-center gap-1.5 border-t border-zinc-800 pt-2 text-[9px] uppercase tracking-widest text-zinc-600">
+                <Lock className="h-3 w-3" />
+                {lockedCount} cartas aún sin desbloquear · gánalas en botín
+              </p>
+            )}
           </div>
         </div>
       </DialogContent>
@@ -666,28 +736,23 @@ function CardAvatarOption({
   card,
   selected,
   onSelect,
-  locked,
 }: {
   card: CardDef;
   selected: boolean;
   onSelect: () => void;
-  locked?: boolean;
 }) {
   const rarity = RARITY_META[card.rarity];
   return (
     <motion.button
-      whileHover={!locked ? { scale: 1.06 } : undefined}
-      whileTap={!locked ? { scale: 0.96 } : undefined}
+      whileHover={{ scale: 1.06 }}
+      whileTap={{ scale: 0.96 }}
       onClick={onSelect}
-      disabled={locked}
       className={`relative aspect-[3/4] overflow-hidden rounded-md border-2 transition-all ${
-        locked
-          ? "cursor-not-allowed border-zinc-800 opacity-50"
-          : selected
-            ? "border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.5)]"
-            : "border-zinc-700 hover:border-amber-500/60"
+        selected
+          ? "border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.5)]"
+          : "border-zinc-700 hover:border-amber-500/60"
       }`}
-      title={locked ? "Bloqueada" : card.name}
+      title={card.name}
     >
       <img
         src={`/cards/${card.id}.webp`}
@@ -696,23 +761,16 @@ function CardAvatarOption({
         loading="lazy"
         decoding="async"
       />
-      {locked && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-          <Lock className="h-4 w-4 text-zinc-600" />
-        </div>
-      )}
-      {selected && !locked && (
+      {selected && (
         <span className="absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-black">
           <Check className="h-3 w-3" strokeWidth={3} />
         </span>
       )}
-      {!locked && (
-        <span
-          className="absolute left-0.5 top-0.5 h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: RARITY_DOT_COLOR[card.rarity] ?? "#a1a1aa" }}
-          title={rarity.label}
-        />
-      )}
+      <span
+        className="absolute left-0.5 top-0.5 h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: RARITY_DOT_COLOR[card.rarity] ?? "#a1a1aa" }}
+        title={rarity.label}
+      />
     </motion.button>
   );
 }
@@ -782,10 +840,11 @@ function StatCard({
   );
 }
 
-function StatRow({ label, value }: { label: string; value: string | number }) {
+function StatRow({ label, value, icon }: { label: string; value: string | number; icon?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-1 py-1.5">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+      <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+        {icon}
         {label}
       </span>
       <span
