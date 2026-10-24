@@ -7,7 +7,7 @@ for i in $(seq 1 20); do
   echo "═══ RONDA $i · $(date +%H:%M:%S) ═══"
   bun scripts/gen-lane-bgs-western-v3.mjs && { echo "✓ TODOS GENERADOS en ronda $i"; exit 0; }
   echo "…ronda $i incompleta, esperando 4 min antes de reintentar"
-  sleep 240
+  sleep 20
 done
 echo "✗ agotadas 20 rondas sin completar los 9 fondos"
 exit 1

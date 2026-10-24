@@ -1440,3 +1440,24 @@ Stage Summary:
 - Cada clase tiene su final en la historia → REVIVIR queda a un toque desde la misma pantalla tras completarla.
 - Arreglado el desync de clase entre gameStore y pvpStore en las peleas de historia.
 - Archivos: src/components/game/MainMenu.tsx, src/components/game/ClassSelect.tsx, src/components/game/story/StoryMap.tsx
+
+---
+Task ID: historia-recluta-clases
+Agent: Z.ai main agent
+Task: «si hay q hacer q la historia desbloquee clases al igual q hay q hacer q den recompensa el modo historia, tambien hay q crear los fondos de carril de las 3 clases nuevas»
+
+Work Log:
+- DESBLOQUEO POR HISTORIA (camino primario): campaign.ts añade STORY_CLASS_CHAPTER (c2→Botánico · c3→Pirata · c4→Mago · c5→Tinker · c6→Asesino; guerrero libre) — cada capítulo se pelea EN el territorio de la clase y al CERRARLO se une al Pacto. classUnlocked(cls, stepsCleared, chaptersDone) es O-O (historia O torre; la torre queda alterna para veteranos). classUnlockHint simplificado: «Supera el Capítulo N · El Pacto» (la pista de jefe de torre era inalcanzable: la Torre está cerrada hasta 7/7 y al cerrarlas ya están todas reclutadas). Helpers nuevos: chaptersCompletedOf + storyClassForChapter.
+- RECOMPENSAS DE HISTORIA: rewardCards por capítulo sube 3/3/4/4/4/5/6 → 4/5/6/7/8/10/12 (botín de capítulo JUGOSO; las peleas intermedias siguen pagando 2 + XP).
+- StoryMap: cada nodo muestra chips SIEMPRE visibles «+N cartas» (ámbar; esmeralda si hecho) y «RECLUTA: {clase}» (violeta con icono de clase) — el jugador VE cuándo se desbloquea cada clase desde el mapa. De paso: títulos de capítulo dejan de truncarse (flex-wrap a 320px) y la cabecera usa «El Pacto» corto <380px + tamaño/tracking escalonado → CERO truncamientos en 320 y 390 (deuda del hub anterior saldada).
+- pvpStore: nueva bandera storyClassUnlocked (GameClass|null) — checkHistoriaEnd la fija al cerrar capítulo con storyClassForChapter; reset en estado inicial, exitToMenu, exitToStoryMap y startStoryFight.
+- HistoriaEndOverlay (PvpGame): banner de celebración violeta «¡{Clase} se une al Pacto!» (spring delay 0.55) justo tras cerrar el capítulo que recluta — el desbloqueo se celebra en el momento exacto, junto al botín y al chip de nivel.
+- ClassSelect + PvpSetup: leen el progreso del storyStore y pasan chaptersDone a classUnlocked/classUnlockHint (bivía idéntica; PvpSetup también hidrata storyStore y revalida la clase recordada).
+- FONDOS DE CARRIL V3 (9/9): lane-raiz/flor/esporas (Botánico), lane-puente/bodega/artilleria (Pirata), lane-taller/maquinaria/chispa (Tinker) generados con gen-lane-bgs-western-v3.mjs en el estilo cel-shaded aprobado (864x1152 → cover-crop 768x1344 webp). Arreglado el script: leía r.images[0].base64 y el SDK responde r.data[0].base64 (acepta ambos). Los nohup/bun en background mueren silenciosos en esta sesión → se generó en FOREGROUND por lotes ONLY=... (3+3+2+1); run-lane-bgs-robust.sh nuevo runner aislado por carril para reintentos futuros.
+- VERIFICACIÓN: tsc 0 · eslint 0 · impeccable detect colgó 3ª sesión seguida (omitido) · suites: test-campana 166✓ (+19 aserciones nuevas de desbloqueo bivía/hints/mapa capítulo→clase), story 142, admin-mítico 37, tanda28 39, rush 44, misiones-v2 37, colección-historia 69, fundamentos 58, no-gemelas 57, v3-clase 33×3 ✓ · E2E agent-browser: FRESCO → candado Botánico con «SUPERA EL CAPÍTULO 2 · EL PACTO» y sin MAZO/JUGAR; mapa con chips +N/RECLUTA correctos en los 7 nodos; SEMBRADO chapter=2 → Botánico JUGABLE (MAZO+JUGAR) y Pirata aún candado «Capítulo 3»; pelea Botánico vs Roka (Pirata) arranca con carriles raiz/flor/esporas vs puente/bodega/artilleria y los 9 fondos nuevos pintados · SIN TRUNCAMIENTOS a 320 y 390 · 0 errores JS.
+- NOTA E2E: BattleIntroSplash y diálogos cierran con POINTERDOWN (no click) — los clicks sintéticos no los despiden; no es bug.
+
+Stage Summary:
+- La historia ahora ES la escalera de clases: cada capítulo recluta a su dueño (visible en el mapa con «RECLUTA» y celebrado al cerrar el capítulo), el botín de capítulo escala 4→12 cartas, y los 9 carriles de las 3 clases nuevas tienen arte propio en combate.
+- La Torre conserva su desbloqueo alterno (stepsCleared) para veteranos de v3.0-3.2; nadie pierde clases ya ganadas.
+- Archivos: src/lib/game/campaign.ts, src/lib/game/story.ts, src/store/pvpStore.ts, src/components/game/ClassSelect.tsx, src/components/game/pvp/PvpSetup.tsx, src/components/game/pvp/PvpGame.tsx, src/components/game/story/StoryMap.tsx, public/menu/lane-*.webp (9 nuevos), scripts/gen-lane-bgs-western-v3.mjs, scripts/run-lane-bgs-robust.sh (nuevo), scripts/test-campana.ts.

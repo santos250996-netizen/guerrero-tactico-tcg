@@ -29,6 +29,7 @@ import type { GameClass, Rarity } from "./types";
 import { CLASS_META } from "./types";
 import { nextRarity } from "./balance";
 import { isAdminOn } from "./admin";
+import { STORY_TOTAL } from "./story";
 
 /** Altura de la torre (pisos por vuelta de campaña). */
 export const CAMPAIGN_STEPS = 18;
@@ -167,11 +168,12 @@ export function effectiveDropLevel(level: number, step: number): number {
   return Math.max(level, step + 2);
 }
 
-// ── Desbloqueo de clases (tanda 40) ────────────────────────────────────────
-// El jugador decide: MAGO se abre al vencer el PRIMER jefe (escalón 5) y
-// ASESINO al vencer el SEGUNDO (escalón 10). La cuenta usada es stepsCleared
-// del campaignStore (total histórico de escalones superados — nunca retrocede
-// ni se reinicia con el prestigio).
+// ── Desbloqueo de clases por la TORRE (camino ALTERNO) ─────────────────────
+// Cada jefe vencido recluta a la siguiente clase — Korgath→Mago ·
+// Yggra→Botánico · Kaela→Pirata · Nyx→Asesino · Dorvik→Tinker. La cuenta
+// usada es stepsCleared del campaignStore (total histórico — nunca retrocede
+// ni se reinicia con el prestigio). EL CAMINO PRIMARIO es la HISTORIA:
+// ver STORY_CLASS_CHAPTER más abajo.
 
 /** Pisos superados necesarios para jugar cada clase (0 = libre).
  *  TORRE DE 6 JEFES: cada jefe vencido RECLUTA a la siguiente clase —
@@ -187,21 +189,55 @@ export const CLASS_UNLOCK_STEP: Record<GameClass, number> = {
   tinker: 15,
 };
 
+// ── Desbloqueo de clases POR LA HISTORIA (El Pacto) ────────────────────────
+// El Pacto es el PRIMER modo: sin esta vía, un jugador en fase historia solo
+// tendría al Guerrero. Cada capítulo se pelea EN el territorio de una clase y
+// al SUPERARLO esa clase se une al Pacto (como Bram en el cap. 1):
+//   c2 La Arboleda → BOTÁNICO · c3 La Bahía → PIRATA · c4 Escarcha → MAGO ·
+//   c5 La Forja → TINKER · c6 El Umbral → ASESINO.
+// La TORRE queda como camino ALTERNATIVO (CLASS_UNLOCK_STEP) para quien
+// quiera reclutar escalando; el desbloqueo es O-O: cualquiera de las dos vías.
+export const STORY_CLASS_CHAPTER: Record<GameClass, number> = {
+  guerrero: 0, // héroe inicial — libre desde el arranque
+  botanico: 2,
+  pirata: 3,
+  mago: 4,
+  tinker: 5,
+  asesino: 6,
+};
+
+/** Capítulos superados (0..7): la clase se recluta al CERRAR su capítulo. */
+export function chaptersCompletedOf(chapter: number, completed: boolean): number {
+  return completed ? STORY_TOTAL : Math.max(0, chapter);
+}
+
 /** ¿Está jugable esta clase con X escalones superados? */
-export function classUnlocked(cls: GameClass, stepsCleared: number): boolean {
+export function classUnlocked(cls: GameClass, stepsCleared: number, chaptersDone = 0): boolean {
   // MODO ADMIN (oculto, del propietario): todas las clases jugables al instante.
   if (isAdminOn()) return true;
+  // Historia: superar el capítulo de la clase la recluta (camino primario).
+  if (chaptersDone >= STORY_CLASS_CHAPTER[cls]) return true;
+  // Torre: vencer al jefe reclutador sigue abriendo la clase (camino alterno).
   return stepsCleared >= CLASS_UNLOCK_STEP[cls];
 }
 
-/** Pista de desbloqueo ("Vence a Korgath · JEFE · Escalón 5") o null si libre. */
-export function classUnlockHint(cls: GameClass): string | null {
-  const need = CLASS_UNLOCK_STEP[cls];
-  if (!need) return null;
-  const boss = bossClassForStep(need);
-  return boss
-    ? `Vence a ${CAMPAIGN_BOSS_NAMES[boss].split(",")[0]} · ${stepChipLabel(need)}`
-    : `Alcanza el ${stepChipLabel(need)}`;
+/** Pista de desbloqueo ("Supera el Capítulo 2 · El Pacto") o null si libre.
+ *  La HISTORIA es el único camino alcanzable para una clase bloqueada: la
+ *  torre permanece cerrada hasta completar el Pacto (y al cerrarlo todas
+ *  las clases quedan reclutadas) — la pista de jefe de torre quedó obsoleta. */
+export function classUnlockHint(cls: GameClass, chaptersDone = 0): string | null {
+  const storyNeed = STORY_CLASS_CHAPTER[cls];
+  if (chaptersDone >= storyNeed) return null;
+  return `Supera el Capítulo ${storyNeed} · El Pacto`;
+}
+
+/** La clase que RECLUTA el capítulo idx (0-based) al superarse, o null.
+ *  La usa el mapa (chip «RECLUTA») y la celebración de fin de capítulo. */
+export function storyClassForChapter(idx: number): GameClass | null {
+  const found = (Object.keys(STORY_CLASS_CHAPTER) as GameClass[]).find(
+    (c) => STORY_CLASS_CHAPTER[c] === idx + 1,
+  );
+  return found ?? null;
 }
 
 // ── Etiquetas de UI ────────────────────────────────────────────────────────

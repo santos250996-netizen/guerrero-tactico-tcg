@@ -498,6 +498,7 @@ function HistoriaEndOverlay({
   const storyFightIdx = usePvpStore.getState().storyFight ?? 0;
   const storyChapterClosed = usePvpStore.getState().storyChapterClosed;
   const storyCompletedFlag = usePvpStore.getState().storyCompletedFlag;
+  const storyClassUnlocked = usePvpStore.getState().storyClassUnlocked;
   const storyFlags = useStoryStore.getState().flags;
   const storyChapterDef = chapterAt(storyChapterIdx);
   const storyFightDef = resolveFight(
@@ -612,6 +613,23 @@ function HistoriaEndOverlay({
                 ¡Nivel {stats.levelUpFlash.to}! Mejoran tus drops
               </motion.div>
             )}
+            {/* RECLUTA — el capítulo cerrado UNIÓ una clase al Pacto: el
+                desbloqueo se CELEBRA aquí, en el momento exacto. */}
+            {won && storyActive && storyClassUnlocked && (() => {
+              const Meta = CLASS_META[storyClassUnlocked];
+              const UIcon = Meta.icon;
+              return (
+                <motion.div
+                  initial={{ scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.55, type: "spring", stiffness: 240, damping: 15 }}
+                  className="mx-auto mt-2 flex items-center gap-1.5 rounded-full border border-violet-300/70 bg-gradient-to-b from-violet-500/25 to-violet-900/40 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-violet-100 shadow-[0_0_18px_rgba(139,92,246,0.5)]"
+                >
+                  <UIcon className="h-3.5 w-3.5 shrink-0 text-violet-200" />
+                  ¡{Meta.label} se une al Pacto!
+                </motion.div>
+              );
+            })()}
             <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">
               Nivel {stats.level} · {stats.xp}/{need} XP
               {won && rushActive && (

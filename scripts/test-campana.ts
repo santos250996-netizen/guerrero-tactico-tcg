@@ -26,6 +26,9 @@ import {
   classUnlocked,
   classUnlockHint,
   CLASS_UNLOCK_STEP,
+  STORY_CLASS_CHAPTER,
+  storyClassForChapter,
+  chaptersCompletedOf,
   CAMPAIGN_BOT_LORE,
   CAMPAIGN_BOSS_LORE,
 } from "../src/lib/game/campaign";
@@ -286,10 +289,23 @@ section("7. Lore + biomas + botín del JEFE a ELEGIR (3 raras)");
   assert(classUnlocked("pirata", 9) && !classUnlocked("asesino", 9), "vencer Kaela abre PIRATA");
   assert(classUnlocked("asesino", 12) && !classUnlocked("tinker", 12), "vencer Nyx abre ASESINO");
   assert(classUnlocked("tinker", 15), "vencer Dorvik abre TINKER");
-  assert(classUnlockHint("guerrero") === null, "guerrero no necesita pista de desbloqueo");
-  assert((classUnlockHint("mago") ?? "").includes("Korgath") && (classUnlockHint("mago") ?? "").includes("3"), "pista de mago apunta a Korgath · Piso 3");
-  assert((classUnlockHint("asesino") ?? "").includes("Nyx") && (classUnlockHint("asesino") ?? "").includes("12"), "pista de asesino apunta a Nyx · Piso 12");
-  assert((classUnlockHint("tinker") ?? "").includes("Dorvik") && (classUnlockHint("tinker") ?? "").includes("15"), "pista de tinker apunta a Dorvik · Piso 15");
+  // DESBLOQUEO por la HISTORIA (camino primario): cada capítulo recluta
+  // c2→Botánico · c3→Pirata · c4→Mago · c5→Tinker · c6→Asesino (O-O con torre)
+  assert(STORY_CLASS_CHAPTER.botanico === 2 && STORY_CLASS_CHAPTER.pirata === 3 && STORY_CLASS_CHAPTER.mago === 4 && STORY_CLASS_CHAPTER.tinker === 5 && STORY_CLASS_CHAPTER.asesino === 6, "umbrales de historia correctos (c2/c3/c4/c5/c6)");
+  assert(!classUnlocked("botanico", 0, 1) && classUnlocked("botanico", 0, 2), "historia: cerrar el cap. 2 recluta BOTÁNICO");
+  assert(!classUnlocked("pirata", 0, 2) && classUnlocked("pirata", 0, 3), "historia: cerrar el cap. 3 recluta PIRATA");
+  assert(!classUnlocked("mago", 0, 3) && classUnlocked("mago", 0, 4), "historia: cerrar el cap. 4 recluta MAGO");
+  assert(!classUnlocked("tinker", 0, 4) && classUnlocked("tinker", 0, 5), "historia: cerrar el cap. 5 recluta TINKER");
+  assert(!classUnlocked("asesino", 0, 5) && classUnlocked("asesino", 0, 6), "historia: cerrar el cap. 6 recluta ASESINO");
+  assert(classUnlocked("guerrero", 0, 0), "guerrero libre desde el arranque");
+  assert(classUnlocked("mago", 0, 7) && classUnlocked("asesino", 0, 7), "historia completa: todo el roster abierto");
+  assert(storyClassForChapter(0) === null && storyClassForChapter(6) === null, "c1 y c7 no reclutan (arranque y final)");
+  assert(storyClassForChapter(1) === "botanico" && storyClassForChapter(2) === "pirata" && storyClassForChapter(3) === "mago" && storyClassForChapter(4) === "tinker" && storyClassForChapter(5) === "asesino", "mapa capítulo→clase correcto");
+  assert(classUnlockHint("guerrero", 0) === null, "guerrero no necesita pista de desbloqueo");
+  assert((classUnlockHint("mago", 0) ?? "").includes("Capítulo 4"), "pista de mago POR HISTORIA apunta al Capítulo 4");
+  assert((classUnlockHint("botanico", 1) ?? "").includes("Capítulo 2"), "pista de botánico con 1 capítulo apunta al Capítulo 2");
+  assert(classUnlockHint("mago", 4) === null && classUnlockHint("mago", 7) === null, "mago reclutado (cap. 4+): sin pista");
+  assert(chaptersCompletedOf(3, false) === 3 && chaptersCompletedOf(3, true) === 7, "capítulos superados: pendiente cuenta hechos; completada = 7");
   // Botín del JEFE (tanda 40): 3 opciones ÉPICAS distintas y se llevan 2 (isNew real)
   useCollectionStore.getState().resetAll();
   const col = useCollectionStore.getState();

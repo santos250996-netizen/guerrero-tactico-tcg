@@ -12,10 +12,11 @@ import type { LucideIcon } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
+import { useStoryStore } from "@/store/storyStore";
 import { useStatsStore, leagueOf, nextLeagueOf } from "@/store/statsStore";
 import type { GameClass } from "@/lib/game/types";
 import { CLASS_META } from "@/lib/game/types";
-import { classUnlocked, classUnlockHint } from "@/lib/game/campaign";
+import { classUnlocked, classUnlockHint, chaptersCompletedOf } from "@/lib/game/campaign";
 import { LOCAL_PVP_PORT } from "@/lib/pvp/local-server";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
 import { sfx } from "@/lib/sound";
@@ -51,13 +52,20 @@ export function PvpSetup() {
   const createRoom = usePvpStore((s) => s.createRoom);
   const joinRoom = usePvpStore((s) => s.joinRoom);
   const exitToMenu = usePvpStore((s) => s.exitToMenu);
-  // DESBLOQUEO de clases: la misma campaña manda en el PvP (progresión única).
+  // DESBLOQUEO de clases: la misma progresión manda en el PvP — historia
+  // (capítulos del Pacto) O torre (escalones). Bivía idéntica a ClassSelect.
   const stepsCleared = useCampaignStore((s) => s.stepsCleared);
+  const storyChapter = useStoryStore((s) => s.chapter);
+  const storyCompleted = useStoryStore((s) => s.completed);
+  const chaptersDone = chaptersCompletedOf(storyChapter, storyCompleted);
   useEffect(() => {
     useCampaignStore.getState().hydrate();
+    useStoryStore.getState().hydrate();
     // Si la clase recordada quedó bloqueada (progreso nuevo), cae a Guerrero.
     const st = useCampaignStore.getState();
-    if (!classUnlocked(usePvpStore.getState().gameClass, st.stepsCleared)) {
+    const story = useStoryStore.getState();
+    const done = chaptersCompletedOf(story.chapter, story.completed);
+    if (!classUnlocked(usePvpStore.getState().gameClass, st.stepsCleared, done)) {
       usePvpStore.getState().setGameClass("guerrero");
     }
   }, []);
@@ -139,17 +147,17 @@ export function PvpSetup() {
             {CLASS_PICKS.map((pick) => {
               const meta = CLASS_META[pick.id];
               const selected = gameClass === pick.id;
-              const unlocked = classUnlocked(pick.id, stepsCleared);
+              const unlocked = classUnlocked(pick.id, stepsCleared, chaptersDone);
               if (!unlocked) {
                 return (
                   <div
                     key={pick.id}
-                    title={classUnlockHint(pick.id) ?? "Bloqueada"}
+                    title={classUnlockHint(pick.id, chaptersDone) ?? "Bloqueada"}
                     className="flex flex-col items-center gap-1 rounded-lg border border-zinc-900 bg-zinc-950/80 px-2 py-2.5 opacity-70"
                   >
                     <Lock className="h-6 w-6 text-zinc-700" strokeWidth={2.2} />
                     <span className="text-[10px] font-black uppercase tracking-wider text-zinc-600">{meta.label}</span>
-                    <span className="text-center text-[7px] leading-tight text-zinc-700">{classUnlockHint(pick.id)}</span>
+                    <span className="text-center text-[7px] leading-tight text-zinc-700">{classUnlockHint(pick.id, chaptersDone)}</span>
                   </div>
                 );
               }

@@ -16,10 +16,11 @@
 //    escrita, no sorteada (pvp.ts · setForcedPositionBonuses).
 //  • 3 DECISIONES persistentes (flags en storyStore) que cambian diálogos y
 //    variantes de rival en capítulos posteriores.
-//  • El desbloqueo de clases SIGUE en la torre; la historia se juega con la
-//    clase activa (la colección es global — el héroe es quién tú elijas).
-//  • La recompensa es menor que la torre (la torre es el grind infinito):
-//    botín por capítulo + XP fija por victoria.
+//  • Cada capítulo RECLUTA una clase al superarse (c2→Botánico · c3→Pirata ·
+//    c4→Mago · c5→Tinker · c6→Asesino — STORY_CLASS_CHAPTER en campaign.ts):
+//    la historia es el camino PRIMARIO de desbloqueo; la torre queda alterna.
+//  • Recompensa a la altura del modo emblema: botín de capítulo JUGOSO (4→12)
+//    + XP fija por victoria, visible en el mapa (+N cartas por capítulo).
 // ===========================================================================
 
 import type { GameClass, Rarity } from "./types";
@@ -111,7 +112,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "La Chispa",
     place: "Vado de las Tierras Bajas",
     biomeId: "tierras",
-    rewardCards: 3,
+    rewardCards: 4,
     fights: [
       {
         rival: "Bram, la Espada Rebelde",
@@ -145,7 +146,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "La Arboleda Devorada",
     place: "Sendero de Raíces",
     biomeId: "jardin",
-    rewardCards: 3,
+    rewardCards: 5,
     fights: [
       {
         rival: "Nim, el Jardinero de Guerra",
@@ -196,7 +197,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "La Bahía de la Boca de Hierro",
     place: "Muelle de las Tres Grúas",
     biomeId: "puerto",
-    rewardCards: 4,
+    rewardCards: 6,
     fights: [
       {
         rival: "Roka, la Capitana de Grumetes",
@@ -247,7 +248,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "El Trono de Escarcha",
     place: "Salón de los Anillos Helados",
     biomeId: "escarcha",
-    rewardCards: 4,
+    rewardCards: 7,
     fights: [
       {
         rival: "Iria, la Hechicera de la Corte",
@@ -311,7 +312,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "La Forja Eterna",
     place: "Taller de la Cadena Infinita",
     biomeId: "forja",
-    rewardCards: 4,
+    rewardCards: 8,
     fights: [
       {
         rival: "Fenn, el Aprendiz de Engranajes",
@@ -360,7 +361,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "El Umbral de Sombras",
     place: "Corredor sin Faroles",
     biomeId: "sombra",
-    rewardCards: 5,
+    rewardCards: 10,
     fights: [
       {
         rival: "Kess, el Cobrador del Gremio",
@@ -423,7 +424,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     title: "El Heraldo del Umbral",
     place: "La Puerta del Otro Lado",
     biomeId: "sombra",
-    rewardCards: 6,
+    rewardCards: 12,
     fights: [
       {
         rival: "El Heraldo del Umbral",

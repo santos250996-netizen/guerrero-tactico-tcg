@@ -95,7 +95,7 @@ async function genOne(zai, item) {
         prompt: `${item.prompt}. ${STYLE}`,
         size: "864x1152",
       });
-      const b64 = r?.images?.[0]?.base64;
+      const b64 = r?.data?.[0]?.base64 ?? r?.images?.[0]?.base64;
       if (!b64) throw new Error("respuesta sin base64");
       const png = Buffer.from(b64, "base64");
       await sharp(png)

@@ -23,7 +23,7 @@ import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
 import { useStoryStore } from "@/store/storyStore";
 import { STORY_TOTAL } from "@/lib/game/story";
-import { CAMPAIGN_STEPS, isBossStep, classUnlocked, classUnlockHint } from "@/lib/game/campaign";
+import { CAMPAIGN_STEPS, isBossStep, classUnlocked, classUnlockHint, chaptersCompletedOf } from "@/lib/game/campaign";
 import { CLASS_META, LANE_META } from "@/lib/game/types";
 import type { GameClass } from "@/lib/game/types";
 import { ClassRuleBadge } from "./ClassRuleBadge";
@@ -285,8 +285,11 @@ export function ClassSelect() {
 
   const sel = CLASSES.find((c) => c.id === selected) ?? CLASSES[0];
   const c = COLOR_MAP[sel.color];
-  const selUnlocked = classUnlocked(sel.id, stepsCleared);
-  const selHint = classUnlockHint(sel.id);
+  // DESBLOQUEO BIVÍA: historia (capítulos del Pacto superados) O torre
+  // (escalones). La historia va PRIMERO → sus capítulos mandan en la pista.
+  const chaptersDone = chaptersCompletedOf(storyChapter, storyCompleted);
+  const selUnlocked = classUnlocked(sel.id, stepsCleared, chaptersDone);
+  const selHint = classUnlockHint(sel.id, chaptersDone);
 
   const pick = (cls: GameClass) => {
     setSelected(cls);
@@ -300,7 +303,7 @@ export function ClassSelect() {
   // JUGAR → LA CAMPAÑA en el ESCALÓN PENDIENTE (jefes incluidos: emergen
   // solos de la torre — sin botón aparte).
   const startCampaign = async (cls: GameClass) => {
-    if (!classUnlocked(cls, stepsCleared)) return;
+    if (!classUnlocked(cls, stepsCleared, chaptersDone)) return;
     selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
     const profileName = loadStoredProfileBrief()?.username ?? "";
@@ -316,7 +319,7 @@ export function ClassSelect() {
   // pvpStore: startStoryFight lee de ALLÍ, y sin este puente la pelea
   // usaría la clase residual de la última torre/rush — no la del chip.
   const enterStory = async (cls: GameClass) => {
-    if (!classUnlocked(cls, stepsCleared)) {
+    if (!classUnlocked(cls, stepsCleared, chaptersDone)) {
       // Clase bloqueada: toque NEGADO (mismo lenguaje que el menú).
       haptic("heavy");
       sfx.debuff();
@@ -333,7 +336,7 @@ export function ClassSelect() {
 
   // Open deck editor — remember we came from class-select
   const openDeckEditor = async (cls: GameClass) => {
-    if (!classUnlocked(cls, stepsCleared)) return;
+    if (!classUnlocked(cls, stepsCleared, chaptersDone)) return;
     selectClass(cls);
     if (!deckLoading) await loadDeckAndPool();
     setDeckEditorReturn("class-select");
@@ -412,7 +415,7 @@ export function ClassSelect() {
           {CLASSES.map((cls, i) => {
             const cc = COLOR_MAP[cls.color];
             const isSel = cls.id === selected;
-            const unlocked = classUnlocked(cls.id, stepsCleared);
+            const unlocked = classUnlocked(cls.id, stepsCleared, chaptersDone);
             const Icon = cls.icon;
             return (
               <motion.button

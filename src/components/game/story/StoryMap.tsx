@@ -32,7 +32,7 @@ import {
   type StoryFight,
   type StoryLine,
 } from "@/lib/game/story";
-import { biomeById } from "@/lib/game/campaign";
+import { biomeById, storyClassForChapter } from "@/lib/game/campaign";
 import { CLASS_META, LANE_BONUS_POOL } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 import { haptic } from "@/lib/haptics";
@@ -332,10 +332,11 @@ export function StoryMap() {
         </button>
         <div className="min-w-0 flex-1">
           <p
-            className="truncate text-[13px] font-black uppercase tracking-[0.22em] text-amber-200"
+            className="truncate text-[12px] font-black uppercase tracking-[0.14em] text-amber-200 min-[420px]:text-[13px] min-[420px]:tracking-[0.22em]"
             style={{ fontFamily: "var(--font-cinzel), serif" }}
           >
-            El Pacto de Guerra
+            <span className="min-[380px]:hidden">El Pacto</span>
+            <span className="hidden min-[380px]:inline">El Pacto de Guerra</span>
           </p>
           <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-zinc-500">
             Historia · {completed ? "Completada ★" : `Capítulo ${chapterDef.num} de ${STORY_TOTAL}`}
@@ -367,6 +368,10 @@ export function StoryMap() {
             const accent = accentOf(ch);
             const fightsTotal = ch.fights.length;
             const fightsWon = current ? fight : done ? fightsTotal : 0;
+            // El capítulo RECLUTA una clase al superarse (c2→Botánico…):
+            // visible SIEMPRE — el jugador sabe qué gana y cuándo se abre.
+            const recruits = storyClassForChapter(idx);
+            const RecruitIcon = recruits ? CLASS_META[recruits].icon : null;
             return (
               <motion.div
                 key={ch.id}
@@ -401,10 +406,10 @@ export function StoryMap() {
                   )}
                   style={current ? { boxShadow: `0 0 24px rgba(${accent},0.12)` } : undefined}
                 >
-                  <div className="flex items-baseline justify-between gap-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                     <p
                       className={cn(
-                        "truncate text-[12px] font-black uppercase tracking-[0.16em]",
+                        "min-w-0 max-w-full text-[12px] font-black uppercase leading-tight tracking-[0.16em]",
                         current ? "text-amber-200" : done ? "text-zinc-300" : "text-zinc-500",
                       )}
                       style={{ fontFamily: "var(--font-cinzel), serif" }}
@@ -444,6 +449,39 @@ export function StoryMap() {
                         {fight > 0 ? "Continuar" : "Jugar"}
                         <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
                       </Button>
+                    )}
+                  </div>
+
+                  {/* BOTÍN + RECLUTA del capítulo — a la vista, sin sorpresas:
+                      +N cartas al superar y la clase que se une al Pacto. */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
+                    <span
+                      className={cn(
+                        "rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.15em]",
+                        done
+                          ? "border-emerald-500/30 bg-emerald-950/40 text-emerald-300/80"
+                          : current
+                            ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
+                            : "border-zinc-800 bg-zinc-950/60 text-zinc-600",
+                      )}
+                    >
+                      +{ch.rewardCards} cartas
+                    </span>
+                    {recruits && RecruitIcon && (
+                      <span
+                        title={`Al superar este capítulo, ${CLASS_META[recruits].label} se une al Pacto y queda jugable`}
+                        className={cn(
+                          "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.15em]",
+                          done
+                            ? "border-violet-400/30 bg-violet-950/40 text-violet-300/70"
+                            : current
+                              ? "border-violet-400/50 bg-violet-950/60 text-violet-200 shadow-[0_0_12px_rgba(139,92,246,0.2)]"
+                              : "border-zinc-800 bg-zinc-950/60 text-zinc-600",
+                        )}
+                      >
+                        <RecruitIcon className="h-2.5 w-2.5" />
+                        Recluta: {CLASS_META[recruits].label}
+                      </span>
                     )}
                   </div>
                 </div>

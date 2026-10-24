@@ -51,6 +51,7 @@ import {
   rivalClassForStep,
   rivalDeckIndexForStep,
   rivalNameForStep,
+  storyClassForChapter,
   xpBonusForStep,
   CAMPAIGN_BOSS_NAMES,
   CAMPAIGN_BOSS_STEPS,
@@ -150,6 +151,9 @@ interface PvpStoreState {
   storyChapterClosed: boolean;
   /** La victoria acaba de CERRAR LA HISTORIA COMPLETA (c7 vencido). */
   storyCompletedFlag: boolean;
+  /** Clase RECLUTADA al cerrar el capítulo que acaba de ganar (celebración
+   *  del modal; null si el capítulo no recluta a nadie o fuera de historia). */
+  storyClassUnlocked: GameClass | null;
   /** HISTORIA: monta la pelea (capítulo, pelea) con su regla de capítulo. */
   startStoryFight: (chapterIdx: number, fightIdx: number) => void;
   /** HISTORIA: vuelve al MAPA de la historia (tras cerrar capítulo o salir). */
@@ -691,7 +695,10 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
             floorLevel: effectiveDropLevel(useStatsStore.getState().level, 4 + st.storyChapter * 2),
           });
           const done = story.advance().completed; // cierra capítulo (o la historia)
-          set({ pendingRewards: rewards, storyChapterClosed: true, storyCompletedFlag: done });
+          // RECLUTA: el capítulo cerrado puede UNIR una clase al Pacto
+          // (c2→Botánico · c3→Pirata · c4→Mago · c5→Tinker · c6→Asesino).
+          const recruited = storyClassForChapter(st.storyChapter);
+          set({ pendingRewards: rewards, storyChapterClosed: true, storyCompletedFlag: done, storyClassUnlocked: recruited });
         } else {
           const rewards = col.addRewards(2, { bonusForLevel: true });
           story.advance(); // pelea → pelea dentro del capítulo
@@ -930,6 +937,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
     storyFight: null,
     storyChapterClosed: false,
     storyCompletedFlag: false,
+    storyClassUnlocked: null,
     bossActive: false,
     campaignStep: null,
     campaignCompleted: false,
@@ -1041,6 +1049,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         storyFight: null,
         storyChapterClosed: false,
         storyCompletedFlag: false,
+        storyClassUnlocked: null,
         joinCode: "",
         error: null,
         lanUrls: [],
@@ -1092,6 +1101,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         storyFight: null,
         storyChapterClosed: false,
         storyCompletedFlag: false,
+        storyClassUnlocked: null,
         joinCode: "",
         error: null,
         lastActionSeq: 0,
@@ -1294,6 +1304,7 @@ export const usePvpStore = create<PvpStoreState>((set, get) => {
         storyFight: Math.min(Math.max(0, fightIdx), chapter.fights.length - 1),
         storyChapterClosed: false,
         storyCompletedFlag: false,
+        storyClassUnlocked: null,
       });
       import("@/store/gameStore").then(({ useGameStore }) => {
         useGameStore.getState().setView("pvp");
