@@ -1,15 +1,19 @@
 "use client";
 
 // ============================================================================
-// Entrada de LA TORRE DE LOS MUROS — el modo de ESCALADA (18 pisos, 6 jefes).
-// Diseño COMPACTA + DETALLE (aprobado para V3.0 — plan-expansion-v3 §4):
-//  • Tira de progreso de la torre (18 segmentos, cráneos en los 6 muros).
-//  • 6 CHIPS compactos en cuadrícula 2×3 — toda la oferta visible de un
-//    vistazo, sin scroll. Tap = selecciona; los bloqueados enseñan candado.
+// «ELIGE TU HÉROE» — entrada COMPARTIDA de EL PACTO (historia) y LA TORRE
+// (escalada 18 pisos, 6 jefes). Diseño COMPACTO + DETALLE (aprobado V3.0):
+//  • Píldora HISTORIA (violeta): progreso del Pacto y ENTRADA al mapa —
+//    aquí se escoge la clase ANTES de entrar a la historia.
+//  • Tira de la Torre (18 segmentos, cráneos en los 6 muros) — dimmed con
+//    candado hasta completar El Pacto.
+//  • 6 CHIPS compactos en cuadrícula 2×3 — todo el roster visible de un
+//    vistazo, con candado y PISTA de desbloqueo (qué jefe los recluta).
 //  • UN panel de detalle de la clase seleccionada: icono, lema, sus 3
 //    carriles, regla sistémica (lore tras tap) y acciones MAZO / JUGAR.
-// La selección recuerda la última clase usada (localStorage). Un solo botón
-// arranca la torre en el piso pendiente — los JEFES emergen solos.
+// La selección recuerda la última clase usada (localStorage). JUGAR lleva
+// a la escalera PENDIENTE: historia si El Pacto no está cerrado, torre
+// después — los JEFES emergen solos.
 // ============================================================================
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,13 +21,17 @@ import { useGameStore } from "@/store/gameStore";
 import { useCollectionStore, hydrateCollection } from "@/store/collectionStore";
 import { usePvpStore } from "@/store/pvpStore";
 import { useCampaignStore } from "@/store/campaignStore";
+import { useStoryStore } from "@/store/storyStore";
+import { STORY_TOTAL } from "@/lib/game/story";
 import { CAMPAIGN_STEPS, isBossStep, classUnlocked, classUnlockHint } from "@/lib/game/campaign";
 import { CLASS_META, LANE_META } from "@/lib/game/types";
 import type { GameClass } from "@/lib/game/types";
 import { ClassRuleBadge } from "./ClassRuleBadge";
-import { ArrowLeft, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2, Sprout, Ship, Wrench } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, EyeOff, Library, Lock, Skull, Star, Swords, Wand2, Sprout, Ship, Wrench } from "lucide-react";
 import { visibleClasses } from "@/lib/game/v3";
 import { loadStoredProfileBrief } from "@/lib/profile-storage";
+import { sfx } from "@/lib/sound";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 interface ClassDef {
@@ -158,16 +166,25 @@ const LAST_CLASS_KEY = "pacto:cls-select:last";
 // LA TORRE — tira VISUAL de una línea: 18 segmentos (cráneos en los
 // 6 muros), ★ prestigio y chip del piso. Cero texto explicativo:
 // la torre se lee sola. Persistente y GLOBAL entre clases.
+// Con `locked` (El Pacto sin cerrar) se apaga con candado: se VE la
+// escalera que viene después, pero todavía no se pisa.
 // ─────────────────────────────────────────────────────────────
-function CampaignStrip({ step, prestige }: { step: number; prestige: number }) {
+function CampaignStrip({ step, prestige, locked }: { step: number; prestige: number; locked?: boolean }) {
   const nextIsBoss = isBossStep(step);
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-zinc-950/70 px-3 py-2 shadow-[0_0_20px_rgba(251,191,36,0.08)]"
+      title={locked ? "La Torre se abre al completar El Pacto de Guerra" : undefined}
+      className={cn(
+        "flex items-center gap-2 rounded-full border px-3 py-2",
+        locked
+          ? "border-zinc-800 bg-zinc-950/70 opacity-55 saturate-[0.35]"
+          : "border-amber-500/30 bg-zinc-950/70 shadow-[0_0_20px_rgba(251,191,36,0.08)]"
+      )}
     >
+      {locked && <Lock className="h-3 w-3 shrink-0 text-zinc-500" />}
       {prestige > 0 && (
         <span
           className="flex shrink-0 items-center gap-0.5 rounded-full border border-amber-400/50 bg-amber-950/50 px-1.5 py-0.5 text-[9px] font-black text-amber-300"
@@ -243,6 +260,10 @@ export function ClassSelect() {
   const prestige = useCampaignStore((s) => s.prestige);
   // DESBLOQUEO: cada jefe vencido recluta a la siguiente clase (0/3/6/9/12/15).
   const stepsCleared = useCampaignStore((s) => s.stepsCleared);
+  // EL PACTO — progreso narrativo: define qué escalera está pendiente
+  // (historia abierta → JUGAR entra al mapa; cerrada → JUGAR escala la torre).
+  const storyChapter = useStoryStore((s) => s.chapter);
+  const storyCompleted = useStoryStore((s) => s.completed);
 
   // Clase seleccionada (chips) — recuerda la última usada; cae a GUERRERO.
   const [selected, setSelected] = useState<GameClass>(() => {
@@ -254,6 +275,7 @@ export function ClassSelect() {
   useEffect(() => {
     hydrateCollection();
     useCampaignStore.getState().hydrate();
+    useStoryStore.getState().hydrate();
     // Mazo inicial de CADA clase VISIBLE (una vez): las neutrales + relleno
     // barato. grantStarterDeck es idempotente y no-op si ya tiene mazo.
     visibleClasses().forEach((c) =>
@@ -287,6 +309,26 @@ export function ClassSelect() {
       playerName: profileName || undefined,
       step: useCampaignStore.getState().step,
     });
+  };
+
+  // HISTORIA — entrar al mapa de EL PACTO con el héroe elegido (la clase se
+  // escoge AQUÍ, antes de entrar). Sincroniza TAMBIÉN el gameClass del
+  // pvpStore: startStoryFight lee de ALLÍ, y sin este puente la pelea
+  // usaría la clase residual de la última torre/rush — no la del chip.
+  const enterStory = async (cls: GameClass) => {
+    if (!classUnlocked(cls, stepsCleared)) {
+      // Clase bloqueada: toque NEGADO (mismo lenguaje que el menú).
+      haptic("heavy");
+      sfx.debuff();
+      return;
+    }
+    selectClass(cls);
+    usePvpStore.getState().setGameClass(cls);
+    if (!deckLoading) await loadDeckAndPool();
+    useStoryStore.getState().hydrate();
+    sfx.select();
+    haptic("light");
+    setView("story");
   };
 
   // Open deck editor — remember we came from class-select
@@ -333,8 +375,37 @@ export function ClassSelect() {
       </motion.h2>
 
       <main className="app-main relative z-10 mx-auto flex w-full max-w-md flex-col justify-center gap-2.5 px-3 pb-4 pt-16">
-        {/* LA TORRE — una tira, cero párrafos */}
-        <CampaignStrip step={campaignStep} prestige={prestige} />
+        {/* HISTORIA — la escalera activa de El Pacto: progreso + ENTRADA al
+            mapa con el héroe elegido (también revivir la historia cerrada:
+            cada clase tiene su propio final). */}
+        <motion.button
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          whileTap={{ scale: 0.985 }}
+          onClick={() => enterStory(sel.id)}
+          title={
+            storyCompleted
+              ? "Historia completada — revívela con otro héroe (cada clase tiene su final)"
+              : "Entrar al mapa de El Pacto de Guerra"
+          }
+          className="flex w-full items-center gap-2 rounded-full border border-violet-400/50 bg-violet-950/60 px-3 py-2 shadow-[0_0_20px_rgba(139,92,246,0.12)] transition-colors hover:border-violet-300/70"
+        >
+          <BookOpen className="h-3.5 w-3.5 shrink-0 text-violet-300" />
+          <span className="min-w-0 flex-1 truncate text-left text-[9px] font-black uppercase tracking-[0.18em] text-violet-200">
+            Historia · {storyCompleted ? "Completada ★" : `Capítulo ${Math.min(storyChapter + 1, STORY_TOTAL)}/${STORY_TOTAL}`}
+          </span>
+          {storyCompleted && (
+            <span className="hidden shrink-0 rounded-full border border-violet-400/40 bg-violet-900/60 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-violet-200 min-[360px]:inline-flex">
+              Revivir
+            </span>
+          )}
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-violet-300" />
+        </motion.button>
+
+        {/* LA TORRE — una tira, cero párrafos (dimmed con candado hasta
+            cerrar El Pacto: se ve la escalera que viene después). */}
+        <CampaignStrip step={campaignStep} prestige={prestige} locked={!storyCompleted} />
 
         {/* ── CHIPS COMPACTOS (2×3): toda la oferta sin scroll. ── */}
         <div className="grid grid-cols-3 gap-1.5">
@@ -480,21 +551,22 @@ export function ClassSelect() {
                     <Library className="h-3.5 w-3.5" />
                     <span>Mazo</span>
                   </button>
-                  {/* BOTÓN ÚNICO — LA CAMPAÑA en el escalón pendiente.
-                      Si el próximo escalón es JEFE, se tiñe de rosa. */}
+                  {/* BOTÓN ÚNICO — la escalera PENDIENTE: historia abierta →
+                      el mapa de El Pacto; cerrada → la Torre (jefes incluidos,
+                      se tiñe de rosa cuando el próximo escalón es JEFE). */}
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => startCampaign(sel.id)}
+                    onClick={() => (storyCompleted ? startCampaign(sel.id) : enterStory(sel.id))}
                     className={cn(
                       "col-span-3 flex items-center justify-center gap-2 rounded-lg border bg-gradient-to-r py-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md transition-all",
-                      nextIsBoss
+                      storyCompleted && nextIsBoss
                         ? "border-rose-400/60 from-rose-700 via-rose-600 to-rose-800 hover:from-rose-600 hover:via-rose-500 hover:to-rose-700"
                         : c.btnPrimary
                     )}
                     style={{ fontFamily: 'var(--font-cinzel), serif' }}
                   >
-                    {nextIsBoss && <Skull className="h-3.5 w-3.5" />}
+                    {storyCompleted && nextIsBoss && <Skull className="h-3.5 w-3.5" />}
                     <span>Jugar</span>
                     <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
                   </motion.button>

@@ -309,6 +309,11 @@ export function StoryMap() {
 
   const launchFight = () => {
     haptic("medium");
+    // El combate (startStoryFight) lee la clase del pvpStore: sincroniza
+    // SIEMPRE con la que muestra esta cabecera (gameStore). Sin este puente,
+    // una torre/rush anterior dejaría una clase residual y la pelea saldría
+    // con otro héroe distinto al del chip.
+    usePvpStore.getState().setGameClass(gameClass);
     startStoryFight(chapter, fight);
   };
 

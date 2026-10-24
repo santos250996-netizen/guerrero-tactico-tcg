@@ -1422,3 +1422,21 @@ Stage Summary:
 - Las misiones ahora son un RITUAL visible: juegas → la misión se enciende en verde → tocas RECLAMAR → ves el pago (+1/+3/+8) en un toast y la colección crecer. Nada llega «por debajo de la mesa».
 - Variedad real día a día (12 plantillas diarias con clases sorteadas) y tres horizontes de objetivos (día/semana/mes) con pagos crecientes.
 - Archivos: src/store/missionStore.ts (v2), src/store/pvpStore.ts (hooks), src/components/game/MainMenu.tsx (pestañas+reclamo), scripts/test-misiones-v2.ts (nuevo), scripts/test-tanda28.ts (sección 3 reescrita).
+---
+Task ID: ui-hero-select-pre-pacto
+Agent: Z.ai main agent
+Task: «no hay forma de escoger la clase antes de entrar al pacto... no se sabe ni cuando se desbloquean nuevas clases» — selección de héroe accesible y desbloqueos visibles
+
+Work Log:
+- DIAGNÓSTICO: EL PACTO saltaba directo al mapa (StoryMap) con la clase solo como chip pasivo — imposible elegirla. La ÚNICA UI de clases («Elige tu Héroe»/ClassSelect) vivía tras la tarjeta LA TORRE, bloqueada hasta completar la historia → un jugador en fase Pacto no veía roster, candados ni pistas (mago 3 · botánico 6 · pirata 9 · asesino 12 · tinker 15).
+- BUG LATENTE detectado y corregido: startStoryFight lee pvpStore.gameClass, la cabecera del mapa muestra gameStore.gameClass — nada las sincronizaba al entrar a la historia (una clase residual de torre/rush anterior se colaba en la pelea).
+- MainMenu: EL PACTO ahora abre la pantalla «Elige tu Héroe» (goToStory eliminado; tooltip «Elige tu héroe y continúa la historia…»). LA TORRE mantiene la misma entrada — pantalla compartida según progreso.
+- ClassSelect (pantalla compartida): píldora HISTORIA violeta (BookOpen + «Capítulo X/7» o «Completada ★» + chevron; chip REVIVIR ≥360px) SIEMPRE tocable → mapa del Pacto con el héroe elegido · tira de la Torre con prop locked (candado + saturate .35 + opacity .55 + tooltip «se abre al completar El Pacto») mientras la historia no cierre · JUGAR adaptativo: historia abierta → enterStory (selectClass + setGameClass + loadDeckAndPool + hydrate + setView("story")), cerrada → startCampaign (torre, cráneo rosa solo si nextIsBoss) · enterStory con toque NEGADO (haptic heavy + sfx.debuff) si la clase está bloqueada.
+- StoryMap.launchFight: setGameClass(gameClass) antes de startStoryFight — red de seguridad para que chip de cabecera y pelea coincidan SIEMPRE.
+- VERIFICACIÓN: tsc 0 · eslint 0 · impeccable detect colgó 2× (omitido, como en la sesión anterior) · E2E agent-browser 390+320: FRESCO → menú → EL PACTO → héroe (píldora «Capítulo 1/7», tira dimmed con candado, 6 chips, panel guerrero) → píldora/JUGAR → mapa «Capítulo 1 de 7» → pelea vs Bram arranca con GUERRERO; clase bloqueada (mago): panel muestra «VENCE A KORGATH · JEFE · PISO 3» sin botones y la píldora HISTORIA NIEGA (no navega) · VETERANO (sembrada historia 7/7 + stepsCleared 5): píldora «COMPLETADA ★» + REVIVIR, tira activa «PISO 6/18», JUGAR → torre piso 6 vs YGGRA con MAGO (carriles propios ARCANA/FUEGO/HIELO = CLASS_META.mago.lanes) y REVIVIR → mapa con final «El Pacto quedó firmado ★»; RUSH se desbloquea solo (5≥3) · SIN TRUNCAMIENTOS a 320 y 390 (chip REVIVIR oculto <360px) · 0 errores JS.
+
+Stage Summary:
+- Elegir clase ANTES de entrar al Pacto ahora es el CAMINO principal: MENÚ → EL PACTO → Elige tu Héroe → JUGAR. El roster completo con candados y la pista exacta de desbloqueo (qué jefe, qué piso) es visible desde el primer día, y la Torre se anticipa dimmed hasta cerrar la historia.
+- Cada clase tiene su final en la historia → REVIVIR queda a un toque desde la misma pantalla tras completarla.
+- Arreglado el desync de clase entre gameStore y pvpStore en las peleas de historia.
+- Archivos: src/components/game/MainMenu.tsx, src/components/game/ClassSelect.tsx, src/components/game/story/StoryMap.tsx

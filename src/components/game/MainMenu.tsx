@@ -406,16 +406,12 @@ export function MainMenu() {
     setView("profile");
   };
 
+  // EL PACTO y LA TORRE comparten entrada: la pantalla «Elige tu Héroe»
+  // (class-select) muestra el roster con candados y pistas de desbloqueo,
+  // y JUGAR lleva al mapa de la historia o a la torre según el progreso.
   const goToClassSelect = () => {
     click();
     setView("class-select");
-  };
-
-  const goToStory = () => {
-    click();
-    haptic("light");
-    useStoryStore.getState().hydrate();
-    setView("story");
   };
 
   const goToRush = () => {
@@ -628,7 +624,9 @@ export function MainMenu() {
           animate="show"
           className="flex flex-col gap-2 px-3 pb-1.5 pt-3"
         >
-          {/* PRIMARIA → la historia: SIEMPRE abierta (el juego ES El Pacto) */}
+          {/* PRIMARIA → la historia: SIEMPRE abierta (el juego ES El Pacto).
+              Pasa por «Elige tu Héroe»: así se ESCOGE la clase antes de
+              entrar y se ven los candados de las clases por desbloquear. */}
           <ModeCard
             big
             tone={TONES.pacto}
@@ -636,7 +634,8 @@ export function MainMenu() {
             title="EL PACTO"
             subtitle={pactoSub}
             stat={pactoStat}
-            onClick={goToStory}
+            tooltip="Elige tu héroe y continúa la historia de El Pacto de Guerra"
+            onClick={goToClassSelect}
           />
 
           {/* MEDIANAS → el endgame: Torre (post-historia) + Rush (post-piso 3) */}
