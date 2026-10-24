@@ -762,12 +762,15 @@ function applyEffectLogic(
           ctx.handBonus +
           (card.subtypes.includes(lane) ? 2 : 0) +
           getLaneBonusPower(card.category, ctx.laneBonus);
-        const count = allyLane.filter((a) => a.currentPower < myEntry).length;
+        // PARCHE ARQUETIPOS: cuenta también EMPATES (≤). Antes solo aliados
+        // ESTRICTAMENTE menores y en la entrada la propia suele ser la más débil
+        // → noop medido 51% en espejos. La red de la flor alimenta a su par.
+        const count = allyLane.filter((a) => a.currentPower <= myEntry).length;
         const gained = x * count;
         if (gained > 0) {
           accum.bonusPower += gained;
           recordKeyword("simbiosis", gained);
-        } else recordKeywordNoop("simbiosis"); // es la más débil: nada que alimente
+        } else recordKeywordNoop("simbiosis"); // carril vacío de aliados
       }
       break;
     }
@@ -2306,8 +2309,32 @@ export function applyEndTurnEffects(
 
       switch (card.keyword) {
         // ---- FORTALEZA [X]: +X a todas tus cartas de este carril ----
+        // PARCHE ARQUETIPOS — NO SE ACUMULA: si varias de tus cartas tienen
+        // Fortaleza en el mismo carril, SOLO dispara la de mayor X (empate:
+        // la primera colocada). El audit-arquetipos midió el stack Coro+Círculo
+        // +Tripa (+6/turno lane-wide) ganando el 73% de los espejos: apilar
+        // Fortalezas era LA jugada degenerativa que el jugador reportó («solo
+        // tirar inicio/fin»). Una Fortaleza por carril; el resto es guarnición.
         case "fortaleza": {
           if (x > 0) {
+            const siblings = newBoard[lane][side];
+            const myIdx = siblings.findIndex((c) => c.uid === card.uid);
+            // Hay Fortaleza que manda si otra tiene X MAYOR, o X IGUAL pero
+            // fue colocada antes (determinista: gana la primera colocada).
+            const rivalFort = siblings.find(
+              (c, i) =>
+                c.trigger === "end_turn" &&
+                c.keyword === "fortaleza" &&
+                c.uid !== card.uid &&
+                ((c.keywordValue ?? 0) > x || ((c.keywordValue ?? 0) === x && i < myIdx))
+            );
+            if (rivalFort) {
+              // Hay una Fortaleza mayor (o igual y previa): esta solo ondea.
+              logs.push({ side, text: `🏰 ${card.name} (Fortaleza): la bandera de ${rivalFort.name} (+${rivalFort.keywordValue}) manda en el carril — no se acumula.` });
+              fx.push({ kind: "keyword", keyword: "fortaleza", lane, side, targetUids: [card.uid], value: 0 });
+              recordKeywordNoop("fortaleza");
+              break;
+            }
             const allyUids = newBoard[lane][side].map((a) => a.uid);
             for (const ally of newBoard[lane][side]) {
               applyPowerDelta(newBoard, side, lane, ally.uid, x, `${card.name} (Fortaleza)`, "end_turn");
@@ -2362,15 +2389,18 @@ export function applyEndTurnEffects(
           break;
         }
 
-        // ---- TORRETA [X]: −X al enemigo MÁS FUERTE del carril (honesto) ----
-        // El francotirador pica arriba (Crueldad pica abajo). Los escudos
-        // absorben — es un proyectil, no veneno. Sin presa: la torreta
-        // espera (noop; a diferencia de FURIA, la máquina no se enfurece).
+        // ---- TORRETA [X]: −X al enemigo MÁS FUERTE del carril (perforante) ----
+        // El francotirador pica arriba (Crueldad pica abajo) y su CHISPA salta
+        // escudos (parche arquetipos: noop 35% medido con el meta de Coraza).
+        // Sin presa: la torreta espera (noop; la máquina no se enfurece).
         case "torreta": {
           if (x > 0) {
             const vivos = newBoard[lane][enemySide].filter((c) => c.currentPower > 0);
             const target = highestPowerCard(vivos);
             if (target) {
+              // PARCHE ARQUETIPOS: la CHISPA salta escudos (el audit midió noop 35%
+              // porque Coraza/Amparo absorbían el disparo; la firma anti-élite del
+              // Tinker no podía con el meta de escudos). Ahora perfora.
               const res = applyDebuff(
                 newBoard,
                 enemySide,
@@ -2378,22 +2408,13 @@ export function applyEndTurnEffects(
                 target.uid,
                 -x,
                 `${card.name} (Torreta)`,
-                "end_turn"
+                "end_turn",
+                { bypassShield: true }
               );
               if (rulesOut && res.appliedDelta < 0) grantCombo(rulesOut, side, 1);
-              if (res.absorbedByShield > 0 && res.appliedDelta === 0) {
-                logs.push({ side, text: `🎯 ${card.name} (Torreta): BLOQUEADO por escudo de ${target.name}` });
-                fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
-                recordKeywordNoop("torreta");
-              } else {
-                const absorbedNote = res.absorbedByShield > 0 ? ` (${res.absorbedByShield} absorbido por escudo)` : "";
-                logs.push({ side, text: `🎯 ${card.name} (Torreta): ${res.appliedDelta} al más fuerte — ${target.name}${absorbedNote}` });
-                fx.push({ kind: "keyword", keyword: "torreta", lane, side: enemySide, targetUids: [target.uid], value: x });
-                recordKeyword("torreta", Math.abs(res.appliedDelta));
-                if (res.absorbedByShield > 0) {
-                  fx.push({ kind: "shieldBlock", lane, side: enemySide, targetUids: [target.uid], value: res.absorbedByShield });
-                }
-              }
+              logs.push({ side, text: `🎯 ${card.name} (Torreta): ${res.appliedDelta} al más fuerte — ${target.name} (el rayo salta los escudos)` });
+              fx.push({ kind: "keyword", keyword: "torreta", lane, side: enemySide, targetUids: [target.uid], value: x });
+              recordKeyword("torreta", Math.abs(res.appliedDelta));
             } else {
               recordKeywordNoop("torreta"); // sin objetivos: la torreta barre el horizonte
             }

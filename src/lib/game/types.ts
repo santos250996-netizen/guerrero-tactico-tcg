@@ -180,7 +180,25 @@ export type ScopeKind = keyof typeof SCOPE_MODS;
 
 /** Multiplier for keywords that repeat indefinitely (per turn) vs once. */
 export const MOD_ONCE_SINGLE = 1.0; // Efecto único (Mod_Once = 1.0)
-export const MOD_ONCE_PER_TURN = 0.8; // Efecto que se repite indefinidamente (Mod_Once = 0.8 por turno)
+/**
+ * AUDIT ARQUETIPOS (2026-10): antes 0.8. El test A3 (top-12 solo inicio/fin vs
+ * top-12 solo one-shot) mostró al stack ganando 60-95% en 5 de 6 clases: el
+ * descuento del 20% era un segundo subsidio INDEBIDO — los KEYWORD_BASE_VALUES
+ * (p.ej. Fervor 3.0 ≈ 3 procs de vida media) YA codifican los procs esperados.
+ * Sin descuento: el presupuesto consume el valor de vida completa y el poder
+ * base de las cartas de trigger repetido baja en consecuencia (compensación
+ * calculada en scripts/compensar-repetidos.ts).
+ */
+export const MOD_ONCE_PER_TURN = 1.0;
+/**
+ * AUDIT ARQUETIPOS (2026-10): el Último Aliento casi nunca dispara (0 procs
+ * en espejos IA-vs-IA — la mortalidad de este juego es mínima). Pagar
+ * presupuesto completo por un efecto que no ocurre dejaba las 31 cartas
+ * on_death como palos de stats con el efecto decorativo. Precio honesto:
+ * ~50% de probabilidad de que el efecto llegue a ocurrir; el sobrante vuelve
+ * a la carta como PODER base (ver scripts/compensar-on-death.ts).
+ */
+export const MOD_ONCE_ON_DEATH = 0.5;
 
 // ============================================================================
 // KEYWORD SYSTEM V3 (2026-10) — 24 keywords, diseño aprobado por el usuario.
@@ -339,7 +357,7 @@ export const KEYWORD_META: Record<
   },
   fortaleza: {
     label: "Fortaleza", short: "FORT", icon: Castle, color: "text-zinc-300",
-    description: "Fin de Turno: todas tus cartas de este carril ganan +X.",
+    description: "Fin de Turno: todas tus cartas de este carril ganan +X (si tienes varias Fortalezas en el carril, solo la de mayor X ondea — no se acumulan).",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
   },
 
@@ -538,7 +556,7 @@ export const KEYWORD_META: Record<
   },
   simbiosis: {
     label: "Simbiosis", short: "SIMB", icon: Handshake, color: "text-green-300",
-    description: "Al Jugar: gana +X por cada carta tuya de este carril que tenga MENOS poder que esta.",
+    description: "Al Jugar: gana +X por cada carta tuya de este carril que tenga MENOS O IGUAL poder que esta (los empates alimentan la red).",
     trigger: "on_play", hasValue: true, scope: "PROPIO",
     exclusiveSubtype: "flor",
   },
@@ -630,7 +648,7 @@ export const KEYWORD_META: Record<
   },
   torreta: {
     label: "Torreta", short: "TORR", icon: Crosshair, color: "text-yellow-300",
-    description: "Fin de Turno: reduce en X el poder del enemigo MÁS FUERTE de este carril. Los escudos lo absorben.",
+    description: "Fin de Turno: reduce en X el poder del enemigo MÁS FUERTE de este carril. El rayo de la chispa salta los escudos.",
     trigger: "end_turn", hasValue: true, scope: "CARRIL_LOCAL",
     exclusiveSubtype: "chispa",
   },

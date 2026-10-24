@@ -13,7 +13,7 @@
 // ===========================================================================
 
 import type { CardDef, Keyword, Trigger, ScopeKind, Rarity } from "./types";
-import { KEYWORD_META, SCOPE_MODS, MOD_ONCE_PER_TURN, MOD_ONCE_SINGLE } from "./types";
+import { KEYWORD_META, SCOPE_MODS, MOD_ONCE_PER_TURN, MOD_ONCE_SINGLE, MOD_ONCE_ON_DEATH } from "./types";
 
 // ----- Core formula constants -----
 const ENERGY_MULTIPLIER = 4.0;
@@ -73,9 +73,12 @@ function getPTPRange(energyCost: number, rarity: Rarity = "common"): { min: numb
   };
 }
 
-/** Modificador por repetición: start_turn/end_turn son efectos peri-turno. */
+/** Modificador por repetición: start_turn/end_turn son efectos peri-turno;
+ *  on_death paga a mitad de precio (el audit-arquetipos midió que casi nunca
+ *  llega a disparar — la mortalidad del juego es mínima). */
 function getOnceModifier(trigger: Trigger | undefined): number {
   if (trigger === "start_turn" || trigger === "end_turn") return MOD_ONCE_PER_TURN;
+  if (trigger === "on_death") return MOD_ONCE_ON_DEATH;
   return MOD_ONCE_SINGLE;
 }
 
@@ -86,29 +89,29 @@ function getOnceModifier(trigger: Trigger | undefined): number {
 export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   none: 0,
   // --- Neutrales ---
-  fervor: 3.0, // +X/turno acumulativo: ~3-5 turnos de vida media
+  fervor: 2.2, // +X/turno acumulativo (parche arquetipos: −27%; el stack puro ganaba 87% en A3)
   coraza: 1.0, // absorbe X puntos one-shot
   insignia: 1.0, // +X permanente one-shot a un aliado
   remate: 2.0, // destrucción condicional (vale ~2× el poder rematado)
   legado: 1.0, // +X permanente condicional al morir
-  fortaleza: 2.5, // +X/turno a TODO el carril (escala con nº de cartas)
+  fortaleza: 1.9, // +X/turno a TODO el carril (−24%; ya no se acumula — parche arquetipos)
   // --- Guerrero ---
   hender_armadura: 1.2, // como debuff one-shot + prima por perforar escudos
-  duelista: 2.5, // +X/turno condicional (única en carril)
+  duelista: 1.9, // +X/turno condicional (única en carril; −24% parche arquetipos)
   amparo: 0.8, // escudo X por aliado (depende de tablero propio)
   purificacion: 2.0, // utilidad fija (restaura debuffs)
   impetu: 1.5, // +X por carta jugada ese turno (1-3 típico)
-  crueldad: 2.0, // −X/turno al más débil (presión constante)
+  crueldad: 1.6, // −X/turno al más débil (presión constante; −20% parche arquetipos)
   // --- Mago V3 (Burst) ---
   convergencia: 1.0, // +X por aliado propio ya en carril (0-3 típico)
   sobrecarga: 1.5, // neto +X pero frontloaded +2X (prima burst)
   llamarada: 1.5, // −X AoE one-shot (media ~1.8 objetivos)
   combustion: 1.0, // −2X al morir perforando (condicional on_death)
-  escarcha: 1.5, // escudo renovable hasta X cada turno
-  ventisca: 1.5, // −X AoE cada fin de turno (desgaste)
+  escarcha: 1.2, // escudo renovable hasta X cada turno (−20% parche arquetipos)
+  ventisca: 1.2, // −X AoE cada fin de turno (desgaste; −20% parche arquetipos)
   // --- Asesino V3 (Precisión) ---
   veneno: 2.0, // −X/turno perforante al más fuerte (anti-tanque)
-  contagio: 1.5, // −X/turno condicional al más envenenado
+  contagio: 1.2, // −X/turno condicional al más envenenado (−20% parche arquetipos)
   refriega: 1.0, // +X por enemigo en carril (anti-numbers)
   golpe_certero: 1.0, // −X one-shot honesto (escudos absorben)
   emboscada: 1.5, // media entre +2X (1ª carta) y +X
@@ -116,7 +119,7 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   // --- 3ª tanda (mazos segundos, 1 por spec) ---
   orden_batalla: 1.2, // +X AoE one-shot al carril (media ~2-3 aliados + sí misma)
   custodia: 1.4, // escudo renovable hasta X al aliado más débil (espejo de Escarcha)
-  desafio: 2.0, // +X/turno condicional mientras pierdes el carril (remontada)
+  desafio: 1.5, // +X/turno condicional mientras pierdes el carril (−25% parche arquetipos)
   drenar_poder: 1.5, // swing emparejado: +X propio Y −X al más fuerte (escudos absorben)
   detonacion: 1.2, // −X AoE one-shot al morir (condicional; Llamarada al jugar vale 1.5)
   ruptura_glacial: 1.6, // −X one-shot perforante al más debuffeado (condicional)
@@ -125,14 +128,14 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   conspiracion: 0.8, // +X a toda la mano (media ~4-5 cartas futuras, muy valioso)
   // --- V3.0 Botánico (plan-expansion-v3 §2.1) ---
   micelio: 0.9, // doble escudo one-shot (yo + el más débil): Coraza 1.0 solo a sí misma
-  estacion: 2.6, // +X/turno como Fervor (3.0) pero madura a +2X desde el turno 4
+  estacion: 1.9, // +X/turno que madura a +2X desde el turno 4 (−27% parche arquetipos)
   simbiosis: 1.1, // +X por aliado MENOR en poder (Convergencia 1.0, condicionado al ranking)
   floracion: 1.2, // AoE de buff one-shot al morir (espejo de Detonación 1.2)
   polen: 1.4, // −X one-shot honesto al MENOS debuffeado (Ruptura 1.6 es perforante)
   carnivora: 1.9, // destrucción del más débil ≤X (Purga 1.8) + se alimenta (+2/+1)
   // --- V3.0 Pirata ---
   saqueo: 1.6, // robo perforante + botín por kill (Drenar 1.5, sin bonus por destrucción)
-  tripulacion: 2.0, // +X/turno escalando con propias (Fortaleza 2.5 buffa TODO el carril)
+  tripulacion: 1.5, // +X/turno escalando con propias (−25% parche arquetipos)
   motin: 5.0, // SWAP fijo sin [X]: intercambio con el más fuerte (valor esperado del swing)
   contrabando: 0.35, // +X a UNA carta aleatoria de la mano (Conspiración 0.8 a TODA la mano)
   canonazo: 1.7, // −X AoE honesto carril+adyacente (scope 1.4 compensa; Miasma 1.8 perforante)
@@ -140,9 +143,9 @@ export const KEYWORD_BASE_VALUES: Record<Keyword, number> = {
   // --- V3.0 Tinker ---
   remache: 0.85, // escudo X al carril COMPLETO incluida ella (Amparo 0.8 sin self)
   chatarra: 1.3, // legado mejorado: +X y escudo X (Legado 1.0 solo poder)
-  engranaje: 2.2, // +X/turno condicional a Ítem en carril (Duelista 2.5 condicional a soledad)
+  engranaje: 1.7, // +X/turno condicional a Ítem en carril (−23% parche arquetipos)
   sobrecalentar: 1.4, // media +2X/+X condicionada a otro Ítem (Emboscada 1.5)
-  torreta: 1.8, // −X/turno al MÁS FUERTE honesto (Crueldad 2.0 pica al más débil)
+  torreta: 1.6, // −X/turno al MÁS FUERTE PERFORANTE (rayo que salta escudos; −20% adicional al parche de identidad)
   descarga: 1.5, // −X one-shot a los 2 más débiles (Llamarada 1.5 AoE completo)
   // --- V3.0 · Tanda 30 — ampliación clases base (auditados vs las 51) ---
   estandarte: 1.2, // +X AoE al carril ADYACENTE (Orden 1.2 incluye a sí misma; scope 1.4 compensa)

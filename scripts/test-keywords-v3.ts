@@ -262,7 +262,7 @@ console.log("\n❄️ MAGO — HIELO (escarcha · ventisca)");
   const endRes = applyEndTurnEffects(b, "player", [], ["arcana", "fuego", "hielo"]);
   const e1 = endRes.board[lane].enemy.find((c) => c.uid === "e1")!;
   const e2 = endRes.board[lane].enemy.find((c) => c.uid === "e2");
-  assert("Ventisca: −1 a todos (13→12)", e1.currentPower === 12, `power=${e1.currentPower}`);
+  assert("Ventisca: −2 a todos (13→11)", e1.currentPower === 11, `power=${e1.currentPower}`);
   // REGLA DEL CAMPO: el débil (1→0) CAE al cierre del turno — antes quedaba
   // como cuerpo a 0 eterno; ahora muere y su Último Aliento puede sonar.
   assert("Ventisca: el débil llega a 0 y CAE (regla del campo)", !e2, e2 ? `power=${e2.currentPower}` : "destruido");
@@ -273,7 +273,7 @@ console.log("\n❄️ MAGO — HIELO (escarcha · ventisca)");
 console.log("\n🗡️ ASESINO — VENENO (veneno · contagio)");
 {
   const lane: LaneId = "veneno";
-  const ven = byId(ROGUE_CARDS, "colmillos_curvos"); // X=1
+  const ven = byId(ROGUE_CARDS, "colmillos_curvos"); // X=2 (parche arquetipos)
 
   // Veneno: −X al MÁS FUERTE, IGNORA escudos (start_turn)
   let b = emptyBoard();
@@ -284,7 +284,7 @@ console.log("\n🗡️ ASESINO — VENENO (veneno · contagio)");
   ];
   const res = applyStartTurnEffects(b, "player", [], ["veneno", "combate", "sigilo"]);
   const big = res.board[lane].enemy.find((c) => c.uid === "big")!;
-  assert("Veneno: −1 al más fuerte (13→12)", big.currentPower === 12, `power=${big.currentPower}`);
+  assert("Veneno: −2 al más fuerte (13→11)", big.currentPower === 11, `power=${big.currentPower}`);
   assert("Veneno: IGNORA escudo (escudo 9 intacto)", big.shieldRemaining === 9, `shield=${big.shieldRemaining}`);
 
   // Contagio (Task 46): −X a TODAS las cartas enemigas CON debuffTaken

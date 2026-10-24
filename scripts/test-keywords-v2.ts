@@ -92,7 +92,7 @@ console.log("\n🔵 INSIGNIA (on_play)");
   const res = playCard(board, [asHand(cardById("guardian_juramentado"))], 10, "player", "furia", asHand(cardById("guardian_juramentado")), null, NO_TRAP);
   const vetAfter = res.board.furia.player.find((c) => c.uid === vet.uid)!;
   const hammer = res.playedCard;
-  check("Veterano Caído recibe +3 (era el más débil: 6 < 16)", vetAfter.currentPower === 9, `esperado 9, real ${vetAfter.currentPower}`);
+  check("Veterano Caído recibe +3 (era el más débil: 8 < 16)", vetAfter.currentPower === 11, `esperado 11, real ${vetAfter.currentPower}`);
   check("El martillo entra con su poder base (10; sin sinergia: es de Protección en carril Furia)", hammer.currentPower === 10, `esperado 10, real ${hammer.currentPower}`);
   check("powerLog del objetivo registra el buff", (vetAfter.powerLog ?? []).some((e) => e.delta === 3 && e.kind === "buff"));
 }
@@ -221,7 +221,7 @@ console.log("\n🟠 DUELISTA (start_turn, clase Armas)");
 
   const res1 = applyStartTurnEffects(board, "player");
   const s1 = res1.board.armas.player.find((c) => c.uid === espada.uid)!;
-  check("Sola en el carril → +1", s1.currentPower === 12, `esperado 12 (11 base + 1), real ${s1.currentPower}`);
+  check("Sola en el carril → +1", s1.currentPower === 13, `esperado 13 (12 base + 1), real ${s1.currentPower}`);
 
   // Ahora el jugador añade otra carta al carril → deja de crecer
   const res2 = applyStartTurnEffects(res1.board, "player");
@@ -229,8 +229,8 @@ console.log("\n🟠 DUELISTA (start_turn, clase Armas)");
   place(res2.board, "player", "armas", boardCard(cardById("amoladora_de_campamento")));
   const res3 = applyStartTurnEffects(res2.board, "player");
   const s3 = res3.board.armas.player.find((c) => c.uid === espada.uid)!;
-  check("Sigue sola en el 2º inicio → +1 (p13)", s2.currentPower === 13, `real ${s2.currentPower}`);
-  check("Ya NO está sola → +0 (p13)", s3.currentPower === 13, `real ${s3.currentPower}`);
+  check("Sigue sola en el 2º inicio → +1 (p14)", s2.currentPower === 14, `real ${s2.currentPower}`);
+  check("Ya NO está sola → +0 (p14)", s3.currentPower === 14, `real ${s3.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +271,7 @@ console.log("\n🔵 FORTALEZA (end_turn)");
   const e = res.board.proteccion.player.find((x) => x.uid === espada.uid)!;
   check("Cuerno +1", c.currentPower === 12, `real ${c.currentPower} (base 11, place directo sin sinergia)`);
   check("Amoladora +1", a.currentPower === 4, `real ${a.currentPower}`);
-  check("Espada (otro carril) sin cambio", e.currentPower === 11, `real ${e.currentPower}`);
+  check("Espada (otro carril) sin cambio", e.currentPower === 12, `real ${e.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +304,7 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
   place(board2, "enemy", "furia", shielded);
   const res2 = applyEndTurnEffects(board2, "player");
   const sh = res2.board.furia.enemy.find((c) => c.uid === shielded.uid)!;
-  check("El escudo absorbe el debuff (poder intacto, escudo 2→1)", sh.currentPower === 1 && sh.shieldRemaining === 1, `poder=${sh.currentPower} escudo=${sh.shieldRemaining}`);
+  check("El escudo absorbe el debuff (poder intacto, escudo 2→0 con X=2)", sh.currentPower === 1 && sh.shieldRemaining === 0, `poder=${sh.currentPower} escudo=${sh.shieldRemaining}`);
 
   // 11c: RETARGET — no apunta a cuerpos a 0: va contra el más débil CON PODER
   const board3 = emptyBoard();
@@ -316,7 +316,7 @@ console.log("\n🟠 CRUELDAD (end_turn, clase Furia)");
   place(board3, "enemy", "furia", vivo);
   const res3 = applyEndTurnEffects(board3, "player");
   const v = res3.board.furia.enemy.find((c) => c.uid === vivo.uid)!;
-  check("Crueldad apunta al débil CON PODER (no al cuerpo a 0)", v.currentPower === 10, `real ${v.currentPower}`);
+  check("Crueldad apunta al débil CON PODER (no al cuerpo a 0)", v.currentPower === 9, `real ${v.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------

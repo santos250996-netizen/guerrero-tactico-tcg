@@ -86,11 +86,11 @@ console.log("\n🟠 DUELISTA — «Al Jugar: +X» funciona Y SE VE");
   const res = playCard(board, hand, 10, "player", "armas", hand[0], null, NO_TRAP, 1);
 
   // 11 base + 2 sinergia de subtype (armas en carril armas) + 1 Duelista
-  check("Al Jugar entra con +X (11+2+1=14, NO 15)", res.playedCard.currentPower === 14, `real ${res.playedCard.currentPower}`);
+  check("Al Jugar entra con +X (12+2+1=15)", res.playedCard.currentPower === 15, `real ${res.playedCard.currentPower}`);
 
   const selfMut = res.mutations.find((m) => m.uid === res.playedCard.uid);
   check("Mutación cosmética presente (float verde +X)", !!selfMut && selfMut.powerDelta === 1, JSON.stringify(res.mutations));
-  check("La mutación NO re-aplica poder (carta ya lo trae)", res.playedCard.currentPower === 14);
+  check("La mutación NO re-aplica poder (carta ya lo trae)", res.playedCard.currentPower === 15);
   check(
     "Registro (powerLog) lista «Duelista +1»",
     (res.playedCard.powerLog ?? []).some((e) => e.source === "Duelista" && e.delta === 1),
@@ -104,8 +104,8 @@ console.log("\n🟠 DUELISTA — «Al Jugar: +X» funciona Y SE VE");
   const board2 = emptyBoard();
   const hand2 = [asHand(leg)];
   const res2 = playCard(board2, hand2, 10, "player", "armas", hand2[0], null, NO_TRAP, 1);
-  // legendaria: poder 11+5=16 + 2 sinergia + 2 duelista
-  check("Legendaria Al Jugar: +2 (16+2+2=20)", res2.playedCard.currentPower === 20, `real ${res2.playedCard.currentPower}`);
+  // legendaria: poder 12+5=17 + 2 sinergia + 2 duelista
+  check("Legendaria Al Jugar: +2 (17+2+2=21)", res2.playedCard.currentPower === 21, `real ${res2.playedCard.currentPower}`);
   const legMut = res2.mutations.find((m) => m.uid === res2.playedCard.uid);
   check("Float legendaria vale +2", !!legMut && legMut.powerDelta === 2);
 
@@ -159,12 +159,12 @@ console.log("\n🧊 RUPTURA GLACIAL — sin infectados golpea al MÁS FUERTE");
 // ---------------------------------------------------------------------------
 console.log("\n🎯 CRUELDAD — sin presa SE ENFURECE (+X permanente)");
 {
-  const def = cardById("colmillo_del_verdugo"); // crueldad X=1
+  const def = cardById("colmillo_del_verdugo"); // crueldad X=2 (parche arquetipos)
   const board = emptyBoard();
   place(board, "player", "furia", boardCard(def));
   const res = applyEndTurnEffects(board, "player");
   const c = res.board.furia.player.find((x) => x.defId === "colmillo_del_verdugo")!;
-  check("Carril enemigo vacío → +1 (se enfurece)", c.currentPower === def.power + 1, `real ${c.currentPower}`);
+  check("Carril enemigo vacío → +2 (se enfurece, X=2)", c.currentPower === def.power + 2, `real ${c.currentPower}`);
   check("Log de enfurecida presente", res.logs.some((l) => l.text.includes("enfurece")));
 
   // con SOLO cuerpos a 0 también se enfurece (no hay presa CON poder)
@@ -174,7 +174,7 @@ console.log("\n🎯 CRUELDAD — sin presa SE ENFURECE (+X permanente)");
   place(board2, "enemy", "furia", cuerpo);
   const res2 = applyEndTurnEffects(board2, "player");
   const c2 = res2.board.furia.player.find((x) => x.defId === "colmillo_del_verdugo")!;
-  check("Solo cuerpos a 0 → también se enfurece", c2.currentPower === def.power + 1, `real ${c2.currentPower}`);
+  check("Solo cuerpos a 0 → también se enfurece (X=2)", c2.currentPower === def.power + 2, `real ${c2.currentPower}`);
 }
 
 // ---------------------------------------------------------------------------

@@ -145,14 +145,14 @@ console.log("\n🔥 GUERRERO FURIA — Desafío (+X mientras pierdes el carril)"
   b.furia.player = [makeCard(gladiador)];
   b.furia.enemy = [makeCard(gladiador, { uid: "e1", currentPower: 20 })];
   b = applyStartTurnEffects(b, "player", [], lanesForClass("guerrero")).board;
-  assert("perdiendo el carril gana +X", b.furia.player[0].currentPower === 12, `p=${b.furia.player[0].currentPower}`);
+  assert("perdiendo el carril gana +X", b.furia.player[0].currentPower === 13, `p=${b.furia.player[0].currentPower}`);
 
   // Ganando el carril → sin bonus.
   let b2 = emptyBoard();
   b2.furia.player = [makeCard(gladiador), makeCard(gladiador, { uid: "a2", defId: "a2" })];
   b2.furia.enemy = [makeCard(gladiador, { uid: "e1", currentPower: 10 })];
   b2 = applyStartTurnEffects(b2, "player", [], lanesForClass("guerrero")).board;
-  assert("ganando el carril no gana nada", b2.furia.player[0].currentPower === 10, `p=${b2.furia.player[0].currentPower}`);
+  assert("ganando el carril no gana nada", b2.furia.player[0].currentPower === 11, `p=${b2.furia.player[0].currentPower}`);
 }
 
 console.log("\n🔮 MAGO ARCANA — Drenar Poder (+X propio y −X honesto al más fuerte)");

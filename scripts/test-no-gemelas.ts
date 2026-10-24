@@ -128,7 +128,7 @@ section("Coherencia texto↔X en las 17 cartas retocadas (texto cita SU valor)")
   const expect: [string, string][] = [
     ["aberracion_arcana", "reduce en 1"],
     ["lengua_de_fuego", "reduce en 2"],
-    ["viento_cortante", "reduce en 1"],
+    ["viento_cortante", "reduce en 2"],
     ["carapacho_glacial", "próximas 2"],
     ["estallido_igneo", "gana +4"],
     ["alma_del_glaciar", "gana +3"],

@@ -1,0 +1,212 @@
+╔══════════════════════════════════════════════════════════════════╗
+║  AUDIT ARQUETIPOS — identidad de keywords por clase              ║
+║  20 partidas espejo por clase (mitad mazo I, mitad mazo II)      ║
+╚══════════════════════════════════════════════════════════════════╝
+
+━━━ GUERRERO — "Fuerza · Disciplina · Sangre" ━━━
+  Arquetipo intencional: LÍNEA DE BATALLA — muro que avanza: escudos, rompe-armaduras y presión constante
+  Pool 36 cartas · triggers: JUGAR 19 (53%) · INICIO 8 (22%) · FIN 4 (11%) · MUERTE 5 (14%)
+  VED del pool: JUGAR 45% · INICIO 25% · FIN 17% · MUERTE 13%
+  MAZO ÓPTIMO (top-12 VED): JUGAR×3 + INICIO×4 + FIN×4 + MUERTE×1
+  → VED del mazo óptimo en INICIO+FIN: 68%  ⚠️ DEGENERACIÓN
+
+  SIM ESPEJO (20 partidas) — poder movido POR TRIGGER:
+    JUGAR      2695   78.4%  ·  1130 procs · noop 18%
+    INICIO      346   10.1%  ·  259 procs · noop 14%
+    FIN         395   11.5%  ·  113 procs · noop 4%
+    MUERTE        0    0.0%  ·  0 procs · noop 0%
+
+  Top keywords reales (poder/partida):
+    coraza           JUGAR     33/part · 273 procs · noop 0%
+    impetu           JUGAR     25/part · 248 procs · noop 0%
+    remate           JUGAR     20/part · 156 procs · noop 39%
+    hender_armadura  JUGAR     17/part · 140 procs · noop 17%
+    amparo           JUGAR     14/part · 107 procs · noop 41%
+    orden_batalla    JUGAR     13/part · 119 procs · noop 0%
+  Exclusivas DORMIDAS (menos poder movido):
+    estandarte       JUGAR      0/part · 0 procs · noop 0%
+    atropello        JUGAR      0/part · 0 procs · noop 0%
+    muralla          MUERTE     0/part · 0 procs · noop 0%
+    impetu           JUGAR     25/part · 248 procs · noop 0%
+    hender_armadura  JUGAR     17/part · 140 procs · noop 17%
+  Mazo óptimo: Concentración de Batalla [FIN], Baluarte Errante [INICIO], Campana de Refugio [MUERTE], Tajo Quebrantamuros [JUGAR], Oración del Bastión [INICIO], Colmillo del Verdugo [FIN], Furia Desatada [FIN], Toque de Guerra [FIN], Gladiador Enfrentado [INICIO], Torre de Asedio Viviente [INICIO], Justicia de la Legión [JUGAR], Coloso Berserker [JUGAR]
+
+━━━ MAGO — "Maná · Elementos · Burst" ━━━
+  Arquetipo intencional: RÁFAGA — golpes enormes y puntuales: burst arcano, AoE de fuego, control de hielo
+  Pool 36 cartas · triggers: JUGAR 19 (53%) · INICIO 5 (14%) · FIN 3 (8%) · MUERTE 9 (25%)
+  VED del pool: JUGAR 47% · INICIO 14% · FIN 13% · MUERTE 26%
+  MAZO ÓPTIMO (top-12 VED): JUGAR×5 + INICIO×2 + FIN×2 + MUERTE×3
+  → VED del mazo óptimo en INICIO+FIN: 37%
+
+  SIM ESPEJO (20 partidas) — poder movido POR TRIGGER:
+    JUGAR      3202   86.5%  ·  1316 procs · noop 18%
+    INICIO      170    4.6%  ·  82 procs · noop 28%
+    FIN         331    8.9%  ·  107 procs · noop 3%
+    MUERTE        0    0.0%  ·  0 procs · noop 0%
+
+  Top keywords reales (poder/partida):
+    llamarada        JUGAR     28/part · 184 procs · noop 23%
+    coraza           JUGAR     28/part · 214 procs · noop 0%
+    sobrecarga       JUGAR     27/part · 223 procs · noop 0%
+    convergencia     JUGAR     20/part · 117 procs · noop 24%
+    insignia         JUGAR     19/part · 142 procs · noop 45%
+    drenar_poder     JUGAR     18/part · 223 procs · noop 0%
+  Exclusivas DORMIDAS (menos poder movido):
+    combustion       MUERTE     0/part · 0 procs · noop 0%
+    detonacion       MUERTE     0/part · 0 procs · noop 0%
+    eco              JUGAR      0/part · 0 procs · noop 0%
+    ceniza           MUERTE     0/part · 0 procs · noop 0%
+    esquirla         JUGAR      0/part · 0 procs · noop 0%
+  Mazo óptimo: Viento Cortante [FIN], Cántico Arcano [FIN], Anciano del Norte [MUERTE], Colosal de Magma [MUERTE], Bóveda Prismática [JUGAR], Cúpula de Invierno [INICIO], Fénix de Ascuas [MUERTE], Tomo de Ecos [JUGAR], Prisma Glacial [JUGAR], Granizo Defensivo [JUGAR], Estatua Viviente [INICIO], Estallido Ígneo [JUGAR]
+
+━━━ ASESINO — "Sigilo · Veneno · Precisión" ━━━
+  Arquetipo intencional: CAZA SELECTIVA — eliminar la pieza clave: veneno perforante, remates, escalada de mano
+  Pool 36 cartas · triggers: JUGAR 27 (75%) · INICIO 2 (6%) · FIN 4 (11%) · MUERTE 3 (8%)
+  VED del pool: JUGAR 67% · INICIO 7% · FIN 18% · MUERTE 9%
+  MAZO ÓPTIMO (top-12 VED): JUGAR×6 + INICIO×2 + FIN×3 + MUERTE×1
+  → VED del mazo óptimo en INICIO+FIN: 45%
+
+  SIM ESPEJO (20 partidas) — poder movido POR TRIGGER:
+    JUGAR      5650   94.7%  ·  1683 procs · noop 16%
+    INICIO       48    0.8%  ·  21 procs · noop 0%
+    FIN         269    4.5%  ·  51 procs · noop 0%
+    MUERTE        2    0.0%  ·  2 procs · noop 0%
+
+  Top keywords reales (poder/partida):
+    emboscada        JUGAR     53/part · 208 procs · noop 0%
+    coraza           JUGAR     43/part · 241 procs · noop 0%
+    conspiracion     JUGAR     39/part · 95 procs · noop 0%
+    purga            JUGAR     27/part · 231 procs · noop 21%
+    refriega         JUGAR     23/part · 111 procs · noop 24%
+    miasma           JUGAR     22/part · 99 procs · noop 23%
+  Exclusivas DORMIDAS (menos poder movido):
+    corrosion        JUGAR      0/part · 0 procs · noop 0%
+    finta            JUGAR      0/part · 0 procs · noop 0%
+    octava           JUGAR      0/part · 0 procs · noop 0%
+    emboscada        JUGAR     53/part · 208 procs · noop 0%
+    conspiracion     JUGAR     39/part · 95 procs · noop 0%
+  Mazo óptimo: Nube Tóxica [FIN], Maestro Caído [MUERTE], Pacto de las Sombras [JUGAR], Vaho Pútrido [FIN], Mantis Verde [FIN], Puerta Trampa [JUGAR], Ajuste de Cuentas [JUGAR], Serpiente del Ciénago [INICIO], Emisario Oculto [JUGAR], Frasco de Sales [JUGAR], Colmillos Curvos [INICIO], Maestra de Esgrima [JUGAR]
+
+━━━ BOTÁNICO — "Crecimiento · Enjambre · Esporas" ━━━
+  Arquetipo intencional: ENJAMBRE TARDÍO — crecer para ganar el final: maduración, multitud, esporas
+  Pool 28 cartas · triggers: JUGAR 17 (61%) · INICIO 4 (14%) · FIN 3 (11%) · MUERTE 4 (14%)
+  VED del pool: JUGAR 54% · INICIO 17% · FIN 19% · MUERTE 10%
+  MAZO ÓPTIMO (top-12 VED): JUGAR×4 + INICIO×4 + FIN×3 + MUERTE×1
+  → VED del mazo óptimo en INICIO+FIN: 60%  ⚠️ DEGENERACIÓN
+
+  SIM ESPEJO (20 partidas) — poder movido POR TRIGGER:
+    JUGAR      2985   78.3%  ·  1366 procs · noop 16%
+    INICIO      287    7.5%  ·  96 procs · noop 0%
+    FIN         542   14.2%  ·  103 procs · noop 0%
+    MUERTE        0    0.0%  ·  0 procs · noop 0%
+
+  Top keywords reales (poder/partida):
+    micelio          JUGAR     42/part · 214 procs · noop 0%
+    fortaleza        FIN       27/part · 103 procs · noop 0%
+    coraza           JUGAR     27/part · 192 procs · noop 0%
+    polen            JUGAR     20/part · 169 procs · noop 15%
+    remate           JUGAR     18/part · 147 procs · noop 16%
+    carnivora        JUGAR     18/part · 341 procs · noop 0%
+  Exclusivas DORMIDAS (menos poder movido):
+    floracion        MUERTE     0/part · 0 procs · noop 0%
+    micelio          JUGAR     42/part · 214 procs · noop 0%
+    polen            JUGAR     20/part · 169 procs · noop 15%
+    carnivora        JUGAR     18/part · 341 procs · noop 0%
+    simbiosis        JUGAR     11/part · 122 procs · noop 53%
+  Mazo óptimo: Coro de Setas [FIN], Círculo de Hongos [FIN], Esporas Tóxicas [JUGAR], Boca de Yggra [JUGAR], Esporas Punzantes [JUGAR], Anciano Raíz [INICIO], Zarcillo Tenaz [INICIO], Tripa de Tronco [FIN], Brote Fervoroso [INICIO], Estación Invernal [INICIO], Lecho de Pétalos [MUERTE], Guardián de Corteza [JUGAR]
+
+━━━ PIRATA — "Saqueo · Abordaje · Pólvora" ━━━
+  Arquetipo intencional: SAQUEO — robar el poder rival: botín, motín y pólvora multi-carril
+  Pool 28 cartas · triggers: JUGAR 17 (61%) · INICIO 4 (14%) · FIN 2 (7%) · MUERTE 5 (18%)
+  VED del pool: JUGAR 61% · INICIO 13% · FIN 13% · MUERTE 13%
+  MAZO ÓPTIMO (top-12 VED): JUGAR×7 + INICIO×2 + FIN×2 + MUERTE×1
+  → VED del mazo óptimo en INICIO+FIN: 37%
+
+  SIM ESPEJO (20 partidas) — poder movido POR TRIGGER:
+    JUGAR      4271   86.6%  ·  1354 procs · noop 16%
+    INICIO      317    6.4%  ·  142 procs · noop 0%
+    FIN         339    6.9%  ·  52 procs · noop 0%
+    MUERTE        4    0.1%  ·  1 procs · noop 0%
+
+  Top keywords reales (poder/partida):
+    canonazo         JUGAR     48/part · 215 procs · noop 15%
+    coraza           JUGAR     47/part · 311 procs · noop 0%
+    saqueo           JUGAR     29/part · 217 procs · noop 23%
+    contrabando      JUGAR     25/part · 198 procs · noop 0%
+    remate           JUGAR     23/part · 177 procs · noop 23%
+    insignia         JUGAR     22/part · 145 procs · noop 36%
+  Exclusivas DORMIDAS (menos poder movido):
+    andanada         MUERTE     0/part · 0 procs · noop 0%
+    canonazo         JUGAR     48/part · 215 procs · noop 15%
+    saqueo           JUGAR     29/part · 217 procs · noop 23%
+    contrabando      JUGAR     25/part · 198 procs · noop 0%
+    motin            JUGAR     20/part · 91 procs · noop 21%
+  Mazo óptimo: Batería de Cubierta [FIN], Boca de Kaela [JUGAR], Humo de Pólvora [FIN], Mecha Cortada [JUGAR], Cañón Volador [JUGAR], Marinero de Aguas Negras [INICIO], Placas del Casco [JUGAR], Pacto de Contrabando [JUGAR], Polvorín Viejo [MUERTE], Grito de Abordaje [INICIO], Saludo de Cañones [JUGAR], Abordaje al Amanecer [JUGAR]
+
+━━━ TINKER — "Artefactos · Engranajes · Chispa" ━━━
+  Arquetipo intencional: MAQUINARIA — sinergia de Ítems: escudos en masa, engranajes y torreta anti-élite
+  Pool 28 cartas · triggers: JUGAR 13 (46%) · INICIO 5 (18%) · FIN 5 (18%) · MUERTE 5 (18%)
+  VED del pool: JUGAR 39% · INICIO 18% · FIN 28% · MUERTE 15%
+  MAZO ÓPTIMO (top-12 VED): JUGAR×3 + INICIO×4 + FIN×4 + MUERTE×1
+  → VED del mazo óptimo en INICIO+FIN: 69%  ⚠️ DEGENERACIÓN
+
+  SIM ESPEJO (20 partidas) — poder movido POR TRIGGER:
+    JUGAR      3815   85.0%  ·  1105 procs · noop 19%
+    INICIO      168    3.7%  ·  64 procs · noop 0%
+    FIN         507   11.3%  ·  124 procs · noop 13%
+    MUERTE        0    0.0%  ·  0 procs · noop 0%
+
+  Top keywords reales (poder/partida):
+    remache          JUGAR     52/part · 219 procs · noop 0%
+    insignia         JUGAR     32/part · 141 procs · noop 46%
+    coraza           JUGAR     30/part · 205 procs · noop 0%
+    remate           JUGAR     30/part · 183 procs · noop 16%
+    sobrecalentar    JUGAR     30/part · 220 procs · noop 0%
+    fortaleza        FIN       20/part · 59 procs · noop 0%
+  Exclusivas DORMIDAS (menos poder movido):
+    chatarra         MUERTE     0/part · 0 procs · noop 0%
+    remache          JUGAR     52/part · 219 procs · noop 0%
+    sobrecalentar    JUGAR     30/part · 220 procs · noop 0%
+    descarga         JUGAR     16/part · 137 procs · noop 43%
+    torreta          FIN        5/part · 65 procs · noop 23%
+  Mazo óptimo: Marcha de Máquinas [FIN], Temblor de Máquinas [FIN], Tren de Asedio [FIN], Fauces de Dorvik [JUGAR], Remachadora Pesada [JUGAR], Torreta de Asedio [FIN], Heredero del Taller [MUERTE], Bobina Cargada [INICIO], Engranaje Maestro [INICIO], Motor de Campaña [INICIO], Hojalatero Errante [JUGAR], Yunque Portátil [INICIO]
+
+═══ VEREDICTO — dominancia INICIO+FIN por capa ═══
+
+CLASE       POOL VED  MAZO ÓPTIMO  SIM REAL  TOP KEYWORD REAL
+Guerrero         42%          68%       22%  coraza (33/partida)         
+Mago             28%          37%       14%  llamarada (28/partida)      
+Asesino          25%          45%        5%  emboscada (53/partida)      
+Botánico         36%          60%       22%  micelio (42/partida)        
+Pirata           26%          37%       13%  canonazo (48/partida)       
+Tinker           46%          69%       15%  remache (52/partida)        
+
+Lectura: si MAZO ÓPTIMO o SIM REAL superan ~55% en INICIO+FIN, el juego
+premia apilar triggers repetidos y las demás keywords quedan decorativas.
+
+═══ PARTE A2 — ¿apilar INICIO+FIN gana? (mazo óptimo VED vs oficial) ═══
+
+Guerrero   winrate óptimo  31.2%  (77 decididas, 3 empates)  · mazo: JUGAR×3+INICIO×4+FIN×4+MUERTE×1  (el óptimo pierde — VED sobrevalorado)
+Mago       winrate óptimo  27.8%  (79 decididas, 1 empates)  · mazo: JUGAR×5+INICIO×2+FIN×2+MUERTE×3  (el óptimo pierde — VED sobrevalorado)
+Asesino    winrate óptimo  33.3%  (75 decididas, 5 empates)  · mazo: JUGAR×6+INICIO×2+FIN×3+MUERTE×1  (el óptimo pierde — VED sobrevalorado)
+Botánico   winrate óptimo  62.8%  (78 decididas, 2 empates)  · mazo: JUGAR×4+INICIO×4+FIN×3+MUERTE×1  ⚠️ EL STACK GANA
+Pirata     winrate óptimo  34.7%  (72 decididas, 8 empates)  · mazo: JUGAR×7+INICIO×2+FIN×2+MUERTE×1  (el óptimo pierde — VED sobrevalorado)
+Tinker     winrate óptimo  52.1%  (71 decididas, 9 empates)  · mazo: JUGAR×3+INICIO×4+FIN×4+MUERTE×1  ✓ competitivo
+
+═══ PARTE A3 — TEST DIRECTO: top-12 solo INICIO+FIN vs top-12 solo JUGAR+MUERTE ═══
+
+Guerrero   winrate del stack  86.3%  (73 decididas, 7 empates)  ⚠️ APILAR GANA — hipótesis del jugador confirmada
+Mago       winrate del stack  64.9%  (77 decididas, 3 empates)  ⚠️ APILAR GANA — hipótesis del jugador confirmada
+Asesino    winrate del stack  59.2%  (71 decididas, 9 empates)  ✓ equilibrado
+Botánico   winrate del stack  87.0%  (77 decididas, 3 empates)  ⚠️ APILAR GANA — hipótesis del jugador confirmada
+Pirata     winrate del stack  63.2%  (68 decididas, 12 empates)  ⚠️ APILAR GANA — hipótesis del jugador confirmada
+Tinker     winrate del stack  87.2%  (78 decididas, 2 empates)  ⚠️ APILAR GANA — hipótesis del jugador confirmada
+
+═══ PARTE A4 — all-in stack (INICIO+FIN) vs CAMPO REAL (oficiales I+II) ═══
+
+Guerrero   winrate del stack  46.2%  (143 decididas, 17 empates)  ✓ sano
+Mago       winrate del stack  51.4%  (146 decididas, 14 empates)  ✓ sano
+Asesino    (pool sin stack suficiente)
+Botánico   (pool sin stack suficiente)
+Pirata     (pool sin stack suficiente)
+Tinker     winrate del stack  60.0%  (155 decididas, 5 empates)  · fuerte pero alcanzable

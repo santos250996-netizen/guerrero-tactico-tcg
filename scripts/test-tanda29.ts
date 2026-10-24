@@ -140,14 +140,14 @@ section("3. Rareza MÍTICA + nuevos bonos por tier");
   // Curvos» legendaria tenía keyword 2 pero el texto decía «reduce en 1»):
   // los números del efecto derivan de X — al subir el X por rareza, el texto
   // se actualiza con él (y el 2X de fórmulas dobles también).
-  const colmillos = ALL_CARDS_V3.find((c) => c.id === "colmillos_curvos")!; // veneno X=1
+  const colmillos = ALL_CARDS_V3.find((c) => c.id === "colmillos_curvos")!; // veneno X=2 (parche arquetipos)
   const colLeg = materializeCard(colmillos, "legendary");
-  assert(colLeg.keywordValue === 2, "Colmillos legendaria: X 1→2");
-  assert(colLeg.text.includes("reduce en 2") && !colLeg.text.includes("reduce en 1"),
-    `Colmillos legendaria: texto dice «reduce en 2» (${colLeg.text})`);
+  assert(colLeg.keywordValue === 3, "Colmillos legendaria: X 2→3");
+  assert(colLeg.text.includes("reduce en 3") && !colLeg.text.includes("reduce en 2"),
+    `Colmillos legendaria: texto dice «reduce en 3» (${colLeg.text})`);
   const colMyth = materializeCard(colmillos, "mythic");
-  assert(colMyth.keywordValue === 4 && colMyth.text.includes("reduce en 4"),
-    `Colmillos mítica: texto dice «reduce en 4» (${colMyth.text})`);
+  assert(colMyth.keywordValue === 5 && colMyth.text.includes("reduce en 5"),
+    `Colmillos mítica: texto dice «reduce en 5» (${colMyth.text})`);
   // Fórmula 2X (Combustión: salamandra X=2 → texto «reduce en 4» = 2X)
   const salamandra = ALL_CARDS_V3.find((c) => c.id === "salamandra_anciana")!;
   const salLeg = materializeCard(salamandra, "legendary");
