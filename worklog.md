@@ -1503,3 +1503,29 @@ Work Log:
 Stage Summary:
 - EN CURSO al corte de sesión: 150/192 cartas; el job background muere con la sesión — CONTINUAR con: `bash scripts/run-chibi-cards-all.sh` (resume por checkpoint) → `python3 scripts/convert-chibi-cards.py` → regenerar violaciones de texto → `bun scripts/gen-chibi-menu.mjs` + `python3 scripts/convert-chibi-menu.py` → reauditar contact sheets → commit final
 - Sin cambios de código del juego: las webp reemplazan 1:1 a /cards/{id}.webp (misma ruta, cero wiring)
+
+---
+Task ID: chibi-art-recreate-2
+Agent: Z.ai main agent
+Task: Continuación — lote completo, QA iterativo y menú chibi (recría total de imágenes)
+
+Work Log:
+- PUSH desbloqueado con PAT nuevo del usuario: main remota 4ba5595→721e812 (commit 0af93af del pipeline + snapshot)
+- Lote de cartas reanudado por checkpoint: 152→192/192 PNG (ronda auto-sanadora exit 0); convert-chibi-cards.py: 192/192 ok (dims 432×576, faltan=0, blanco=0)
+- 6 regeneraciones anti-texto con tríada nueva (swap-triada-violations.py elige combos libres por spec): abanderado ✓ y munonera ✓ quedaron limpias, estandarte_de_la_cohorte volvió a escribir su nombre
+- Auditoría por zoom (crop-cells.py recorta celdas de las hojas): el vistazo a miniatura daba falsos positivos/negativos — verificación a tamaño real obligatoria
+- Violaciones reales encontradas y corregidas en 3 rondas (33 cartas únicas regeneradas):
+  * R1 texto/nombre pintado: estandarte_de_la_cohorte, yesca_ardiente (rótulo con el nombre), bomba_de_fuego_inestable (最终一息 = keyword traducido a chino)
+  * R1 mundo moderno (cartas SIN descripción curada → el modelo rellena con defaults modernos): cantico_arcano (calle con asfalto), ajuste_de_cuentas (soldados con fusiles)
+  * R2 Botánico con nombre escrito + CJK: pacto_de_las_sombras, paves_de_la_muralla, cuchilla_susurrante, anciano_raiz, yema_protegida, estandarte_de_savia, cepa_heredada, vientrespora, reserva_de_savia, flor_devoradora, abordaje_al_amanecer, saludo_de_canones
+  * R3 Tinker: yunque_portatil, automata_cargador, decreto_de_la_forja, motor_de_campana, vibora_corrosiva, descargador_de_batalla (¡pylón eléctrico!), torreta_de_asedio (¡tanques + CJK!), estandarte_de_avance, defensor_jurado, fauces_de_dorvik + sospechosos lobo_del_mar, hojalatero_errante, centinela_chispeante
+- Causa raíz de los rótulos: el prompt abre con "Subject: {NOMBRE} — …" y el modelo pinta el título que lee → campo hide_name en el manifiesto (gen-chibi-cards.mjs omite el nombre) para las 11 tercas; además campo extra por carta + anclaje global "STRICTLY ANCIENT FANTASY WORLD, age before gunpowder" en STYLE (sin armas de fuego, asfalto, ropa moderna ni infraestructura)
+- Verificación de las 33 por crop: 0 violaciones de texto restantes; motor_de_campana aceptado como máquina de vapor chibi (identidad Tinker, sin texto ni tanque moderno); cañones de Pirata/Artillería = identidad de la clase (pólvora propia del carril)
+- Menú (gen-chibi-menu.mjs, 21 imágenes): primera pasada con desviaciones — lane-hielo con barra de UI filtrada y ~13 fondos pintados/suaves (el modelo relaja el cel en entornos) → ENV_STYLE reforzado ("2D VECTOR-FLAT, NO gradients/haze/bloom, NO UI") + regen de 13 → segunda pasada: arcana metió mago, sigilo un gato, main-bg ¡UI de móvil con números y candado! → escenas reescritas ("NO characters/NO cat/NO game UI") + regen 3 → verificado 21/21 en montaje: cel plano, sin texto, sin personajes (sombrero en arcana = bodegón), icono con transparencia vía make-icon-transparent.py
+- convert-chibi-menu.py: 21 webp OK (18 lanes 768×1344 + main-bg + profile-bg-raw + game-icon-transparent)
+
+Stage Summary:
+- RECREACIÓN COMPLETA: 192/192 cartas + 21/21 menú en estilo chibi de la skill, sirviéndose 1:1 en las mismas rutas (cero cambios de código del juego)
+- Herramientas QA reutilizables: chibi-contact-sheet.py (hojas de 64), crop-cells.py (zoom de celdas), swap-triada-violations.py, set-chibi-extras.py
+- Lección registrada para cartas futuras: si el prompt lleva el nombre, el modelo lo pinta — hide_name por defecto en sujetos propensos a rótulo (estandartes, frascos, decretos, autómatas con placa)
+- Arte legacy respaldado en assets-src/cards-legacy-20261117 y assets-src/menu-legacy-20261117

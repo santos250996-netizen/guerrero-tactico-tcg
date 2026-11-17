@@ -21,6 +21,7 @@ const OPENER =
 
 const STYLE =
   "Chibi cartoon style: big heads (~40-50% of the body), compact bodies, simplified expressive faces (big eyes, minimal mouth). " +
+  "STRICTLY ANCIENT FANTASY WORLD from the age before gunpowder: hand-made medieval-fantasy materials only — NO modern objects, NO firearms or guns, NO paved roads or road markings, NO modern clothing, NO streetlights, NO vehicles. " +
   "Thick uniform black outlines on EVERY element (characters, creatures, props and environment), same heavy line weight everywhere. " +
   "STRICT flat cel shading: only 2 tones per surface (one base color + one hard-edged flat shadow shape), absolutely no gradients, no smooth metal reflections, no soft ambient light, no painterly brushwork. " +
   "2D game sprite finish, bold saturated flat colors, clean simplified shapes, clear readable silhouette. " +
@@ -46,12 +47,13 @@ function buildPrompt(c) {
   const race = c.race || "criatura del catálogo (bestia/criatura del juego, chibi, sin raza humana)";
   return [
     OPENER, "", STYLE, "",
-    `Subject: ${c.name} — ${c.subject}. Scene: ${c.scene}. ${c.luz}.`,
+    `Subject: ${c.hide_name ? c.subject : `${c.name} — ${c.subject}`}. Scene: ${c.scene}. ${c.luz}.`,
     `Mood: ${MOODS[c.categoria]}.`,
     `Trigger: ${TRIGGERS[c.trigger]}.`,
     `Framing: ${c.plano} · ${c.angulo} · ${c.momento}. Subject cropped by the canvas edges.`,
     `Race: ${race}.`,
     `Keyword visual: ${c.kw_visual}.`,
+    ...(c.extra ? [`Extra: ${c.extra}.`] : []),
     "", CLOSER,
   ].join("\n");
 }

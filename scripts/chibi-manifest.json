@@ -90,9 +90,9 @@
   "race": "orco chibi (piel verde, colmillos pequeños, orejas puntiagudas, cuerpo compacto y musculoso)",
   "kw": "amparo",
   "kw_visual": "escudo por segmentos de runa",
-  "plano": "paisaje con figura mínima",
-  "angulo": "frontal",
-  "momento": "impacto",
+  "plano": "primerísimo plano",
+  "angulo": "contraluz",
+  "momento": "preparación",
   "luz": "iluminación de mediodía con bloques de color plano"
  },
  {
@@ -250,10 +250,11 @@
   "race": "humano chibi (rasgos heroicos simplificados, proporciones chibi)",
   "kw": "fortaleza",
   "kw_visual": "el carril entero se refuerza, muralla compacta",
-  "plano": "paisaje con figura mínima",
-  "angulo": "contraluz",
-  "momento": "impacto",
-  "luz": "ocaso con luz naranja plana y sombras largas"
+  "plano": "retrato chibi",
+  "angulo": "3/4",
+  "momento": "preparación",
+  "luz": "ocaso con luz naranja plana y sombras largas",
+  "extra": "ancient fantasy temple interior with floating violet runes, NO modern city, NO paved road, NO modern clothing, the singer wears fantasy robes"
  },
  {
   "id": "tormenta_de_brasas",
@@ -442,9 +443,9 @@
   "race": "no-muerto chibi (piel gris azulada cadavérica, ojos huecos brillantes, remiendos)",
   "kw": "fortaleza",
   "kw_visual": "el carril entero se refuerza, muralla compacta",
-  "plano": "plano general",
-  "angulo": "contraluz",
-  "momento": "consecuencia",
+  "plano": "retrato chibi",
+  "angulo": "3/4",
+  "momento": "preparación",
   "luz": "ocaso con luz naranja plana y sombras largas"
  },
  {
@@ -506,10 +507,11 @@
   "race": "no-muerto chibi (piel gris azulada cadavérica, ojos huecos brillantes, remiendos)",
   "kw": "remate",
   "kw_visual": "destrucción de la carta más débil",
-  "plano": "paisaje con figura mínima",
-  "angulo": "nivel del suelo",
-  "momento": "consecuencia",
-  "luz": "día soleado con sombras sólidas"
+  "plano": "retrato chibi",
+  "angulo": "contraluz",
+  "momento": "impacto",
+  "luz": "día soleado con sombras sólidas",
+  "extra": "ancient fantasy back-alley duel at knife-point, NO modern soldiers, NO firearms, NO guns, NO military helmets, fantasy thieves guild setting"
  },
  {
   "id": "acechador_nocturno",
@@ -618,8 +620,8 @@
   "race": "",
   "kw": "coraza",
   "kw_visual": "escudo por segmentos de runa",
-  "plano": "primerísimo plano",
-  "angulo": "frontal",
+  "plano": "paisaje con figura mínima",
+  "angulo": "3/4",
   "momento": "preparación",
   "luz": "hora dorada con luz cálida plana"
  },
@@ -682,10 +684,11 @@
   "race": "",
   "kw": "legado",
   "kw_visual": "transferencia del poder al aliado más débil en la caída",
-  "plano": "plano general",
+  "plano": "cuerpo entero",
   "angulo": "contrapicado extremo",
-  "momento": "preparación",
-  "luz": "atmósfera apagada de post-caída, luz gris plana"
+  "momento": "consecuencia",
+  "luz": "atmósfera apagada de post-caída, luz gris plana",
+  "extra": "the banner cloth is PLAIN solid crimson with plain wooden pole, absolutely NO writing, NO emblem text, NO inscriptions on the banner"
  },
  {
   "id": "concentracion_de_batalla",
@@ -762,9 +765,9 @@
   "race": "orco chibi (piel verde, colmillos pequeños, orejas puntiagudas, cuerpo compacto y musculoso)",
   "kw": "crueldad",
   "kw_visual": "la presa más débil cazada al ocaso",
-  "plano": "cuerpo entero",
+  "plano": "paisaje con figura mínima",
   "angulo": "nivel del suelo",
-  "momento": "impacto",
+  "momento": "preparación",
   "luz": "ocaso con luz naranja plana y sombras largas"
  },
  {
@@ -875,9 +878,10 @@
   "kw": "fortaleza",
   "kw_visual": "el carril entero se refuerza, muralla compacta",
   "plano": "plano general",
-  "angulo": "contrapicado extremo",
-  "momento": "impacto",
-  "luz": "ocaso con luz naranja plana y sombras largas"
+  "angulo": "contraluz",
+  "momento": "consecuencia",
+  "luz": "ocaso con luz naranja plana y sombras largas",
+  "extra": "no caption, no title, no name written anywhere in the image, the fire-newt is a wild creature not a poster"
  },
  {
   "id": "bomba_de_fuego_inestable",
@@ -891,9 +895,10 @@
   "kw": "combustion",
   "kw_visual": "último aliento que estalla",
   "plano": "cuerpo entero",
-  "angulo": "contrapicado extremo",
-  "momento": "impacto",
-  "luz": "atmósfera apagada de post-caída, luz gris plana"
+  "angulo": "frontal",
+  "momento": "consecuencia",
+  "luz": "atmósfera apagada de post-caída, luz gris plana",
+  "extra": "no headline, no glyphs, no characters of any writing system in the image, the explosion is the only event"
  },
  {
   "id": "maza_glacial",
@@ -1147,9 +1152,10 @@
   "kw": "coraza",
   "kw_visual": "escudo por segmentos de runa",
   "plano": "paisaje con figura mínima",
-  "angulo": "frontal",
-  "momento": "preparación",
-  "luz": "hora dorada con luz cálida plana"
+  "angulo": "nivel del suelo",
+  "momento": "impacto",
+  "luz": "hora dorada con luz cálida plana",
+  "extra": "no headline, no glyphs, no characters of any writing system, shadows and a signed scrap of parchment WITHOUT text"
  },
  {
   "id": "escudero_diligente",
@@ -1194,10 +1200,12 @@
   "race": "",
   "kw": "coraza",
   "kw_visual": "escudo por segmentos de runa",
-  "plano": "primerísimo plano",
-  "angulo": "frontal",
+  "plano": "retrato chibi",
+  "angulo": "contrapicado extremo",
   "momento": "preparación",
-  "luz": "día soleado con sombras sólidas"
+  "luz": "día soleado con sombras sólidas",
+  "extra": "the shield is PLAIN polished steel with plain rune grooves, NO plaque, NO text, NO heraldic writing",
+  "hide_name": true
  },
  {
   "id": "juramento_de_acero",
@@ -1306,10 +1314,11 @@
   "race": "no-muerto chibi (piel gris azulada cadavérica, ojos huecos brillantes, remiendos)",
   "kw": "conspiracion",
   "kw_visual": "figuras encapuchadas cuchicheando en la sombra",
-  "plano": "cuerpo entero",
-  "angulo": "contrapicado extremo",
-  "momento": "impacto",
-  "luz": "amanecer con luz rosada plana"
+  "plano": "plano general",
+  "angulo": "3/4",
+  "momento": "preparación",
+  "luz": "amanecer con luz rosada plana",
+  "extra": "no headline, no glyphs, no writing of any kind, only the whispering blade and shadow trails"
  },
  {
   "id": "velo_nocturno",
@@ -1370,10 +1379,11 @@
   "race": "",
   "kw": "estacion",
   "kw_visual": "estructura fija que despliega su efecto desde el suelo",
-  "plano": "paisaje con figura mínima",
-  "angulo": "contraluz",
+  "plano": "retrato chibi",
+  "angulo": "nivel del suelo",
   "momento": "impacto",
-  "luz": "hora dorada con luz cálida plana"
+  "luz": "hora dorada con luz cálida plana",
+  "extra": "no name text, no carving letters on the bark, the elder root face is natural wood only"
  },
  {
   "id": "yema_protegida",
@@ -1386,10 +1396,12 @@
   "race": "",
   "kw": "coraza",
   "kw_visual": "escudo por segmentos de runa",
-  "plano": "primerísimo plano",
-  "angulo": "picado aéreo",
-  "momento": "consecuencia",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "plano": "plano general",
+  "angulo": "nivel del suelo",
+  "momento": "impacto",
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no text on the bud, no signs, the leaf cradle is plain green",
+  "hide_name": true
  },
  {
   "id": "brote_fervoroso",
@@ -1451,9 +1463,10 @@
   "kw": "insignia",
   "kw_visual": "transferencia de la insignia al aliado más débil",
   "plano": "plano general",
-  "angulo": "contraluz",
+  "angulo": "contrapicado extremo",
   "momento": "preparación",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "the sap-banner cloth is PLAIN amber fabric, NO writing, NO emblem text"
  },
  {
   "id": "cepa_heredada",
@@ -1466,10 +1479,11 @@
   "race": "",
   "kw": "legado",
   "kw_visual": "transferencia del poder al aliado más débil en la caída",
-  "plano": "retrato chibi",
-  "angulo": "contrapicado extremo",
-  "momento": "impacto",
-  "luz": "atmósfera apagada de post-caída, luz gris plana"
+  "plano": "plano general",
+  "angulo": "picado aéreo",
+  "momento": "preparación",
+  "luz": "atmósfera apagada de post-caída, luz gris plana",
+  "extra": "no name text, no signboard, plain vine and blossom only"
  },
  {
   "id": "vientrespora",
@@ -1482,10 +1496,11 @@
   "race": "",
   "kw": "polen",
   "kw_visual": "nube dorada de polen flotando",
-  "plano": "paisaje con figura mínima",
-  "angulo": "3/4",
+  "plano": "primerísimo plano",
+  "angulo": "contraluz",
   "momento": "impacto",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no name text, no caption, plain mushroom belly only"
  },
  {
   "id": "boca_de_musgo",
@@ -1578,10 +1593,12 @@
   "race": "",
   "kw": "coraza",
   "kw_visual": "escudo por segmentos de runa",
-  "plano": "primerísimo plano",
-  "angulo": "3/4",
+  "plano": "retrato chibi",
+  "angulo": "contraluz",
   "momento": "impacto",
-  "luz": "hora dorada con luz cálida plana"
+  "luz": "hora dorada con luz cálida plana",
+  "extra": "the sap jar is plain glass, NO label, NO tag, NO text",
+  "hide_name": true
  },
  {
   "id": "corteza_de_hierro",
@@ -1691,9 +1708,11 @@
   "kw": "carnivora",
   "kw_visual": "planta carnívora devorando a su presa",
   "plano": "paisaje con figura mínima",
-  "angulo": "contraluz",
-  "momento": "impacto",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "angulo": "3/4",
+  "momento": "preparación",
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no name text, no caption, the carnivorous plant is wild and unlabeled",
+  "hide_name": true
  },
  {
   "id": "amanita_mortal",
@@ -1802,10 +1821,11 @@
   "race": "humano chibi (rasgos heroicos simplificados, proporciones chibi)",
   "kw": "saqueo",
   "kw_visual": "botín saqueado, cofres y monedas tomados",
-  "plano": "plano general",
-  "angulo": "frontal",
-  "momento": "preparación",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "plano": "primerísimo plano",
+  "angulo": "contraluz",
+  "momento": "impacto",
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no banner text, no sail letters, plain cloth sails only"
  },
  {
   "id": "grumete_ruidoso",
@@ -1930,10 +1950,11 @@
   "race": "humano chibi (rasgos heroicos simplificados, proporciones chibi)",
   "kw": "canonazo",
   "kw_visual": "bola de cañón cruzando el aire con estela de pólvora",
-  "plano": "cuerpo entero",
-  "angulo": "3/4",
-  "momento": "preparación",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "plano": "retrato chibi",
+  "angulo": "picado aéreo",
+  "momento": "consecuencia",
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no headline, no glyphs, no writing of any kind, cannon smoke and thunder only"
  },
  {
   "id": "polvorin_viejo",
@@ -2074,10 +2095,12 @@
   "race": "humano chibi (rasgos heroicos simplificados, proporciones chibi)",
   "kw": "legado",
   "kw_visual": "transferencia del poder al aliado más débil en la caída",
-  "plano": "paisaje con figura mínima",
-  "angulo": "contrapicado extremo",
-  "momento": "impacto",
-  "luz": "atmósfera apagada de post-caída, luz gris plana"
+  "plano": "cuerpo entero",
+  "angulo": "3/4",
+  "momento": "consecuencia",
+  "luz": "atmósfera apagada de post-caída, luz gris plana",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "bandera_negra",
@@ -2250,10 +2273,12 @@
   "race": "gnomo chibi (muy pequeño, orejas grandes, goggles, pelo salvaje)",
   "kw": "remache",
   "kw_visual": "escudo por segmentos de runa",
-  "plano": "cuerpo entero",
-  "angulo": "contrapicado extremo",
+  "plano": "retrato chibi",
+  "angulo": "contraluz",
   "momento": "preparación",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "martillo_nivelador",
@@ -2282,10 +2307,12 @@
   "race": "",
   "kw": "engranaje",
   "kw_visual": "sinergia con el Ítem aliado, engranajes encajando",
-  "plano": "primerísimo plano",
-  "angulo": "3/4",
+  "plano": "paisaje con figura mínima",
+  "angulo": "contrapicado extremo",
   "momento": "impacto",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "chispa_de_genio",
@@ -2314,10 +2341,12 @@
   "race": "",
   "kw": "torreta",
   "kw_visual": "rayos de chispa que saltan los escudos",
-  "plano": "paisaje con figura mínima",
-  "angulo": "nivel del suelo",
+  "plano": "primerísimo plano",
+  "angulo": "3/4",
   "momento": "consecuencia",
-  "luz": "ocaso con luz naranja plana y sombras largas"
+  "luz": "ocaso con luz naranja plana y sombras largas",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "muneco_de_chatarras",
@@ -2378,10 +2407,12 @@
   "race": "gnomo chibi (muy pequeño, orejas grandes, goggles, pelo salvaje)",
   "kw": "legado",
   "kw_visual": "transferencia del poder al aliado más débil en la caída",
-  "plano": "retrato chibi",
+  "plano": "paisaje con figura mínima",
   "angulo": "nivel del suelo",
   "momento": "consecuencia",
-  "luz": "atmósfera apagada de post-caída, luz gris plana"
+  "luz": "atmósfera apagada de post-caída, luz gris plana",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "bobina_cargada",
@@ -2460,8 +2491,9 @@
   "kw_visual": "rayos de chispa que saltan los escudos",
   "plano": "primerísimo plano",
   "angulo": "contrapicado extremo",
-  "momento": "consecuencia",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "momento": "impacto",
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "ancient fantasy battlefield machine of bronze and wood discharging arcs, NO electric pylon, NO power transmission tower, NO modern infrastructure, no glyphs"
  },
  {
   "id": "engranaje_maestro",
@@ -2506,10 +2538,11 @@
   "race": "",
   "kw": "torreta",
   "kw_visual": "rayos de chispa que saltan los escudos",
-  "plano": "cuerpo entero",
-  "angulo": "frontal",
-  "momento": "impacto",
-  "luz": "ocaso con luz naranja plana y sombras largas"
+  "plano": "paisaje con figura mínima",
+  "angulo": "nivel del suelo",
+  "momento": "preparación",
+  "luz": "ocaso con luz naranja plana y sombras largas",
+  "extra": "ancient WOODEN siege tower on wooden wheels, NO tanks, NO modern vehicles, NO cannons, no glyphs, no writing of any kind"
  },
  {
   "id": "golem_de_desguace",
@@ -2556,8 +2589,10 @@
   "kw_visual": "transferencia de la insignia al aliado más débil",
   "plano": "retrato chibi",
   "angulo": "3/4",
-  "momento": "preparación",
-  "luz": "hora dorada con luz cálida plana"
+  "momento": "impacto",
+  "luz": "hora dorada con luz cálida plana",
+  "extra": "the decree parchment is BLANK, no letters, only the glowing forge stamp emblem",
+  "hide_name": true
  },
  {
   "id": "heredero_del_taller",
@@ -2586,10 +2621,12 @@
   "race": "humano chibi (rasgos heroicos simplificados, proporciones chibi)",
   "kw": "fervor",
   "kw_visual": "crecimiento acumulado, fuerza que sube",
-  "plano": "primerísimo plano",
-  "angulo": "nivel del suelo",
-  "momento": "consecuencia",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "plano": "paisaje con figura mínima",
+  "angulo": "3/4",
+  "momento": "preparación",
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "guillotina_portatil",
@@ -2682,10 +2719,12 @@
   "race": "enano chibi (barba enorme trenzada, complexión baja y ancha, rubicundo)",
   "kw": "sobrecalentar",
   "kw_visual": "sinergia con el Ítem aliado, máquina sobrecalentada",
-  "plano": "cuerpo entero",
+  "plano": "plano general",
   "angulo": "contraluz",
   "momento": "consecuencia",
-  "luz": "iluminación de mediodía con bloques de color plano"
+  "luz": "iluminación de mediodía con bloques de color plano",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "alguacil_de_guerra",
@@ -2714,10 +2753,12 @@
   "race": "",
   "kw": "estandarte",
   "kw_visual": "estandarte de guerra izado que insufla ánimo",
-  "plano": "primerísimo plano",
-  "angulo": "picado aéreo",
-  "momento": "preparación",
-  "luz": "día soleado con sombras sólidas"
+  "plano": "cuerpo entero",
+  "angulo": "nivel del suelo",
+  "momento": "consecuencia",
+  "luz": "día soleado con sombras sólidas",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "rompefilas_orco",
@@ -2794,10 +2835,12 @@
   "race": "enano chibi (barba enorme trenzada, complexión baja y ancha, rubicundo)",
   "kw": "muralla",
   "kw_visual": "muro defensivo que se alza de golpe",
-  "plano": "cuerpo entero",
-  "angulo": "frontal",
-  "momento": "consecuencia",
-  "luz": "atmósfera apagada de post-caída, luz gris plana"
+  "plano": "paisaje con figura mínima",
+  "angulo": "3/4",
+  "momento": "impacto",
+  "luz": "atmósfera apagada de post-caída, luz gris plana",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "campana_de_refugio",
@@ -2954,10 +2997,12 @@
   "race": "",
   "kw": "corrosion",
   "kw_visual": "óxido y ácido royendo el metal",
-  "plano": "retrato chibi",
-  "angulo": "nivel del suelo",
-  "momento": "impacto",
-  "luz": "día soleado con sombras sólidas"
+  "plano": "cuerpo entero",
+  "angulo": "3/4",
+  "momento": "consecuencia",
+  "luz": "día soleado con sombras sólidas",
+  "extra": "no caption, no name text, no glyphs of any writing system in the image",
+  "hide_name": true
  },
  {
   "id": "frasco_de_sales",
