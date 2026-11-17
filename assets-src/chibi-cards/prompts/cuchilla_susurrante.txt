@@ -1,0 +1,12 @@
+RAW FULL-BLEED ILLUSTRATION with NO card frame, NO border, NO gold trim, NO rounded corners, subject cropped by the canvas edges, no empty areas. No plaques, no banners with writing, no scrolls with lines, no engraved runes, no numbered counters, no title areas, no labels, no captions, no letters, no numbers, no watermark, no signature, no UI, no logo. Pure illustration, no written language of any kind.
+
+Chibi cartoon style: big heads (~40-50% of the body), compact bodies, simplified expressive faces (big eyes, minimal mouth). Thick uniform black outlines on EVERY element (characters, creatures, props and environment), same heavy line weight everywhere. STRICT flat cel shading: only 2 tones per surface (one base color + one hard-edged flat shadow shape), absolutely no gradients, no smooth metal reflections, no soft ambient light, no painterly brushwork. 2D game sprite finish, bold saturated flat colors, clean simplified shapes, clear readable silhouette. The subject OVERFLOWS the canvas and is cropped by at least two canvas edges; background is simple flat color shapes that never compete with the subject.
+
+Subject: Cuchilla Susurrante — Cuchilla Susurrante. Scene: efecto: Al Jugar: el resto de cartas de tu mano gana +1 de poder permanente. — imaginería del carril: sombras, noche, cuchillas silenciosas, emboscadas. amanecer con luz rosada plana.
+Mood: violent dynamic chibi action caught mid-strike, wielder visible.
+Trigger: on_play climax of the effect, moment of impact.
+Framing: cuerpo entero · contrapicado extremo · impacto. Subject cropped by the canvas edges.
+Race: no-muerto chibi (piel gris azulada cadavérica, ojos huecos brillantes, remiendos).
+Keyword visual: figuras encapuchadas cuchicheando en la sombra.
+
+Absolutely zero typography, zero letters, zero numbers, zero symbols that resemble writing, zero signs, zero labels, zero watermarks, zero signatures, zero UI elements, zero logos. No gradients, no soft shading, no photorealism, no 3D render.

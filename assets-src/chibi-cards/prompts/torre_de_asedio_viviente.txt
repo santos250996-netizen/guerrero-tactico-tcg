@@ -1,0 +1,12 @@
+RAW FULL-BLEED ILLUSTRATION with NO card frame, NO border, NO gold trim, NO rounded corners, subject cropped by the canvas edges, no empty areas. No plaques, no banners with writing, no scrolls with lines, no engraved runes, no numbered counters, no title areas, no labels, no captions, no letters, no numbers, no watermark, no signature, no UI, no logo. Pure illustration, no written language of any kind.
+
+Chibi cartoon style: big heads (~40-50% of the body), compact bodies, simplified expressive faces (big eyes, minimal mouth). Thick uniform black outlines on EVERY element (characters, creatures, props and environment), same heavy line weight everywhere. STRICT flat cel shading: only 2 tones per surface (one base color + one hard-edged flat shadow shape), absolutely no gradients, no smooth metal reflections, no soft ambient light, no painterly brushwork. 2D game sprite finish, bold saturated flat colors, clean simplified shapes, clear readable silhouette. The subject OVERFLOWS the canvas and is cropped by at least two canvas edges; background is simple flat color shapes that never compete with the subject.
+
+Subject: Torre de Asedio Viviente — Torre de Asedio Viviente. Scene: efecto: Inicio de Turno: gana +3 de poder permanente (la torre sigue en pie). — imaginería del carril: escudos, murallas, guardias, estandartes. amanecer con luz rosada plana.
+Mood: violent dynamic chibi action caught mid-strike, wielder visible.
+Trigger: start_turn dawn, first spark, awakening.
+Framing: cuerpo entero · frontal · preparación. Subject cropped by the canvas edges.
+Race: enano chibi (barba enorme trenzada, complexión baja y ancha, rubicundo).
+Keyword visual: crecimiento acumulado, fuerza que sube.
+
+Absolutely zero typography, zero letters, zero numbers, zero symbols that resemble writing, zero signs, zero labels, zero watermarks, zero signatures, zero UI elements, zero logos. No gradients, no soft shading, no photorealism, no 3D render.
