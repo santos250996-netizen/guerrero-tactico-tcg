@@ -1483,3 +1483,23 @@ Stage Summary:
 - El «solo tirar inicio/fin» está contenido: pricing honesto de triggers repetidos, Fortaleza ya no se acumula, MUERTE revive con precio justo, y las 5 firmas dormidas (veneno/torreta/crueldad/ventisca/simbiosis) volvieron con datos.
 - El test queda como herramienta permanente (scripts/audit-arquetipos.ts) con informe guardado en download/audit-arquetipos-post-parche.txt.
 - Archivos: src/lib/game/{types,balance,engine,cards}.ts, scripts/{audit-arquetipos,compensar-on-death,compensar-repetidos,codemod-arquetipos,codemod-fortaleza-text}.ts (nuevos), 6 suites de test actualizadas, docs/arquetipos-clase.md (nuevo).
+
+---
+Task ID: chibi-art-recreate
+Agent: Z.ai main agent
+Task: Recrear TODAS las imágenes del juego con la skill guerrero-tactico-chibi-art (192 cartas + menú)
+
+Work Log:
+- Skill instalada (turno previo): skills/guerrero-tactico-chibi-art (SKILL.md + scripts/generate_card.py)
+- Inventario: 192 cartas public/cards/{id}.webp 432×576 (referenciadas como /cards/{id}.webp en UI) + 18 lanes + main-bg/profile-bg/icono en public/menu 768×1344
+- scripts/build-chibi-manifest.py → scripts/chibi-manifest.json: 192 registros fusionando cards.ts (id/categoría/spec/keyword/trigger autoritativos) + descripciones curadas de gen-card-art-v5..v12 (136 cartas; 56 primeras tandas derivadas de nombre+texto); tríada PLANO·ÁNGULO·MOMENTO exclusiva por spec (90 combos barajados con semilla por spec, ítems en planos de bodegón); raza del catálogo detectada del texto curado (regex EN/ES + PERSON_WORDS para Pirata/Tinker; 51 ítems y 39 criaturas sin raza por diseño); lectura visual definida ANTES de generar para las 60 keywords (dict KW_VISUAL); iluminación plana por defecto, ocaso/post-caída solo en end_turn/on_death
+- Pipeline: scripts/gen-chibi-cards.mjs (z-ai-web-dev-sdk, 864×1152, checkpoint por PNG, 4 reintentos con backoff y espera larga en 429) + scripts/convert-chibi-cards.py (webp 432×576 LANCZOS q85 + verificación exist/dims/no-blank de las 192) + scripts/run-chibi-cards-all.sh (12 rondas auto-sanadoras, relanzable)
+- Backup arte legacy: assets-src/cards-legacy-20261117 (9MB) y assets-src/menu-legacy-20261117 (2.2MB)
+- Smoke test visual OK (tajo_quebrantamuros: chibi, contorno uniforme, cel plano 2 tonos, keyword atraviesa muralla, sin texto/marco)
+- Lote en background: al corte 150/192 PNG (~32s/carta, fallos transitorios 400 content-filter en lecho_de_petalos intento 1 y 500 en yunque_portatil intento 1, reintentados por el runner); webp convertidos y SIRVIÉNDOSE ya en public/cards
+- QA visual con hojas de contacto (scripts/chibi-contact-sheet.py → download/chibi-cartas/contact-sheet-{1..3}.png): estilo chibi correcto en líneas generales; ~8 cartas con TEXTO dentro de la imagen (violación del hard-rule; p. ej. nube_toxica, munonera_de_asedio, estandarte_de_la_cohorte, furia_desatada, combustion, yunque_portatil y 2 con seudoglifos CJK) apuntadas en scripts/chibi-qa-text-violations.txt → regenerar con ONLY=ids FORCE=1 y tríada distinta
+- Preparado NO lanzado: scripts/gen-chibi-menu.mjs + convert-chibi-menu.py (18 lanes + main-bg + profile-bg-raw + game-icon-1024 con máscara circular de make-icon-transparent.py)
+
+Stage Summary:
+- EN CURSO al corte de sesión: 150/192 cartas; el job background muere con la sesión — CONTINUAR con: `bash scripts/run-chibi-cards-all.sh` (resume por checkpoint) → `python3 scripts/convert-chibi-cards.py` → regenerar violaciones de texto → `bun scripts/gen-chibi-menu.mjs` + `python3 scripts/convert-chibi-menu.py` → reauditar contact sheets → commit final
+- Sin cambios de código del juego: las webp reemplazan 1:1 a /cards/{id}.webp (misma ruta, cero wiring)
